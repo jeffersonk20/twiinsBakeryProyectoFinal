@@ -1,118 +1,184 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Endulzamos-Iniciar Sesión</title>
+
+    <title>TWINS Bakery - Iniciar Sesión</title>
 
     <link rel="stylesheet" href="css/login.css">
 </head>
 
 <body>
 
+    <!-- Pantalla del teléfono -->
     <div class="phone">
 
         <!-- Barra superior -->
         <div class="status-bar">
-            <span>9:41</span>
-            <span>▮ &nbsp; Wi-Fi ▾</span>
+
+            <span class="time">9:41</span>
+
+            <span class="wifi">
+                ▮ &nbsp; Wi-Fi ▾
+            </span>
+
         </div>
 
-        <div class="line"></div>
+        <!-- Línea superior -->
+        <div class="top-line"></div>
 
-        <!-- Contenido -->
-        <div class="content">
 
-            <!-- Logo -->
+        <!-- Contenido principal -->
+        <main class="content">
+
+            <!-- LOGO -->
             <div class="logo">
-                <div class="logo-inner">
-                    <div class="logo-icon">🍰</div>
-                    <div class="logo-text">TWINS</div>
-                    <div class="logo-small">bakery</div>
-                </div>
+                <img src="logo.png" alt="TWINS Bakery">
             </div>
 
-            <!-- Títulos -->
+
+            <!-- Título -->
             <h1>Endulzamos</h1>
 
-            <p class="subtitle">
-                tus momentos especiales
-            </p>
+            <h2>tus momentos especiales</h2>
 
             <p class="description">
                 Postres, pasteles y más... con mucho amor.
             </p>
 
-            <!-- Formulario -->
-            <form>
 
-                <label for="email">
-                    Correo electrónico
-                </label>
+            <!-- FORMULARIO -->
+            <form id="loginForm">
 
-                <div class="input-container">
+                <!-- Correo -->
+                <div class="form-group">
+
+                    <label for="email">
+                        Correo electrónico
+                    </label>
+
                     <input
                         type="email"
                         id="email"
+                        name="email"
                         placeholder="ejemplo@correo.com"
-                    >
-                </div>
-
-                <label for="password">
-                    Contraseña
-                </label>
-
-                <div class="input-container">
-                    <input
-                        type="password"
-                        id="password"
-                        placeholder="••••••••••••"
+                        required
                     >
 
-                    <span class="eye" onclick="mostrarPassword()">
-                        👁
-                    </span>
                 </div>
+
+
+                <!-- Contraseña -->
+                <div class="form-group">
+
+                    <label for="password">
+                        Contraseña
+                    </label>
+
+                    <div class="password-container">
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="••••••••••••"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="eye-button"
+                            onclick="mostrarPassword()"
+                            aria-label="Mostrar contraseña"
+                        >
+                            👁
+                        </button>
+
+                    </div>
+
+                </div>
+
 
                 <!-- Recuperar contraseña -->
-                <div class="forgot">
+                <div class="forgot-container">
+
                     <a href="#">
                         ¿Olvidaste tu contraseña?
                     </a>
+
                 </div>
 
-                <!-- Botón -->
-                <button type="submit">
+
+                <!-- Botón iniciar sesión -->
+                <button
+                    type="submit"
+                    class="login-button"
+                >
                     Iniciar Sesión
                 </button>
 
             </form>
 
+
             <!-- Registro -->
             <p class="register">
+
                 ¿Aún no tienes cuenta?
+
                 <a href="#">
                     Regístrate
                 </a>
+
             </p>
 
-        </div>
+        </main>
+
     </div>
 
 
+    <!-- JavaScript -->
     <script>
+
         function mostrarPassword() {
 
-            const password = document.getElementById("password");
+            const password =
+                document.getElementById("password");
+
+            const button =
+                document.querySelector(".eye-button");
+
 
             if (password.type === "password") {
+
                 password.type = "text";
+
+                button.textContent = "🙈";
+
             } else {
+
                 password.type = "password";
+
+                button.textContent = "👁";
+
             }
 
         }
+
+
+        document
+            .getElementById("loginForm")
+            .addEventListener("submit", function(event) {
+
+                event.preventDefault();
+
+                alert("Inicio de sesión");
+
+            });
+
     </script>
 
 </body>
+
 </html>

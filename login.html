@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endulzamos-Iniciar Sesión</title>
+
+    <link rel="stylesheet" href="css/login.css">
+</head>
+
+<body>
+
+    <div class="phone">
+
+        <!-- Barra superior -->
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>▮ &nbsp; Wi-Fi ▾</span>
+        </div>
+
+        <div class="line"></div>
+
+        <!-- Contenido -->
+        <div class="content">
+
+            <!-- Logo -->
+            <div class="logo">
+                <div class="logo-inner">
+                    <div class="logo-icon">🍰</div>
+                    <div class="logo-text">TWINS</div>
+                    <div class="logo-small">bakery</div>
+                </div>
+            </div>
+
+            <!-- Títulos -->
+            <h1>Endulzamos</h1>
+
+            <p class="subtitle">
+                tus momentos especiales
+            </p>
+
+            <p class="description">
+                Postres, pasteles y más... con mucho amor.
+            </p>
+
+            <!-- Formulario -->
+            <form>
+
+                <label for="email">
+                    Correo electrónico
+                </label>
+
+                <div class="input-container">
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="ejemplo@correo.com"
+                    >
+                </div>
+
+                <label for="password">
+                    Contraseña
+                </label>
+
+                <div class="input-container">
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="••••••••••••"
+                    >
+
+                    <span class="eye" onclick="mostrarPassword()">
+                        👁
+                    </span>
+                </div>
+
+                <!-- Recuperar contraseña -->
+                <div class="forgot">
+                    <a href="#">
+                        ¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+
+                <!-- Botón -->
+                <button type="submit">
+                    Iniciar Sesión
+                </button>
+
+            </form>
+
+            <!-- Registro -->
+            <p class="register">
+                ¿Aún no tienes cuenta?
+                <a href="#">
+                    Regístrate
+                </a>
+            </p>
+
+        </div>
+    </div>
+
+
+    <script>
+        function mostrarPassword() {
+
+            const password = document.getElementById("password");
+
+            if (password.type === "password") {
+                password.type = "text";
+            } else {
+                password.type = "password";
+            }
+
+        }
+    </script>
+
+</body>
+</html>

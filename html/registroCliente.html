@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>TWINS Bakery | Crear cuenta</title>
+
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/registroCliente.css') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="register-container">
+
+        <main class="register-card">
+
+          
+
+            <div class="top-line"></div>
+
+            <!-- CONTENIDO -->
+            <div class="register-content">
+
+                <!-- ENCABEZADO -->
+                <header class="register-header">
+
+                    <a href="{{ url_for('login') }}" class="back-button" aria-label="Volver al inicio de sesión">
+
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 18l-6-6 6-6" />
+                        </svg>
+
+                    </a>
+
+                    <div class="header-text">
+                        <h1>Crear Cuenta</h1>
+                        <p>
+                            Únete y comienza a planificar tus
+                            momentos más deliciosos.
+                        </p>
+                    </div>
+
+                </header>
+
+                <!-- MENSAJES -->
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                {% for categoria, texto in mensajes %}
+                <div class="alert alert-{{ categoria }}" role="alert">
+                    {{ texto }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <!-- INFORMACIÓN -->
+                <div class="welcome-info">
+                    <div class="info-icon">♥</div>
+
+                    <p>
+                        Regístrate con tu correo electrónico.
+                        Si utilizas tu cuenta de Google, podrás
+                        vincular tu perfil más adelante para
+                        mostrar tu foto de perfil.
+                    </p>
+                </div>
+
+                <!-- FORMULARIO -->
+                <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
+
+                    <!-- NOMBRE -->
+                    <div class="form-group">
+                        <label for="nombre">
+                            Nombre completo
+                        </label>
+
+                        <input type="text" id="nombre" name="nombre" placeholder="Tu nombre completo"
+                            autocomplete="name" maxlength="100" minlength="3" required>
+                    </div>
+
+                    <!-- CORREO -->
+                    <div class="form-group">
+                        <label for="correo">
+                            Correo electrónico
+                        </label>
+
+                        <input type="email" id="correo" name="correo" placeholder="ejemplo@gmail.com"
+                            autocomplete="email" maxlength="150" required>
+
+                        <small class="field-help">
+                            Utiliza un correo válido al que tengas acceso.
+                        </small>
+                    </div>
+
+                    <!-- CONTRASEÑA -->
+                    <div class="form-group">
+                        <label for="contrasena">
+                            Contraseña
+                        </label>
+
+                        <div class="password-container">
+
+                            <input type="password" id="contrasena" name="contrasena" placeholder="Crea una contraseña"
+                                autocomplete="new-password" minlength="8" required>
+
+                            <button type="button" class="eye-button" data-target="contrasena"
+                                aria-label="Mostrar contraseña">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            </button>
+
+                        </div>
+
+                        <small class="field-help">
+                            Utiliza al menos 8 caracteres.
+                        </small>
+                    </div>
+
+                    <!-- CONFIRMAR CONTRASEÑA -->
+                    <div class="form-group">
+                        <label for="confirmar_contrasena">
+                            Confirmar contraseña
+                        </label>
+
+                        <div class="password-container">
+
+                            <input type="password" id="confirmar_contrasena" name="confirmar_contrasena"
+                                placeholder="Repite tu contraseña" autocomplete="new-password" minlength="8" required>
+
+                            <button type="button" class="eye-button" data-target="confirmar_contrasena"
+                                aria-label="Mostrar contraseña">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            </button>
+
+                        </div>
+
+                        <small id="passwordMessage" class="field-help"></small>
+                    </div>
+
+                    <!-- TÉRMINOS -->
+                    <div class="terms-container">
+                        <input type="checkbox" id="terminos" name="terminos" required>
+
+                        <label for="terminos">
+                            Acepto los términos y condiciones
+                            de TWINS Bakery.
+                        </label>
+                    </div>
+
+                    <!-- BOTÓN -->
+                    <button type="submit" class="primary-button" id="registerButton">
+                        Registrarse
+                    </button>
+
+                </form>
+
+                <!-- ENLACE LOGIN -->
+                <p class="login-link">
+                    ¿Ya tienes una cuenta?
+
+                    <a href="{{ url_for('login') }}">
+                        Inicia sesión
+                    </a>
+                </p>
+
+                <!-- PIE -->
+                <div class="register-footer">
+                    <span>Hecho con</span>
+                    <span class="heart">♥</span>
+                    <span>por TWINS Bakery</span>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        // Mostrar y ocultar las contraseñas
+        document.querySelectorAll(".eye-button")
+            .forEach(function (button) {
+
+                button.addEventListener("click", function () {
+
+                    const targetId = button.dataset.target;
+                    const input = document.getElementById(targetId);
+
+                    if (input.type === "password") {
+                        input.type = "text";
+                        button.setAttribute("aria-label", "Ocultar contraseña");
+                    } else {
+                        input.type = "password";
+                        button.setAttribute("aria-label", "Mostrar contraseña");
+                    }
+
+                });
+
+            });
+
+        // Comprobar que las contraseñas coincidan
+        const password = document.getElementById("contrasena");
+        const confirmPassword = document.getElementById("confirmar_contrasena");
+        const passwordMessage = document.getElementById("passwordMessage");
+
+        function validarContrasenas() {
+
+            if (confirmPassword.value === "") {
+                passwordMessage.textContent = "";
+                confirmPassword.setCustomValidity("");
+                return;
+            }
+
+            if (password.value !== confirmPassword.value) {
+
+                passwordMessage.textContent = "Las contraseñas no coinciden.";
+                passwordMessage.className = "field-help error-text";
+
+                confirmPassword.setCustomValidity(
+                    "Las contraseñas no coinciden"
+                );
+
+            } else {
+
+                passwordMessage.textContent = "Las contraseñas coinciden.";
+                passwordMessage.className = "field-help success-text";
+
+                confirmPassword.setCustomValidity("");
+
+            }
+        }
+
+        password.addEventListener("input", validarContrasenas);
+        confirmPassword.addEventListener("input", validarContrasenas);
+
+        // Envío del formulario
+        document.getElementById("registroForm")
+            .addEventListener("submit", function (event) {
+
+                validarContrasenas();
+
+                if (!this.checkValidity()) {
+                    event.preventDefault();
+                    this.reportValidity();
+                    return;
+                }
+
+                const button = document.getElementById("registerButton");
+
+                button.disabled = true;
+                button.textContent = "Registrando...";
+
+            });
+
+       
+    </script>
+
+</body>
+
+</html>

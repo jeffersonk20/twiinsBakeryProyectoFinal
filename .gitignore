@@ -2,3 +2,40 @@ __pycache__/
 *.pyc
 .env
 .vscode/
+
+# =================================
+# CREDENCIALES Y VARIABLES PRIVADAS
+# =================================
+
+.env
+.env.*
+!.env.example
+
+# =================================
+# PYTHON
+# =================================
+
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# =================================
+# ANTIGRAVITY / EDITORES
+# =================================
+
+.vscode/
+.idea/
+
+# =================================
+# ARCHIVOS TEMPORALES
+# =================================
+
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

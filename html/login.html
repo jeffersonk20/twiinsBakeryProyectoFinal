@@ -1,184 +1,203 @@
+
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>TWINS Bakery - Iniciar Sesión</title>
+    <title>TWINS Bakery | Iniciar sesión</title>
 
-    <link rel="stylesheet" href="../css/login.css">
+    <link rel="stylesheet"
+          href="{{ url_for('static_files', filename='css/login.css') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
 </head>
 
 <body>
 
-    <!-- Pantalla del teléfono -->
-    <div class="phone">
+<div class="login-container">
 
-        <!-- Barra superior -->
-        <div class="status-bar">
+    <main class="login-card">
 
-            <span class="time">9:41</span>
+        
 
-            <span class="wifi">
-                ▮ &nbsp; Wi-Fi ▾
-            </span>
-
-        </div>
-
-        <!-- Línea superior -->
         <div class="top-line"></div>
 
-
-        <!-- Contenido principal -->
-        <main class="content">
+        <div class="login-content">
 
             <!-- LOGO -->
-            <div class="logo">
-                <img src="../img/logo.png" alt="TWINS Bakery">
+            <div class="logo-container">
+                <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWINS Bakery">
             </div>
 
+            <!-- ENCABEZADO -->
+            <header class="login-header">
+                <h1>Endulzamos</h1>
+                <h2>tus momentos especiales</h2>
 
-            <!-- Título -->
-            <h1>Endulzamos</h1>
+                <p>
+                    Postres, pasteles y más... con mucho amor.
+                </p>
+            </header>
 
-            <h2>tus momentos especiales</h2>
-
-            <p class="description">
-                Postres, pasteles y más... con mucho amor.
-            </p>
-
+            <!-- MENSAJES DEL SERVIDOR -->
+            {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                    {% for categoria, texto in mensajes %}
+                        <div class="alert alert-{{ categoria }}" role="alert">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
             <!-- FORMULARIO -->
-            <form id="loginForm">
+            <form
+                id="loginForm"
+                action="{{ url_for('iniciar_sesion') }}"
+                method="POST"
+            >
 
-                <!-- Correo -->
+                <!-- CORREO -->
                 <div class="form-group">
-
-                    <label for="email">
+                    <label for="correo">
                         Correo electrónico
                     </label>
 
                     <input
                         type="email"
-                        id="email"
-                        name="email"
+                        id="correo"
+                        name="correo"
                         placeholder="ejemplo@correo.com"
+                        autocomplete="email"
+                        maxlength="150"
                         required
                     >
-
                 </div>
 
-
-                <!-- Contraseña -->
+                <!-- CONTRASEÑA -->
                 <div class="form-group">
-
-                    <label for="password">
+                    <label for="contrasena">
                         Contraseña
                     </label>
 
                     <div class="password-container">
-
                         <input
                             type="password"
-                            id="password"
-                            name="password"
-                            placeholder="••••••••••••"
+                            id="contrasena"
+                            name="contrasena"
+                            placeholder="Ingresa tu contraseña"
+                            autocomplete="current-password"
                             required
                         >
 
                         <button
                             type="button"
                             class="eye-button"
-                            onclick="mostrarPassword()"
+                            id="togglePassword"
                             aria-label="Mostrar contraseña"
                         >
-                            👁
+                            <svg viewBox="0 0 24 24"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="2"
+                                 stroke-linecap="round"
+                                 stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
                         </button>
-
                     </div>
-
                 </div>
 
-
-                <!-- Recuperar contraseña -->
+                <!-- RECUPERAR CONTRASEÑA -->
                 <div class="forgot-container">
-
-                    <a href="#">
+                    <a href="#"
+                       id="forgotPassword">
                         ¿Olvidaste tu contraseña?
                     </a>
-
                 </div>
 
-
-                <!-- Botón iniciar sesión -->
+                <!-- BOTÓN -->
                 <button
                     type="submit"
-                    class="login-button"
+                    class="primary-button"
+                    id="loginButton"
                 >
                     Iniciar Sesión
                 </button>
 
             </form>
 
-
-            <!-- Registro -->
-            <p class="register">
-
+            <!-- REGISTRO -->
+            <p class="register-text">
                 ¿Aún no tienes cuenta?
 
-                <a href="#">
+                <a href="{{ url_for('registro') }}">
                     Regístrate
                 </a>
-
             </p>
 
-        </main>
+            <!-- PIE -->
+            <div class="login-footer">
+                <span>Hecho con</span>
+                <span class="heart">♥</span>
+                <span>por TWINS Bakery</span>
+            </div>
 
-    </div>
+        </div>
 
+    </main>
 
-    <!-- JavaScript -->
-    <script>
+</div>
 
-        function mostrarPassword() {
+<script>
+    // Mostrar y ocultar contraseña
+    const passwordInput = document.getElementById("contrasena");
+    const togglePassword = document.getElementById("togglePassword");
 
-            const password =
-                document.getElementById("password");
+    togglePassword.addEventListener("click", function () {
 
-            const button =
-                document.querySelector(".eye-button");
-
-
-            if (password.type === "password") {
-
-                password.type = "text";
-
-                button.textContent = "🙈";
-
-            } else {
-
-                password.type = "password";
-
-                button.textContent = "👁";
-
-            }
-
+        if (passwordInput.type === "password") {
+            passwordInput.type = "text";
+            togglePassword.setAttribute("aria-label", "Ocultar contraseña");
+        } else {
+            passwordInput.type = "password";
+            togglePassword.setAttribute("aria-label", "Mostrar contraseña");
         }
 
+    });
 
-        document
-            .getElementById("loginForm")
-            .addEventListener("submit", function(event) {
+    // Mensaje de recuperación
+    document.getElementById("forgotPassword")
+        .addEventListener("click", function (event) {
 
-                event.preventDefault();
+            event.preventDefault();
 
-                alert("Inicio de sesión");
+            alert(
+                "¡Hola! 💗\n\n" +
+                "La recuperación de contraseña estará disponible próximamente."
+            );
 
-            });
+        });
 
-    </script>
+    // Evitar doble envío
+    document.getElementById("loginForm")
+        .addEventListener("submit", function () {
+
+            const button = document.getElementById("loginButton");
+
+            button.disabled = true;
+            button.textContent = "Verificando...";
+
+        });
+
+   
+</script>
 
 </body>
-
 </html>

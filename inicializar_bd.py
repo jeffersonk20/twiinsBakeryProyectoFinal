@@ -35,19 +35,7 @@ def inicializar_base_datos():
         # TABLA 2: PRODUCTO (EJEMPLO FUTURO)
         # ==========================================
 
-        crear_producto = """
-        CREATE TABLE IF NOT EXISTS PRODUCTO (
-            id_producto INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL,
-            descripcion VARCHAR(255),
-            precio DECIMAL(10,2) NOT NULL,
-            imagen VARCHAR(255),
-            disponible BOOLEAN DEFAULT TRUE
-        );
-        """
-
-        cursor.execute(crear_producto)
-        print("Tabla PRODUCTO verificada.")
+       
 
         # ==========================================
         # AQUI AGREGARAS LAS FUTURAS TABLAS

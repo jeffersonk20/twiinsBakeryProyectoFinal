@@ -1,0 +1,16 @@
+@import url("home.css");
+
+.vitrina-intro {
+    max-width: 650px;
+    margin: 17px 0 25px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+@media (max-width: 650px) {
+    .vitrina-intro {
+        margin: 12px 0 20px;
+        font-size: 11px;
+    }
+}

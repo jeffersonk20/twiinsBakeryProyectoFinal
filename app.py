@@ -131,6 +131,12 @@ def catalogo():
     return render_template("home.html")
 
 
+@app.route("/vitrina")
+@cliente_requerido
+def vitrina():
+    return render_template("vitrina.html")
+
+
 @app.route("/producto/<producto_id>")
 @cliente_requerido
 def detalle_producto(producto_id):
@@ -195,6 +201,7 @@ def _producto_publico(registro):
         "precio": float(registro["precio"]),
         "descripcion": registro["descripcion"],
         "disponible": bool(registro["disponible"]),
+        "en_vitrina": bool(registro["en_vitrina"]),
         "tiene_imagen": tiene_imagen,
         "imagen": (
             url_for("imagen_producto", producto_id=registro["id_producto"])
@@ -211,6 +218,7 @@ def _obtener_productos(solo_disponibles):
         cursor = conexion.cursor(dictionary=True)
         consulta = """
             SELECT id_producto, nombre, categoria, precio, descripcion, disponible,
+                   en_vitrina,
                    (imagen IS NOT NULL AND tipo_imagen IS NOT NULL) AS tiene_imagen
             FROM PRODUCTO
         """
@@ -221,6 +229,8 @@ def _obtener_productos(solo_disponibles):
                   AND imagen IS NOT NULL
                   AND tipo_imagen IS NOT NULL
             """
+            if request.args.get("vitrina") == "1":
+                consulta += " AND en_vitrina = TRUE"
         consulta += " ORDER BY fecha_creacion DESC, id_producto DESC"
         cursor.execute(consulta)
         return [_producto_publico(registro) for registro in cursor.fetchall()]
@@ -250,6 +260,7 @@ def _validar_producto_formulario():
     descripcion = request.form.get("descripcion", "").strip()
     precio_texto = request.form.get("precio", "").strip()
     disponible_texto = request.form.get("disponible", "true")
+    en_vitrina_texto = request.form.get("en_vitrina", "false")
 
     if not nombre or len(nombre) > 80:
         raise ValueError("El nombre es obligatorio y admite hasta 80 caracteres.")
@@ -259,6 +270,8 @@ def _validar_producto_formulario():
         raise ValueError("La descripción es obligatoria y admite hasta 300 caracteres.")
     if disponible_texto not in {"true", "false"}:
         raise ValueError("Selecciona una disponibilidad válida.")
+    if en_vitrina_texto not in {"true", "false"}:
+        raise ValueError("Selecciona una opción válida para la vitrina.")
 
     try:
         precio = Decimal(precio_texto)
@@ -288,6 +301,7 @@ def _validar_producto_formulario():
         "precio": precio,
         "descripcion": descripcion,
         "disponible": disponible_texto == "true",
+        "en_vitrina": en_vitrina_texto == "true",
         "imagen": contenido_imagen,
         "tipo_imagen": tipo_imagen,
     }
@@ -358,8 +372,8 @@ def api_admin_productos():
         cursor.execute(
             """
             INSERT INTO PRODUCTO
-                (nombre, categoria, precio, descripcion, disponible, imagen, tipo_imagen)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (nombre, categoria, precio, descripcion, disponible, en_vitrina, imagen, tipo_imagen)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 producto["nombre"],
@@ -367,6 +381,7 @@ def api_admin_productos():
                 producto["precio"],
                 producto["descripcion"],
                 producto["disponible"],
+                producto["en_vitrina"],
                 producto["imagen"],
                 producto["tipo_imagen"],
             ),
@@ -423,7 +438,7 @@ def api_admin_producto(producto_id):
             """
             UPDATE PRODUCTO
             SET nombre = %s, categoria = %s, precio = %s, descripcion = %s,
-                disponible = %s, imagen = %s, tipo_imagen = %s
+                disponible = %s, en_vitrina = %s, imagen = %s, tipo_imagen = %s
             WHERE id_producto = %s
             """,
             (
@@ -432,6 +447,7 @@ def api_admin_producto(producto_id):
                 producto["precio"],
                 producto["descripcion"],
                 producto["disponible"],
+                producto["en_vitrina"],
                 imagen,
                 tipo_imagen,
                 producto_id,

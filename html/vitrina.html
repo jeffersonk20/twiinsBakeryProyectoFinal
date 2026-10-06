@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Explora el catálogo de pasteles y postres de TWINS Bakery.">
-    <title>TWINS Bakery | Catálogo</title>
-    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/home.css') }}">
+    <meta name="description" content="Descubre los postres fijos de la vitrina de TWINS Bakery.">
+    <title>TWINS Bakery | Vitrina</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/vitrina.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="vitrina-page">
     <header class="catalog-header">
         <a class="brand" href="{{ url_for('inicio') }}">
             <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWINS Bakery">
@@ -18,34 +18,28 @@
         </a>
         <nav class="desktop-nav" aria-label="Navegación principal">
             <a href="{{ url_for('inicio') }}">Inicio</a>
-            <a class="active" href="{{ url_for('catalogo') }}">Catálogo</a>
-            <a href="{{ url_for('vitrina') }}">Vitrina</a>
+            <a href="{{ url_for('catalogo') }}">Catálogo</a>
+            <a class="active" href="{{ url_for('vitrina') }}">Vitrina</a>
             <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
         </nav>
         <a class="account-link" href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
     </header>
     <main class="catalog-main">
         <div class="catalog-title">
-            <div><p class="eyebrow">Encuentra algo delicioso</p><h1>Catálogo</h1></div>
-            <p>Preparado artesanalmente para compartir.</p>
+            <div><p class="eyebrow">Nuestros favoritos de siempre</p><h1>Vitrina</h1></div>
+            <p>Postres fijos disponibles en TWINS Bakery.</p>
         </div>
-        <div class="filters" role="group" aria-label="Filtrar por categoría" data-category-filters>
-            <button class="filter active" type="button" data-category="Todos" aria-pressed="true">Todos</button>
-            <button class="filter" type="button" data-category="Pasteles" aria-pressed="false">Pasteles</button>
-            <button class="filter" type="button" data-category="Cupcakes" aria-pressed="false">Cupcakes</button>
-            <button class="filter" type="button" data-category="Galletas" aria-pressed="false">Galletas</button>
-            <button class="filter" type="button" data-category="Bebidas" aria-pressed="false">Bebidas</button>
-        </div>
+        <p class="vitrina-intro">Una selección permanente de postres preparados con cariño. Los productos que aparecen aquí son elegidos por nuestro equipo.</p>
         <div class="product-grid" data-product-grid aria-live="polite"></div>
     </main>
     <nav class="mobile-nav" aria-label="Navegación móvil">
         <a href="{{ url_for('inicio') }}"><span aria-hidden="true">⌂</span>Inicio</a>
-        <a class="selected" href="{{ url_for('catalogo') }}"><span aria-hidden="true">▦</span>Catálogo</a>
-        <a href="{{ url_for('vitrina') }}"><span aria-hidden="true">✧</span>Vitrina</a>
+        <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">▦</span>Catálogo</a>
+        <a class="selected" href="{{ url_for('vitrina') }}"><span aria-hidden="true">✧</span>Vitrina</a>
         <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">♡</span>Reservar</a>
         <a href="{{ url_for('cerrar_sesion') }}"><span aria-hidden="true">○</span>Salir</a>
     </nav>
     <script src="{{ url_for('static_files', filename='js/productos.js') }}" defer></script>
-    <script src="{{ url_for('static_files', filename='js/catalogo.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/vitrina.js') }}" defer></script>
 </body>
 </html>

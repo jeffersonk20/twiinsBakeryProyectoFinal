@@ -43,6 +43,7 @@ def inicializar_base_datos():
             precio DECIMAL(8, 2) NOT NULL,
             descripcion VARCHAR(300) NOT NULL,
             disponible BOOLEAN NOT NULL DEFAULT TRUE,
+            en_vitrina BOOLEAN NOT NULL DEFAULT FALSE,
             imagen MEDIUMBLOB NULL,
             tipo_imagen VARCHAR(30) NULL,
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -63,6 +64,7 @@ def inicializar_base_datos():
         migraciones_producto = {
             "categoria": "ALTER TABLE PRODUCTO ADD COLUMN categoria VARCHAR(30) NULL AFTER nombre",
             "disponible": "ALTER TABLE PRODUCTO ADD COLUMN disponible BOOLEAN NOT NULL DEFAULT TRUE AFTER precio",
+            "en_vitrina": "ALTER TABLE PRODUCTO ADD COLUMN en_vitrina BOOLEAN NOT NULL DEFAULT FALSE AFTER disponible",
             "imagen": "ALTER TABLE PRODUCTO ADD COLUMN imagen MEDIUMBLOB NULL AFTER disponible",
             "tipo_imagen": "ALTER TABLE PRODUCTO ADD COLUMN tipo_imagen VARCHAR(30) NULL AFTER imagen",
             "fecha_actualizacion": (

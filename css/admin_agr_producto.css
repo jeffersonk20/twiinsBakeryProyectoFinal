@@ -32,6 +32,11 @@ button, input, select, textarea { font: inherit; }
 .price-input { position: relative; }
 .price-input span { position: absolute; top: 10px; left: 11px; color: #7c8b8f; font-size: 10px; }
 .price-input input { padding-left: 24px; }
+.vitrine-option { display: flex; align-items: flex-start; gap: 10px; margin: 2px 0 15px; padding: 12px; border: 1px solid #f5dbe2; border-radius: 8px; background: #fff7f9; cursor: pointer; }
+.vitrine-option input { width: 15px; height: 15px; flex: 0 0 15px; margin: 1px 0 0; accent-color: var(--pink); }
+.vitrine-option span { display: grid; gap: 3px; }
+.vitrine-option strong { color: var(--ink); font-size: 10px; }
+.vitrine-option small { color: var(--muted); font-size: 8px; }
 .form-actions { display: flex; gap: 10px; margin-top: 17px; }
 .form-actions button { min-height: 37px; padding: 0 17px; border: 0; border-radius: 7px; font-size: 10px; font-weight: 600; cursor: pointer; }
 .save-button { color: #fff; background: var(--pink); }

@@ -18,6 +18,7 @@
                 <a href="{{ url_for('inicio') }}">Dashboard</a>
                 <a href="{{ url_for('catalogo') }}">Reservas</a>
                 <a class="active" href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="#vitrina-option">Vitrina</a>
                 <a href="{{ url_for('catalogo') }}">Eventos</a>
                 <a href="{{ url_for('catalogo') }}">Clientes</a>
                 <a href="{{ url_for('catalogo') }}">Twins AI</a>
@@ -40,6 +41,7 @@
                         </div>
                         <div class="field"><label for="product-description">Descripción</label><textarea id="product-description" name="descripcion" rows="3" maxlength="300" placeholder="Cuéntales qué hace especial a este producto" required></textarea></div>
                         <div class="field"><label for="product-status">Disponibilidad</label><select id="product-status" name="disponible"><option value="true">Activo · visible en tienda</option><option value="false">Agotado · oculto en tienda</option></select></div>
+                        <label class="vitrine-option" id="vitrina-option"><input name="en_vitrina" type="checkbox"><span><strong>Agregar a Vitrina</strong><small>Mostrar este postre fijo en la sección Vitrina del cliente.</small></span></label>
                         <div class="form-actions"><button class="save-button" type="submit" data-save-button>Guardar producto</button><button class="cancel-button" type="button" data-reset-form>Cancelar</button></div>
                     </form>
                 </section>
@@ -53,7 +55,7 @@
             </div>
             <section class="products-panel">
                 <div class="list-heading"><div><p class="eyebrow">Cambios reflejados en la tienda</p><h2>Productos registrados <span data-product-count>0</span></h2></div></div>
-                <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody data-admin-products></tbody></table><div class="empty-list" data-empty-list hidden>No hay productos todavía. Agrega el primero usando el formulario.</div></div>
+                <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Vitrina</th><th>Estado</th><th>Acciones</th></tr></thead><tbody data-admin-products></tbody></table><div class="empty-list" data-empty-list hidden>No hay productos todavía. Agrega el primero usando el formulario.</div></div>
             </section>
         </main>
     </div>

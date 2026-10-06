@@ -40,6 +40,7 @@
             <td><div class="table-product">${product.tiene_imagen ? `<img src="${window.ProductStore.escapeHtml(product.imagen)}" alt="">` : '<span class="table-image-placeholder" aria-hidden="true">🍰</span>'}<strong>${window.ProductStore.escapeHtml(product.nombre)}</strong></div></td>
             <td>${window.ProductStore.escapeHtml(product.categoria || "Sin categoría")}</td>
             <td>${window.ProductStore.formatPrice(product.precio)}</td>
+            <td>${product.en_vitrina ? '<span class="status available">Sí</span>' : '<span class="status unavailable">No</span>'}</td>
             <td><span class="status ${product.disponible && product.categoria && product.tiene_imagen ? "available" : "unavailable"}">${product.disponible && product.categoria && product.tiene_imagen ? "Activo" : "Completar"}</span></td>
             <td><div class="row-actions"><button type="button" data-edit="${product.id}">Editar</button><button class="delete-action" type="button" data-delete="${product.id}">Eliminar</button></div></td>
         </tr>`).join("");
@@ -82,6 +83,7 @@
         form.elements.precio.value = product.precio;
         form.elements.descripcion.value = product.descripcion;
         form.elements.disponible.value = String(product.disponible);
+        form.elements.en_vitrina.checked = Boolean(product.en_vitrina);
         fileInput.value = "";
         fileInput.required = !product.tiene_imagen;
         document.querySelector("[data-form-heading]").textContent = "Editar producto";
@@ -132,7 +134,8 @@
             categoria: form.elements.categoria.value,
             precio: Number(form.elements.precio.value),
             descripcion: form.elements.descripcion.value.trim(),
-            disponible: form.elements.disponible.value === "true"
+            disponible: form.elements.disponible.value === "true",
+            en_vitrina: form.elements.en_vitrina.checked
         };
         const saveButton = document.querySelector("[data-save-button]");
         saveButton.disabled = true;

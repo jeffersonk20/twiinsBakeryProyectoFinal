@@ -1,6 +1,9 @@
 (() => {
-    async function getAll({ admin = false } = {}) {
-        const response = await fetch(admin ? "/api/admin/productos" : "/api/productos");
+    async function getAll({ admin = false, vitrina = false } = {}) {
+        const endpoint = admin
+            ? "/api/admin/productos"
+            : `/api/productos${vitrina ? "?vitrina=1" : ""}`;
+        const response = await fetch(endpoint);
         return readResponse(response);
     }
 
@@ -11,6 +14,7 @@
         formData.append("precio", String(producto.precio));
         formData.append("descripcion", producto.descripcion);
         formData.append("disponible", String(producto.disponible));
+        formData.append("en_vitrina", String(producto.en_vitrina));
         if (imageFile) formData.append("imagen", imageFile);
 
         const isEditing = Boolean(producto.id);

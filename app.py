@@ -54,10 +54,19 @@ def static_files(filename):
 
 
 # ==========================================
-# PANTALLA DE INICIO
+# PANTALLA DE BIENVENIDA / INICIO
 # ==========================================
 
 @app.route("/")
+def index():
+    return render_template("index.html")
+
+
+# ==========================================
+# PANTALLA DE INICIO DE SESIÓN
+# ==========================================
+
+@app.route("/login")
 def login():
     return render_template("login.html")
 

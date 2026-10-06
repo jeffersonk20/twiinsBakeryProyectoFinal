@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twiins Bakery | Pastelería Artesanal & Momentos Especiales</title>
+    <meta name="description" content="Descubre la magia de Twiins Bakery. Pasteles 3D realistas, café humeante y recetas artesanales para cumpleaños, bodas, graduaciones y fiestas inolvidables.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/index.css" onerror="this.onerror=null;this.href='../css/index.css';">
+
+    <!-- Three.js for 3D Rotating Cake & Steaming Coffee -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+    <!-- Ambient glowing backdrop -->
+    <div class="bg-ambient-glow" aria-hidden="true">
+        <div class="glow-orb glow-orb-1"></div>
+        <div class="glow-orb glow-orb-2"></div>
+        <div class="glow-orb glow-orb-3"></div>
+    </div>
+
+    <!-- Emoji Burst System Container -->
+    <div id="emoji-burst-container"></div>
+
+    <!-- ==========================================
+         HEADER / NAVBAR
+         ========================================== -->
+    <header class="site-header" id="mainHeader">
+        <div class="header-container">
+            <!-- Brand -->
+            <a href="#" class="brand-wrapper" id="navBrand">
+                <div class="brand-logo-badge">
+                    <img src="/static/img/logo.png" onerror="this.onerror=null;this.src='../img/logo.png';" alt="Twiins Bakery Logo">
+                </div>
+                <div class="brand-text">
+                    <h1>Twiins Bakery ✨</h1>
+                    <span>Pastelería & Creaciones</span>
+                </div>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="#inicio" class="nav-link">Inicio</a></li>
+                    <li><a href="#experiencia-3d" class="nav-link">Pastel & Café 3D</a></li>
+                    <li><a href="#amigos-dulces" class="nav-link">Nuestros Amigos</a></li>
+                    <li><a href="#eventos" class="nav-link">Eventos Especiales</a></li>
+                    <li><a href="#juego-dulce" class="nav-link">🎮 ¡Atrapa Pasteles!</a></li>
+                </ul>
+            </nav>
+
+            <!-- Actions -->
+            <div class="header-actions">
+                <a href="/login" class="btn-sweet-primary" id="headerLoginBtn" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <span>🍰 Iniciar Sesión</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main id="inicio">
+        <!-- ==========================================
+             HERO SECTION WITH 3D INTERACTIVE CAKE & COFFEE
+             ========================================== -->
+        <section class="hero-section">
+            <div class="hero-grid">
+                
+                <!-- Left Hero Text & Call to Actions -->
+                <div class="hero-content">
+                    <div class="welcome-chip">
+                        <span>✨</span>
+                        <span>¡Endulzamos tus momentos más felices!</span>
+                    </div>
+
+                    <h1 class="hero-title">
+                        Donde cada pastel cuenta una <span class="highlight">historia dulce y mágica</span>
+                    </h1>
+
+                    <p class="hero-description">
+                        En <strong>Twiins Bakery</strong> convertimos tus celebraciones en recuerdos inolvidables. Diseños 100% artesanales, recetas exclusivas con ingredientes selectos y un toque de amor en cada detalle.
+                    </p>
+
+                    <div class="hero-cta-group">
+                        <a href="/login" class="btn-sweet-primary" id="heroOrderBtn" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                            <span>🎂 Iniciar Sesión / Ordenar</span>
+                        </a>
+                        <a href="#eventos" class="btn-sweet-secondary" id="heroExploreBtn">
+                            <span>🎉 Explorar Ocasiones</span>
+                        </a>
+                    </div>
+
+                    <div class="hero-perks">
+                        <div class="perk-item">
+                            <div class="perk-icon">🎨</div>
+                            <div class="perk-text">
+                                <strong>100% Personalizado</strong>
+                                <span>Tus ideas hechas pastel</span>
+                            </div>
+                        </div>
+                        <div class="perk-item">
+                            <div class="perk-icon">🍰</div>
+                            <div class="perk-text">
+                                <strong>Recetas Artesanales</strong>
+                                <span>Horneado fresco cada día</span>
+                            </div>
+                        </div>
+                        <div class="perk-item">
+                            <div class="perk-icon">⭐</div>
+                            <div class="perk-text">
+                                <strong>+1,200 Sonrisas</strong>
+                                <span>Momentos felices</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Hero 3D Stage (Cake & Steaming Coffee) -->
+                <div class="hero-stage-container" id="experiencia-3d">
+                    <div class="cake-stage-card">
+                        
+                        <div class="stage-badge-top">
+                            <span class="pulse-dot"></span>
+                            <span id="stageBadgeText">Estudio 3D · Pastel de Fresa Gourmet</span>
+                        </div>
+
+                        <!-- 3D Model View Mode Switcher -->
+                        <div class="stage-mode-switcher">
+                            <button class="mode-btn active" id="btnModeCake" data-mode="cake">🎂 Pastel 3D</button>
+                            <button class="mode-btn" id="btnModeCoffee" data-mode="coffee">☕ Café Humeante</button>
+                            <button class="mode-btn" id="btnModeBoth" data-mode="both">✨ Dúo Dulce</button>
+                        </div>
+
+                        <!-- 3D WebGL Canvas Rendered Here -->
+                        <div id="cake-3d-canvas-container"></div>
+
+                        <!-- 3D Interactive Controls -->
+                        <div class="cake-controls-bar">
+                            <button class="flavor-pill active" data-flavor="strawberry" title="Pastel de Fresa & Nata Artesanal">
+                                🍓 Fresa Gourmet
+                            </button>
+                            <button class="flavor-pill" data-flavor="chocolate" title="Pastel de Chocolate Trufado Intenso">
+                                🍫 Choco Trufa
+                            </button>
+                            <button class="flavor-pill" data-flavor="caramel" title="Vainilla Dorada & Dulce de Leche">
+                                🍯 Toffee Caramelo
+                            </button>
+                            <button class="flavor-pill" data-flavor="redvelvet" title="Red Velvet Pasión Real">
+                                🍒 Red Velvet
+                            </button>
+                            <button class="flavor-pill" data-flavor="pistachio" title="Matcha & Pistacho Silvestre">
+                                🍵 Pistacho Verde
+                            </button>
+                            <button class="btn-cake-action" id="btnToggleCandle" title="Prender o apagar vela">
+                                🕯️
+                            </button>
+                            <button class="btn-cake-action" id="btnConfettiCake" title="¡Lanzar Chispas de Fiesta!">
+                                🎉
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==========================================
+             CARTOON ANIMATED BAKERY CHARACTERS
+             ========================================== -->
+        <section class="cartoon-friends-section" id="amigos-dulces">
+            <div class="section-header">
+                <div class="section-tag">
+                    <span>✨ Repostería con Alegría</span>
+                </div>
+                <h2 class="section-title">
+                    Conoce a nuestros <span>Amigos Dulces</span>
+                </h2>
+                <p class="section-subtitle">
+                    En nuestro horno no solo horneamos pasteles, ¡creamos personajes llenos de sabor y diversión!
+                </p>
+            </div>
+
+            <div class="cartoon-characters-grid">
+                
+                <!-- Character 1: Chef Cupi -->
+                <div class="character-card" onclick="triggerBurstAtEl(this)">
+                    <div class="character-avatar-wrap anim-bounce">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 55 L30 88 C31 92 34 95 38 95 L62 95 C66 95 69 92 70 88 L78 55 Z" fill="#ff7597" stroke="#e03362" stroke-width="3" stroke-linejoin="round"/>
+                            <path d="M35 55 L38 95 M50 55 L50 95 M65 55 L62 95" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                            <path d="M16 55 C16 46 25 44 32 46 C35 36 46 32 54 36 C60 30 74 34 76 45 C83 45 86 52 82 58 C78 63 20 63 16 55 Z" fill="#fff0f5" stroke="#f48ca8" stroke-width="3"/>
+                            <circle cx="34" cy="52" r="4" fill="#ff8da1" opacity="0.8"/>
+                            <circle cx="66" cy="52" r="4" fill="#ff8da1" opacity="0.8"/>
+                            <path d="M36 47 Q40 43 44 47" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
+                            <path d="M56 47 Q60 43 64 47" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
+                            <path d="M47 52 Q50 56 53 52" stroke="#331c26" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                            <circle cx="50" cy="24" r="8" fill="#e63946" stroke="#b71c1c" stroke-width="2"/>
+                            <path d="M50 18 Q55 10 62 12" stroke="#40916c" stroke-width="3" stroke-linecap="round" fill="none"/>
+                            <path d="M26 28 C26 22 32 20 38 24 C42 18 52 18 56 24 C62 20 68 24 66 30 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="2" opacity="0.95"/>
+                        </svg>
+                    </div>
+                    <h4>Chef Cupi 🧁</h4>
+                    <p>El maestro de los cupcakes esponjosos y los rellenos cremosos.</p>
+                    <span class="character-badge">Especialista en Cupcakes</span>
+                </div>
+
+                <!-- Character 2: Don Pastelón -->
+                <div class="character-card" onclick="triggerBurstAtEl(this)">
+                    <div class="character-avatar-wrap anim-wobble">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="18" y="62" width="64" height="28" rx="8" fill="#ffb703" stroke="#e09400" stroke-width="3"/>
+                            <rect x="28" y="40" width="44" height="24" rx="6" fill="#fb8500" stroke="#d46b00" stroke-width="3"/>
+                            <path d="M28 48 Q33 54 38 48 Q43 54 48 48 Q53 54 58 48 Q63 54 68 48 L72 40 L28 40 Z" fill="#ffffff"/>
+                            <path d="M18 70 Q24 76 30 70 Q36 76 42 70 Q48 76 54 70 Q60 76 66 70 Q72 76 78 70 L82 62 L18 62 Z" fill="#ffffff"/>
+                            <circle cx="42" cy="74" r="2.5" fill="#331c26"/>
+                            <circle cx="58" cy="74" r="2.5" fill="#331c26"/>
+                            <path d="M47 79 Q50 83 53 79" stroke="#331c26" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                            <rect x="47" y="24" width="6" height="16" rx="2" fill="#ef5979" stroke="#c92a4e" stroke-width="1.5"/>
+                            <path d="M50 12 C47 16 46 19 50 23 C54 19 53 16 50 12 Z" fill="#ffd166"/>
+                            <circle cx="50" cy="19" r="2" fill="#ff6b6b"/>
+                        </svg>
+                    </div>
+                    <h4>Don Pastelón 🎂</h4>
+                    <p>Rey de los pasteles de tres pisos y fiestas monumentales.</p>
+                    <span class="character-badge">Pasteles de Boda & Gala</span>
+                </div>
+
+                <!-- Character 3: Doña Rosquilla -->
+                <div class="character-card" onclick="triggerBurstAtEl(this)">
+                    <div class="character-avatar-wrap anim-nod">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="38" fill="#e9c46a" stroke="#d4a343" stroke-width="3"/>
+                            <path d="M50 14 C68 14 84 28 84 50 C84 62 76 74 68 80 C60 76 56 82 48 80 C40 82 34 76 26 78 C18 70 16 58 16 50 C16 28 32 14 50 14 Z" fill="#ff7597"/>
+                            <circle cx="50" cy="50" r="14" fill="#fffaf7" stroke="#d4a343" stroke-width="3"/>
+                            <rect x="30" y="26" width="6" height="3" rx="1.5" transform="rotate(25 30 26)" fill="#ffffff"/>
+                            <rect x="64" y="28" width="6" height="3" rx="1.5" transform="rotate(-30 64 28)" fill="#ffd166"/>
+                            <rect x="70" y="55" width="6" height="3" rx="1.5" transform="rotate(45 70 55)" fill="#06d6a0"/>
+                            <rect x="25" y="52" width="6" height="3" rx="1.5" transform="rotate(-15 25 52)" fill="#118ab2"/>
+                            <circle cx="44" cy="38" r="2.5" fill="#331c26"/>
+                            <circle cx="56" cy="38" r="2.5" fill="#331c26"/>
+                            <path d="M48 42 Q50 44 52 42" stroke="#331c26" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        </svg>
+                    </div>
+                    <h4>Doña Rosquilla 🍩</h4>
+                    <p>Glaseada con amor y chispas de colores para alegrar tus tardes.</p>
+                    <span class="character-badge">Donas & Mini Postres</span>
+                </div>
+
+                <!-- Character 4: Galletita Cookie -->
+                <div class="character-card" onclick="triggerBurstAtEl(this)">
+                    <div class="character-avatar-wrap anim-bounce">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M50 12 C70 12 88 28 88 50 C88 68 74 86 52 88 C30 88 12 70 12 50 C12 28 28 12 50 12 Z" fill="#ddb892" stroke="#b08968" stroke-width="3"/>
+                            <circle cx="34" cy="30" r="4.5" fill="#6f4e37"/>
+                            <circle cx="68" cy="32" r="5" fill="#6f4e37"/>
+                            <circle cx="66" cy="68" r="4" fill="#6f4e37"/>
+                            <circle cx="30" cy="66" r="4.5" fill="#6f4e37"/>
+                            <path d="M42 48 Q46 44 50 48" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
+                            <circle cx="60" cy="48" r="3" fill="#331c26"/>
+                            <path d="M48 56 Q54 62 60 56" stroke="#e63946" stroke-width="3" stroke-linecap="round" fill="#ff7597"/>
+                        </svg>
+                    </div>
+                    <h4>Galletita Cookie 🍪</h4>
+                    <p>Crocante por fuera, suave por dentro y repleta de chispas.</p>
+                    <span class="character-badge">Galletas Gourmet</span>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==========================================
+             EVENT SUGGESTIONS (ALL REDIRECT TO LOGIN)
+             ========================================== -->
+        <section class="events-section" id="eventos">
+            <div class="section-header">
+                <div class="section-tag">
+                    <span>🎉 Diseñados para Celebrar</span>
+                </div>
+                <h2 class="section-title">
+                    Sugerencias para tus <span>Ocasiones Especiales</span>
+                </h2>
+                <p class="section-subtitle">
+                    Selecciona tu evento favorito para personalizar tu pastel o cotizar con nuestro equipo de reposteros.
+                </p>
+            </div>
+
+            <div class="events-grid">
+                
+                <!-- Event 1: Cumpleaños -->
+                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <article class="event-card event-birthday">
+                        <div class="event-header">
+                            <div class="event-icon-box">🎂</div>
+                            <span class="event-badge">El Favorito</span>
+                        </div>
+                        <h3 class="event-title">Cumpleaños & Fiestas Temáticas</h3>
+                        <p class="event-desc">
+                            Pasteles vibrantes con personajes, números 3D, decoraciones en fondant y rellenos deliciosos para todas las edades.
+                        </p>
+                        <div class="event-tags">
+                            <span class="event-tag">✨ Diseños Infantiles</span>
+                            <span class="event-tag">🍓 Fresa & Nata</span>
+                            <span class="event-tag">🎨 Temático</span>
+                        </div>
+                        <div class="event-card-action">
+                            <span class="event-cta-text">Cotizar & Iniciar Sesión</span>
+                            <span class="event-arrow-btn">➔</span>
+                        </div>
+                    </article>
+                </a>
+
+                <!-- Event 2: Bodas & Aniversarios -->
+                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <article class="event-card event-wedding">
+                        <div class="event-header">
+                            <div class="event-icon-box">💍</div>
+                            <span class="event-badge">Alta Pastelería</span>
+                        </div>
+                        <h3 class="event-title">Bodas & Aniversarios</h3>
+                        <p class="event-desc">
+                            Elegancia suprema de varios pisos, texturas de encaje comestible, flores naturales y detalles en pan de oro de 24k.
+                        </p>
+                        <div class="event-tags">
+                            <span class="event-tag">👑 Múltiples Pisos</span>
+                            <span class="event-tag">🌸 Flores Comestibles</span>
+                            <span class="event-tag">🤍 Velvet & Vainilla</span>
+                        </div>
+                        <div class="event-card-action">
+                            <span class="event-cta-text">Cotizar & Iniciar Sesión</span>
+                            <span class="event-arrow-btn">➔</span>
+                        </div>
+                    </article>
+                </a>
+
+                <!-- Event 3: Graduaciones -->
+                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <article class="event-card event-graduation">
+                        <div class="event-header">
+                            <div class="event-icon-box">🎓</div>
+                            <span class="event-badge">¡Éxito Total!</span>
+                        </div>
+                        <h3 class="event-title">Graduaciones & Logros</h3>
+                        <p class="event-desc">
+                            Celebra la meta alcanzada con pasteles decorados con birretes, diplomas en azúcar y los colores de tu facultad.
+                        </p>
+                        <div class="event-tags">
+                            <span class="event-tag">📜 Birretes 3D</span>
+                            <span class="event-tag">🍫 Trufa & Chocolate</span>
+                            <span class="event-tag">⭐ Personalizado</span>
+                        </div>
+                        <div class="event-card-action">
+                            <span class="event-cta-text">Cotizar & Iniciar Sesión</span>
+                            <span class="event-arrow-btn">➔</span>
+                        </div>
+                    </article>
+                </a>
+
+                <!-- Event 4: Baby Shower & Revelación de Sexo -->
+                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <article class="event-card event-babyshower">
+                        <div class="event-header">
+                            <div class="event-icon-box">👶</div>
+                            <span class="event-badge">Tierno & Sorpresa</span>
+                        </div>
+                        <h3 class="event-title">Baby Shower & Revelación</h3>
+                        <p class="event-desc">
+                            Tiernos tonos pasteles, nubes de azúcar y el emocionante relleno de color rosa o azul para revelar el secreto.
+                        </p>
+                        <div class="event-tags">
+                            <span class="event-tag">🎀 Gender Reveal</span>
+                            <span class="event-tag">🧸 Dulces Pasteles</span>
+                            <span class="event-tag">🧁 Mini Cupcakes</span>
+                        </div>
+                        <div class="event-card-action">
+                            <span class="event-cta-text">Cotizar & Iniciar Sesión</span>
+                            <span class="event-arrow-btn">➔</span>
+                        </div>
+                    </article>
+                </a>
+
+                <!-- Event 5: Quinceañeras & Fiestas de Gala -->
+                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                    <article class="event-card event-quince">
+                        <div class="event-header">
+                            <div class="event-icon-box">👑</div>
+                            <span class="event-badge">Gala & Brillo</span>
+                        </div>
+                        <h3 class="event-title">Quinceañeras & 15 Años</h3>
+                        <p class="event-desc">
+                            Estructuras deslumbrantes con coronas brillantes, efectos de cascada y combinaciones de sabores inolvidables.
+                        </p>
+                        <div class="event-tags">
+                            <span class="event-tag">💎 Toques de Brillo</span>
+                            <span class="event-tag">🌹 Rosas de Azúcar</span>
+                            <span class="event-tag">🍰 Red Velvet</span>
+                        </div>
+                        <div class="event-card-action">
+                            <span class="event-cta-text">Cotizar & Iniciar Sesión</span>
+                            <span class="event-arrow-btn">➔</span>
+                        </div>
+                    </article>
+                </a>
+
+            </div>
+        </section>
+
+        <!-- ==========================================
+             MINI-GAME: ¡ATRAPA LOS PASTELES CON PEDRITO!
+             ========================================== -->
+        <section class="bakery-game-section" id="juego-dulce">
+            <div class="section-header">
+                <div class="section-tag">
+                    <span>🎮 Minijuego Interactivo</span>
+                </div>
+                <h2 class="section-title">
+                    ¡Ayuda a Pedrito a <span>Atrapar Pasteles</span>!
+                </h2>
+                <p class="section-subtitle">
+                    Mueve a Pedrito con el mouse, toque o flechas del teclado para atrapar deliciosos pasteles y postres reales. ¡Gana tu descuento especial!
+                </p>
+            </div>
+
+            <div class="game-card-wrapper">
+                <!-- Game HUD Bar -->
+                <div class="game-hud-bar">
+                    <div class="hud-stat">
+                        <div class="hud-icon">🏆</div>
+                        <div class="hud-info">
+                            <span>Puntuación</span>
+                            <strong id="gameScoreText">0 pts</strong>
+                        </div>
+                    </div>
+
+                    <div class="hud-stat">
+                        <div class="hud-icon">🎂</div>
+                        <div class="hud-info">
+                            <span>Atrapados</span>
+                            <strong id="gameCakesCaughtText">0</strong>
+                        </div>
+                    </div>
+
+                    <div class="hud-stat">
+                        <div class="hud-icon">⚡</div>
+                        <div class="hud-info">
+                            <span>Combo</span>
+                            <strong id="gameComboText">x1</strong>
+                        </div>
+                    </div>
+
+                    <div class="hud-stat">
+                        <div class="hud-icon">💖</div>
+                        <div class="hud-info">
+                            <span>Vidas</span>
+                            <strong id="gameLivesText">❤️❤️❤️</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas Game Arena -->
+                <div class="game-canvas-container" id="gameArena">
+                    <canvas id="bakeryGameCanvas"></canvas>
+
+                    <!-- Start / Game Over Modal -->
+                    <div class="game-overlay-modal" id="gameModal">
+                        <div class="game-modal-content">
+                            <div style="font-size: 3.5rem; margin-bottom: 10px;" id="modalEmoji">👦🎂</div>
+                            <h3 id="modalTitle">¡Atrapa los Pasteles!</h3>
+                            <p id="modalDesc">
+                                Mueve a Pedrito con tu mouse, dedo o teclado (← / →) para atrapar pasteles, cupcakes y fresas en su bandeja. ¡Cuidado con los brócolis!
+                            </p>
+                            <div class="game-modal-badge" id="modalBadge">
+                                🎁 ¡Alcanza 1,000 pts para ganar un 15% de Descuento!
+                            </div>
+                            <div class="game-modal-actions">
+                                <button class="btn-sweet-primary" id="btnStartGame" style="width: 100%;">
+                                    <span>🎮 ¡Jugar Ahora!</span>
+                                </button>
+                                <a href="/login" class="btn-sweet-secondary" id="btnModalLogin" style="width: 100%; display: none;">
+                                    <span>🎂 Canjear Descuento en Iniciar Sesión</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- On-Screen Touch Buttons for Mobile -->
+                <div class="game-mobile-touch-controls">
+                    <button class="game-touch-btn" id="btnTouchLeft" aria-label="Mover a la izquierda">◀️ Izquierda</button>
+                    <button class="game-touch-btn" id="btnTouchRight" aria-label="Mover a la derecha">Derecha ▶️</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ==========================================
+         FOOTER
+         ========================================== -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h4>Twiins Bakery 💗</h4>
+                <p>
+                    Creando momentos mágicos y recuerdos dulces en cada celebración. Calidad artesanal, dedicación e ingredientes selectos de primera.
+                </p>
+            </div>
+
+            <div class="footer-links">
+                <h5>Ocasiones</h5>
+                <ul>
+                    <li><a href="/login">Cumpleaños</a></li>
+                    <li><a href="/login">Bodas & Aniversarios</a></li>
+                    <li><a href="/login">Graduaciones</a></li>
+                    <li><a href="/login">Baby Showers</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-links">
+                <h5>Atención al Cliente</h5>
+                <ul>
+                    <li><a href="/login">Iniciar Sesión</a></li>
+                    <li><a href="/registro">Crear Cuenta</a></li>
+                    <li><a href="#experiencia-3d">Simulador 3D (Pastel & Café)</a></li>
+                    <li><a href="#juego-dulce">Minijuego de Pasteles</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <span>© 2026 Twiins Bakery. Todos los derechos reservados.</span>
+            <span>Hecho con amor y azúcar 🧁✨</span>
+        </div>
+    </footer>
+
+    <!-- Mobile Sticky CTA Bar -->
+    <div class="mobile-sticky-bar">
+        <a href="/login" class="btn-sweet-primary" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+            <span>🎂 Iniciar Sesión en Twiins Bakery</span>
+        </a>
+    </div>
+
+    <!-- =========================================================
+         JAVASCRIPT: THREE.JS 3D CAKE & STEAMING COFFEE + MINI-GAME
+         ========================================================= -->
+    <script>
+        /* =========================================================
+           1. EMOJI BURST SYSTEM ON TAP / CLICK
+           ========================================================= */
+        const cakeEmojis = ['🎂', '🧁', '🍰', '🍩', '🍪', '🍓', '🍒', '🥐', '✨', '💖', '🍭', '☕', '🧇'];
+        const burstContainer = document.getElementById('emoji-burst-container');
+
+        function createEmojiBurst(x, y, count = 5) {
+            for (let i = 0; i < count; i++) {
+                const emoji = document.createElement('div');
+                emoji.className = 'floating-burst-emoji';
+                emoji.innerText = cakeEmojis[Math.floor(Math.random() * cakeEmojis.length)];
+
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 40 + Math.random() * 90;
+                const vx = Math.cos(angle) * distance;
+                const vy = Math.sin(angle) * distance - (30 + Math.random() * 40);
+                const rot = (Math.random() - 0.5) * 60;
+
+                emoji.style.left = `${x}px`;
+                emoji.style.top = `${y}px`;
+                emoji.style.setProperty('--vx', `${vx}px`);
+                emoji.style.setProperty('--vy', `${vy}px`);
+                emoji.style.setProperty('--rot', `${rot}deg`);
+                emoji.style.fontSize = `${20 + Math.random() * 16}px`;
+
+                burstContainer.appendChild(emoji);
+                setTimeout(() => emoji.remove(), 1250);
+            }
+
+            for (let j = 0; j < 4; j++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle-particle';
+                const sAngle = Math.random() * Math.PI * 2;
+                const sDist = 20 + Math.random() * 50;
+                sparkle.style.left = `${x}px`;
+                sparkle.style.top = `${y}px`;
+                sparkle.style.setProperty('--sx', `${Math.cos(sAngle) * sDist}px`);
+                sparkle.style.setProperty('--sy', `${Math.sin(sAngle) * sDist}px`);
+                burstContainer.appendChild(sparkle);
+                setTimeout(() => sparkle.remove(), 900);
+            }
+        }
+
+        let lastTouchTime = 0;
+        window.addEventListener('touchstart', (e) => {
+            if (e.target && e.target.id === 'bakeryGameCanvas') return;
+            lastTouchTime = Date.now();
+            if (e.touches && e.touches.length > 0) {
+                createEmojiBurst(e.touches[0].clientX, e.touches[0].clientY, 4);
+            }
+        }, { passive: true });
+
+        window.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'bakeryGameCanvas') return;
+            if (Date.now() - lastTouchTime < 400) return;
+            createEmojiBurst(e.clientX, e.clientY, 5);
+        });
+
+        function triggerBurstAtEl(el) {
+            const rect = el.getBoundingClientRect();
+            createEmojiBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, 7);
+        }
+
+        /* =========================================================
+           2. THREE.JS 3D ROTATING REALISTIC CAKE & STEAMING COFFEE
+           ========================================================= */
+        (function init3DStage() {
+            const container = document.getElementById('cake-3d-canvas-container');
+            if (!container || typeof THREE === 'undefined') return;
+
+            const scene = new THREE.Scene();
+            
+            const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 3.6, 9.5);
+            camera.lookAt(0, 0.1, 0);
+
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            // Master Stage Group
+            const stageGroup = new THREE.Group();
+            scene.add(stageGroup);
+
+            // Separate Groups for Cake and Coffee
+            const cakeGroup = new THREE.Group();
+            const coffeeGroup = new THREE.Group();
+            stageGroup.add(cakeGroup);
+            stageGroup.add(coffeeGroup);
+
+            // Lighting setup: Warm Studio Spotlight + Golden Rim Light + Soft Fill
+            const ambientLight = new THREE.AmbientLight(0xfff0f5, 0.55);
+            scene.add(ambientLight);
+
+            // Top Key Spotlight directly illuminating the cake & frosting
+            const keySpot = new THREE.SpotLight(0xffffff, 2.2);
+            keySpot.position.set(4, 12, 7);
+            keySpot.angle = Math.PI / 4;
+            keySpot.penumbra = 0.4;
+            keySpot.castShadow = true;
+            scene.add(keySpot);
+
+            // Back Golden Rim Light to make edges pop with high contrast
+            const rimLight = new THREE.DirectionalLight(0xffb703, 1.4);
+            rimLight.position.set(-6, 7, -6);
+            scene.add(rimLight);
+
+            // Warm Berry Fill Light
+            const fillLight = new THREE.PointLight(0xff4d6d, 1.2, 16);
+            fillLight.position.set(-4, 2.5, 4);
+            scene.add(fillLight);
+
+            const candlePointLight = new THREE.PointLight(0xffb703, 2.2, 7);
+            candlePointLight.position.set(0, 2.8, 0);
+            cakeGroup.add(candlePointLight);
+
+            /* -------------------------------------------
+               FLAVOR PALETTES (Deep, realistic, high-contrast)
+               ------------------------------------------- */
+            const flavorThemes = {
+                strawberry: {
+                    name: 'Pastel de Fresa Gourmet',
+                    spongeBottom: 0xd93856, // rich strawberry velvet
+                    spongeTop: 0xeb516e,
+                    frosting: 0xffb3c6,   // rich strawberry cream
+                    drip: 0xa80d2a,       // deep glossy strawberry coulis
+                    pearls: 0xffd166,     // golden pearls
+                    berries: 0xd90429,    // bright ripe strawberry
+                    leaves: 0x2d6a4f,
+                    pedestalGold: 0xffb703
+                },
+                chocolate: {
+                    name: 'Chocolate Trufado Supremo',
+                    spongeBottom: 0x3d2314, // dark chocolate sponge
+                    spongeTop: 0x54311c,
+                    frosting: 0x6e3d23,   // milk chocolate ganache
+                    drip: 0x1f0e05,       // dark chocolate molten glaze
+                    pearls: 0xffd166,     // 24k gold pearls
+                    berries: 0xffb703,
+                    leaves: 0x3d2314,
+                    pedestalGold: 0xffd166
+                },
+                caramel: {
+                    name: 'Toffee Caramelo & Vainilla',
+                    spongeBottom: 0xd48b38, // golden toasted sponge
+                    spongeTop: 0xeb9c4d,
+                    frosting: 0xffeed1,   // rich vanilla custard
+                    drip: 0x9c4f0d,       // glossy amber caramel
+                    pearls: 0xffd166,     // golden crunch
+                    berries: 0xb5651d,
+                    leaves: 0x582f0e,
+                    pedestalGold: 0xd4a373
+                },
+                redvelvet: {
+                    name: 'Red Velvet Intenso & Mascarpone',
+                    spongeBottom: 0x7a0c1b, // deep ruby red
+                    spongeTop: 0x961528,
+                    frosting: 0xfff6ec,   // mascarpone cream cheese
+                    drip: 0x520510,       // wild berry glaze
+                    pearls: 0xffffff,
+                    berries: 0xa80018,
+                    leaves: 0x1b4332,
+                    pedestalGold: 0xffb703
+                },
+                pistachio: {
+                    name: 'Matcha & Pistacho Silvestre',
+                    spongeBottom: 0x588157, // pistachio green
+                    spongeTop: 0x74a873,
+                    frosting: 0x3a5a40,   // matcha green cream
+                    drip: 0x283618,       // intense matcha drip
+                    pearls: 0xffffff,
+                    berries: 0xbc4749,
+                    leaves: 0x1b4332,
+                    pedestalGold: 0xd4a373
+                }
+            };
+
+            let currentTheme = flavorThemes.strawberry;
+
+            /* -------------------------------------------
+               3D CAKE MESHES & MATERIALS
+               ------------------------------------------- */
+            const matPedestal = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 });
+            const matPedestalGold = new THREE.MeshStandardMaterial({ color: currentTheme.pedestalGold, roughness: 0.2, metalness: 0.85 });
+            const matSpongeBottom = new THREE.MeshStandardMaterial({ color: currentTheme.spongeBottom, roughness: 0.65 });
+            const matSpongeTop = new THREE.MeshStandardMaterial({ color: currentTheme.spongeTop, roughness: 0.65 });
+            const matFrosting = new THREE.MeshStandardMaterial({ color: currentTheme.frosting, roughness: 0.3, metalness: 0.05 });
+            const matDrips = new THREE.MeshStandardMaterial({ color: currentTheme.drip, roughness: 0.1, metalness: 0.3 });
+            const matPearls = new THREE.MeshStandardMaterial({ color: currentTheme.pearls, roughness: 0.15, metalness: 0.85 });
+            const matBerries = new THREE.MeshStandardMaterial({ color: currentTheme.berries, roughness: 0.2 });
+            const matLeaves = new THREE.MeshStandardMaterial({ color: currentTheme.leaves, roughness: 0.4 });
+            const matCandle = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+            const matFlame = new THREE.MeshBasicMaterial({ color: 0xffb703 });
+
+            // Pedestal Stand
+            const standPlate = new THREE.Mesh(new THREE.CylinderGeometry(2.55, 2.55, 0.16, 48), matPedestal);
+            standPlate.position.y = -1.0;
+            cakeGroup.add(standPlate);
+
+            const standRim = new THREE.Mesh(new THREE.TorusGeometry(2.57, 0.075, 16, 48), matPedestalGold);
+            standRim.rotation.x = Math.PI / 2;
+            standRim.position.y = -0.94;
+            cakeGroup.add(standRim);
+
+            const standBase = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 1.45, 0.65, 32), matPedestal);
+            standBase.position.y = -1.35;
+            cakeGroup.add(standBase);
+
+            // Bottom Tier
+            const tierBottom = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.15, 1.1, 48), matSpongeBottom);
+            tierBottom.position.y = -0.4;
+            tierBottom.castShadow = true;
+            tierBottom.receiveShadow = true;
+            cakeGroup.add(tierBottom);
+
+            const bottomCreamRing = new THREE.Mesh(new THREE.TorusGeometry(2.17, 0.095, 16, 48), matFrosting);
+            bottomCreamRing.rotation.x = Math.PI / 2;
+            bottomCreamRing.position.y = 0.15;
+            cakeGroup.add(bottomCreamRing);
+
+            // Pearl beads around bottom rim
+            for (let i = 0; i < 20; i++) {
+                const angle = (i / 20) * Math.PI * 2;
+                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), matPearls);
+                bead.position.set(Math.cos(angle) * 2.18, -0.9, Math.sin(angle) * 2.18);
+                cakeGroup.add(bead);
+            }
+
+            // Top Tier
+            const tierTop = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 1.0, 48), matSpongeTop);
+            tierTop.position.y = 0.65;
+            tierTop.castShadow = true;
+            tierTop.receiveShadow = true;
+            cakeGroup.add(tierTop);
+
+            // Top Drip Glaze Cap
+            const topFrostingCap = new THREE.Mesh(new THREE.CylinderGeometry(1.48, 1.48, 0.25, 48), matDrips);
+            topFrostingCap.position.y = 1.12;
+            cakeGroup.add(topFrostingCap);
+
+            // Wavy Glaze Drips hanging from top tier
+            for (let i = 0; i < 10; i++) {
+                const angle = (i / 10) * Math.PI * 2;
+                const dripHeight = 0.25 + (i % 3) * 0.18;
+                const dripMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.03, dripHeight, 12), matDrips);
+                dripMesh.position.set(Math.cos(angle) * 1.46, 1.0 - dripHeight / 2, Math.sin(angle) * 1.46);
+                cakeGroup.add(dripMesh);
+            }
+
+            // Fresh Strawberries / Berries on Top Tier
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const berryGroup = new THREE.Group();
+                const berry = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.4, 14), matBerries);
+                berry.rotation.x = Math.PI;
+                berryGroup.add(berry);
+
+                const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.08, 6), matLeaves);
+                leaf.position.y = 0.22;
+                berryGroup.add(leaf);
+
+                const dollop = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), matFrosting);
+                dollop.position.y = -0.15;
+                dollop.scale.set(1.2, 0.7, 1.2);
+                berryGroup.add(dollop);
+
+                berryGroup.position.set(Math.cos(angle) * 0.95, 1.38, Math.sin(angle) * 0.95);
+                cakeGroup.add(berryGroup);
+            }
+
+            // Center Candle
+            const candleGroup = new THREE.Group();
+            const candleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.78, 16), matCandle);
+            candleMesh.position.y = 1.62;
+            candleGroup.add(candleMesh);
+
+            const candleWick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.15, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+            candleWick.position.y = 2.05;
+            candleGroup.add(candleWick);
+
+            const flameMesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), matFlame);
+            flameMesh.scale.set(0.8, 1.8, 0.8);
+            flameMesh.position.y = 2.22;
+            candleGroup.add(flameMesh);
+
+            cakeGroup.add(candleGroup);
+
+            /* -------------------------------------------
+               3D STEAMING COFFEE CUP (CAFÉ HUMEANTE)
+               ------------------------------------------- */
+            const matCupCeramic = new THREE.MeshStandardMaterial({ color: 0xfff5f8, roughness: 0.15, metalness: 0.05 });
+            const matCupGoldLine = new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2, metalness: 0.85 });
+            const matCoffeeLiquid = new THREE.MeshStandardMaterial({ color: 0x3d1c06, roughness: 0.1 });
+            const matLatteArtFoam = new THREE.MeshStandardMaterial({ color: 0xfbf0dc, roughness: 0.4 });
+
+            // Coffee Saucer Plate
+            const coffeeSaucer = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.35, 0.14, 36), matCupCeramic);
+            coffeeSaucer.position.y = -0.95;
+            coffeeGroup.add(coffeeSaucer);
+
+            const coffeeSaucerRim = new THREE.Mesh(new THREE.TorusGeometry(1.63, 0.045, 12, 36), matCupGoldLine);
+            coffeeSaucerRim.rotation.x = Math.PI / 2;
+            coffeeSaucerRim.position.y = -0.88;
+            coffeeGroup.add(coffeeSaucerRim);
+
+            // Ceramic Cup Body
+            const cupBody = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 0.85, 1.45, 36, 1, true), matCupCeramic);
+            cupBody.position.y = -0.2;
+            coffeeGroup.add(cupBody);
+
+            const cupBottom = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 36), matCupCeramic);
+            cupBottom.position.y = -0.9;
+            coffeeGroup.add(cupBottom);
+
+            const cupRimGold = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.05, 12, 36), matCupGoldLine);
+            cupRimGold.rotation.x = Math.PI / 2;
+            cupRimGold.position.y = 0.52;
+            coffeeGroup.add(cupRimGold);
+
+            // Curved Handle
+            const handleGeo = new THREE.TorusGeometry(0.5, 0.11, 16, 24, Math.PI * 1.1);
+            const cupHandle = new THREE.Mesh(handleGeo, matCupCeramic);
+            cupHandle.position.set(1.24, -0.2, 0);
+            cupHandle.rotation.z = -Math.PI / 2;
+            coffeeGroup.add(cupHandle);
+
+            // Coffee Liquid Surface
+            const coffeeLiquid = new THREE.Mesh(new THREE.CircleGeometry(1.06, 32), matCoffeeLiquid);
+            coffeeLiquid.rotation.x = -Math.PI / 2;
+            coffeeLiquid.position.y = 0.4;
+            coffeeGroup.add(coffeeLiquid);
+
+            // Latte Art Heart Foam
+            const latteHeart = new THREE.Mesh(new THREE.CircleGeometry(0.58, 24), matLatteArtFoam);
+            latteHeart.rotation.x = -Math.PI / 2;
+            latteHeart.position.set(0, 0.41, 0);
+            coffeeGroup.add(latteHeart);
+
+            // 3D Animated Rising Steam Puffs
+            const steamPuffs = [];
+            const steamGroup = new THREE.Group();
+            coffeeGroup.add(steamGroup);
+
+            for (let i = 0; i < 16; i++) {
+                const steamMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.4,
+                    depthWrite: false
+                });
+                const steamMesh = new THREE.Mesh(new THREE.SphereGeometry(0.2 + Math.random() * 0.14, 12, 12), steamMat);
+                steamMesh.userData = {
+                    baseY: 0.5 + Math.random() * 1.8,
+                    speed: 0.016 + Math.random() * 0.02,
+                    phase: Math.random() * Math.PI * 2,
+                    radius: 0.18 + Math.random() * 0.28
+                };
+                steamMesh.position.set(0, steamMesh.userData.baseY, 0);
+                steamGroup.add(steamMesh);
+                steamPuffs.push(steamMesh);
+            }
+
+            // Initial view states
+            cakeGroup.position.set(0, 0, 0);
+            cakeGroup.visible = true;
+            coffeeGroup.position.set(2.8, -0.2, -1.5);
+            coffeeGroup.scale.set(0.9, 0.9, 0.9);
+            coffeeGroup.visible = false;
+
+            let currentMode = 'cake';
+
+            function setStageMode(mode) {
+                currentMode = mode;
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === mode);
+                });
+
+                const badgeText = document.getElementById('stageBadgeText');
+
+                if (mode === 'cake') {
+                    cakeGroup.visible = true;
+                    coffeeGroup.visible = false;
+                    cakeGroup.position.set(0, 0, 0);
+                    cakeGroup.scale.set(1, 1, 1);
+                    if (badgeText) badgeText.innerText = 'Estudio 3D · ' + currentTheme.name;
+                } else if (mode === 'coffee') {
+                    cakeGroup.visible = false;
+                    coffeeGroup.visible = true;
+                    coffeeGroup.position.set(0, 0.3, 0);
+                    coffeeGroup.scale.set(1.25, 1.25, 1.25);
+                    if (badgeText) badgeText.innerText = '☕ Café Gourmet Humeante';
+                } else if (mode === 'both') {
+                    cakeGroup.visible = true;
+                    coffeeGroup.visible = true;
+                    cakeGroup.position.set(-1.4, 0, 0);
+                    cakeGroup.scale.set(0.85, 0.85, 0.85);
+                    coffeeGroup.position.set(1.7, -0.3, 0);
+                    coffeeGroup.scale.set(0.95, 0.95, 0.95);
+                    if (badgeText) badgeText.innerText = '✨ Dúo Dulce: Pastel & Café';
+                }
+            }
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setStageMode(btn.dataset.mode);
+                    triggerBurstAtEl(btn);
+                });
+            });
+
+            function setCakeFlavor(flavorKey) {
+                const theme = flavorThemes[flavorKey] || flavorThemes.strawberry;
+                currentTheme = theme;
+                matSpongeBottom.color.setHex(theme.spongeBottom);
+                matSpongeTop.color.setHex(theme.spongeTop);
+                matFrosting.color.setHex(theme.frosting);
+                matDrips.color.setHex(theme.drip);
+                matPearls.color.setHex(theme.pearls);
+                matBerries.color.setHex(theme.berries);
+                matLeaves.color.setHex(theme.leaves);
+                matPedestalGold.color.setHex(theme.pedestalGold);
+
+                const badgeText = document.getElementById('stageBadgeText');
+                if (badgeText && currentMode !== 'coffee') {
+                    badgeText.innerText = (currentMode === 'both' ? '✨ Dúo Dulce: ' : 'Estudio 3D · ') + theme.name;
+                }
+            }
+
+            document.querySelectorAll('.flavor-pill').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.flavor-pill').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    setCakeFlavor(btn.dataset.flavor);
+                    triggerBurstAtEl(btn);
+                });
+            });
+
+            let candleLit = true;
+            const candleBtn = document.getElementById('btnToggleCandle');
+            if (candleBtn) {
+                candleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    candleLit = !candleLit;
+                    flameMesh.visible = candleLit;
+                    candlePointLight.visible = candleLit;
+                    candleBtn.style.opacity = candleLit ? '1' : '0.4';
+                    triggerBurstAtEl(candleBtn);
+                });
+            }
+
+            const confettiBtn = document.getElementById('btnConfettiCake');
+            if (confettiBtn) {
+                confettiBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (typeof confetti === 'function') {
+                        confetti({
+                            particleCount: 75,
+                            spread: 70,
+                            origin: { y: 0.6 }
+                        });
+                    }
+                    triggerBurstAtEl(confettiBtn);
+                });
+            }
+
+            let isDragging = false;
+            let prevPointerX = 0;
+            let prevPointerY = 0;
+
+            container.addEventListener('pointerdown', (e) => {
+                isDragging = true;
+                prevPointerX = e.clientX;
+                prevPointerY = e.clientY;
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!isDragging) return;
+                const deltaX = e.clientX - prevPointerX;
+                const deltaY = e.clientY - prevPointerY;
+                prevPointerX = e.clientX;
+                prevPointerY = e.clientY;
+
+                stageGroup.rotation.y += deltaX * 0.012;
+                stageGroup.rotation.x = Math.max(-0.25, Math.min(0.35, stageGroup.rotation.x + deltaY * 0.008));
+            });
+
+            window.addEventListener('pointerup', () => { isDragging = false; });
+
+            const clock = new THREE.Clock();
+            function animate() {
+                requestAnimationFrame(animate);
+                const time = clock.getElapsedTime();
+
+                stageGroup.position.y = Math.sin(time * 1.6) * 0.07;
+
+                if (!isDragging) {
+                    stageGroup.rotation.y += 0.008;
+                }
+
+                if (candleLit) {
+                    const flicker = Math.sin(time * 22) * 0.08;
+                    flameMesh.scale.set(0.8 + flicker, 1.8 + flicker * 2, 0.8 + flicker);
+                    candlePointLight.intensity = 1.8 + Math.sin(time * 16) * 0.4;
+                }
+
+                if (coffeeGroup.visible) {
+                    steamPuffs.forEach(puff => {
+                        const d = puff.userData;
+                        puff.position.y += d.speed;
+                        puff.position.x = Math.sin(time * 2 + d.phase) * d.radius;
+                        puff.position.z = Math.cos(time * 2 + d.phase) * d.radius;
+
+                        const progress = (puff.position.y - 0.5) / 2.2;
+                        puff.scale.setScalar(1 + progress * 2.2);
+                        puff.material.opacity = Math.max(0, 0.45 * (1 - progress));
+
+                        if (puff.position.y > 2.8) {
+                            puff.position.y = 0.5;
+                        }
+                    });
+                }
+
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                if (!container) return;
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            });
+
+        })();
+
+        /* =========================================================
+           3. MINI-GAME: ¡ATRAPA LOS PASTELES CON PEDRITO!
+           Custom High-Detail Vector Pastries & Bakery Backing
+           ========================================================= */
+        (function initBakeryGame() {
+            const canvas = document.getElementById('bakeryGameCanvas');
+            const arena = document.getElementById('gameArena');
+            const scoreEl = document.getElementById('gameScoreText');
+            const cakesCaughtEl = document.getElementById('gameCakesCaughtText');
+            const comboEl = document.getElementById('gameComboText');
+            const livesEl = document.getElementById('gameLivesText');
+            const modal = document.getElementById('gameModal');
+            const btnStart = document.getElementById('btnStartGame');
+            const btnModalLogin = document.getElementById('btnModalLogin');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalDesc = document.getElementById('modalDesc');
+            const modalBadge = document.getElementById('modalBadge');
+            const modalEmoji = document.getElementById('modalEmoji');
+
+            if (!canvas || !arena) return;
+
+            const ctx = canvas.getContext('2d');
+
+            function resizeGame() {
+                canvas.width = arena.clientWidth;
+                canvas.height = arena.clientHeight;
+            }
+            resizeGame();
+            window.addEventListener('resize', resizeGame);
+
+            let isRunning = false;
+            let score = 0;
+            let cakesCaught = 0;
+            let combo = 1;
+            let lives = 3;
+            let lastSpawnTime = 0;
+            let spawnInterval = 820;
+
+            const player = {
+                x: canvas.width / 2,
+                y: canvas.height - 75,
+                width: 80,
+                height: 80,
+                speed: 9.5,
+                mouthOpen: false,
+                mouthTimer: 0
+            };
+
+            const items = [];
+            const floatingTexts = [];
+
+            /* -------------------------------------------
+               CUSTOM HIGH-DETAIL PASTRY RENDERERS
+               ------------------------------------------- */
+            function drawTieredCake(ctx, s) {
+                // Tiered Strawberry & Choco Celebration Cake
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Bottom Tier
+                ctx.fillStyle = '#ff7597';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.roundRect(-22, 6, 44, 18, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                // Bottom Tier White Cream Drip
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.roundRect(-22, 6, 44, 7, [5, 5, 2, 2]);
+                ctx.fill();
+
+                // Top Tier
+                ctx.fillStyle = '#ffd166';
+                ctx.beginPath();
+                ctx.roundRect(-14, -10, 28, 16, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Top Chocolate Drip
+                ctx.fillStyle = '#4a2810';
+                ctx.beginPath();
+                ctx.roundRect(-14, -10, 28, 6, [4, 4, 2, 2]);
+                ctx.fill();
+
+                // Candle on top
+                ctx.fillStyle = '#ef5979';
+                ctx.fillRect(-2, -20, 4, 10);
+                // Flame
+                ctx.fillStyle = '#ffb703';
+                ctx.beginPath();
+                ctx.arc(0, -23, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            function drawCupcake(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Wrapper
+                ctx.fillStyle = '#f4a261';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-16, 4);
+                ctx.lineTo(-11, 22);
+                ctx.lineTo(11, 22);
+                ctx.lineTo(16, 4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Cream swirl
+                ctx.fillStyle = '#ff8fa3';
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Top swirl
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, -8, 11, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Cherry
+                ctx.fillStyle = '#d90429';
+                ctx.beginPath();
+                ctx.arc(0, -17, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Sprinkles
+                ctx.fillStyle = '#ffd166';
+                ctx.fillRect(-6, -2, 4, 2);
+                ctx.fillStyle = '#06d6a0';
+                ctx.fillRect(4, 2, 4, 2);
+
+                ctx.restore();
+            }
+
+            function drawDonut(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Dough
+                ctx.fillStyle = '#e9c46a';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Pink Glaze
+                ctx.fillStyle = '#ff7597';
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Donut Hole
+                ctx.fillStyle = '#240f1a'; // Match background cutout
+                ctx.beginPath();
+                ctx.arc(0, 0, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Rainbow Sprinkles
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-10, -8, 4, 2);
+                ctx.fillStyle = '#ffd166';
+                ctx.fillRect(6, -7, 4, 2);
+                ctx.fillStyle = '#06d6a0';
+                ctx.fillRect(5, 7, 4, 2);
+                ctx.fillStyle = '#118ab2';
+                ctx.fillRect(-8, 7, 4, 2);
+
+                ctx.restore();
+            }
+
+            function drawCakeSlice(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Cake wedge body
+                ctx.fillStyle = '#800f2f'; // Red velvet
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-18, 14);
+                ctx.lineTo(18, 14);
+                ctx.lineTo(0, -18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Cream stripe
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(-12, 4);
+                ctx.lineTo(12, 4);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(-10, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Chocolate top drizzle
+                ctx.fillStyle = '#4a2810';
+                ctx.beginPath();
+                ctx.arc(0, -18, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            function drawCookie(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Cookie circle
+                ctx.fillStyle = '#ddb892';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Chocolate chips
+                ctx.fillStyle = '#582f1f';
+                ctx.beginPath();
+                ctx.arc(-7, -6, 3.5, 0, Math.PI * 2);
+                ctx.arc(7, -5, 4, 0, Math.PI * 2);
+                ctx.arc(-4, 7, 3.5, 0, Math.PI * 2);
+                ctx.arc(6, 6, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            function drawStrawberry(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Strawberry cone
+                ctx.fillStyle = '#e63946';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-14, -6);
+                ctx.quadraticCurveTo(-14, 10, 0, 20);
+                ctx.quadraticCurveTo(14, 10, 14, -6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Seeds
+                ctx.fillStyle = '#ffd166';
+                ctx.fillRect(-6, 2, 2.5, 2.5);
+                ctx.fillRect(4, 3, 2.5, 2.5);
+                ctx.fillRect(-1, 9, 2.5, 2.5);
+
+                // Green leaf cap
+                ctx.fillStyle = '#2d6a4f';
+                ctx.beginPath();
+                ctx.arc(-7, -8, 5, 0, Math.PI * 2);
+                ctx.arc(0, -10, 6, 0, Math.PI * 2);
+                ctx.arc(7, -8, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            function drawStar(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Glowing Gold Star
+                ctx.fillStyle = '#ffb703';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * 18, -Math.sin((18 + i * 72) * Math.PI / 180) * 18);
+                    ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * 8, -Math.sin((54 + i * 72) * Math.PI / 180) * 8);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            function drawBroccoli(ctx, s) {
+                ctx.save();
+                ctx.scale(s / 40, s / 40);
+
+                // Stalk
+                ctx.fillStyle = '#74a873';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 2.5;
+                ctx.fillRect(-5, 2, 10, 16);
+                ctx.strokeRect(-5, 2, 10, 16);
+
+                // Bushy green head
+                ctx.fillStyle = '#2d6a4f';
+                ctx.beginPath();
+                ctx.arc(-11, -4, 10, 0, Math.PI * 2);
+                ctx.arc(11, -4, 10, 0, Math.PI * 2);
+                ctx.arc(0, -12, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Mischievous grumpy eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-4, -6, 2.5, 0, Math.PI * 2);
+                ctx.arc(4, -6, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#2b141e';
+                ctx.fillRect(-5, -7, 3, 3);
+                ctx.fillRect(3, -7, 3, 3);
+
+                ctx.restore();
+            }
+
+            const itemDrawers = {
+                cake: drawTieredCake,
+                cupcake: drawCupcake,
+                donut: drawDonut,
+                slice: drawCakeSlice,
+                cookie: drawCookie,
+                strawberry: drawStrawberry,
+                star: drawStar,
+                broccoli: drawBroccoli
+            };
+
+            const itemTemplates = [
+                { id: 'cake', points: 150, type: 'good', size: 44 },
+                { id: 'cupcake', points: 100, type: 'good', size: 38 },
+                { id: 'donut', points: 80, type: 'good', size: 38 },
+                { id: 'slice', points: 120, type: 'good', size: 38 },
+                { id: 'cookie', points: 60, type: 'good', size: 34 },
+                { id: 'strawberry', points: 50, type: 'good', size: 32 },
+                { id: 'star', points: 250, type: 'special', size: 40 },
+                { id: 'broccoli', points: -50, type: 'bad', size: 38 }
+            ];
+
+            const keys = {};
+            window.addEventListener('keydown', (e) => {
+                if (['ArrowLeft', 'KeyA'].includes(e.code)) keys.left = true;
+                if (['ArrowRight', 'KeyD'].includes(e.code)) keys.right = true;
+            });
+            window.addEventListener('keyup', (e) => {
+                if (['ArrowLeft', 'KeyA'].includes(e.code)) keys.left = false;
+                if (['ArrowRight', 'KeyD'].includes(e.code)) keys.right = false;
+            });
+
+            arena.addEventListener('pointermove', (e) => {
+                if (!isRunning) return;
+                const rect = canvas.getBoundingClientRect();
+                player.x = e.clientX - rect.left;
+            });
+
+            const btnLeft = document.getElementById('btnTouchLeft');
+            const btnRight = document.getElementById('btnTouchRight');
+            if (btnLeft && btnRight) {
+                btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; }, { passive: false });
+                btnLeft.addEventListener('touchend', () => { keys.left = false; });
+                btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; }, { passive: false });
+                btnRight.addEventListener('touchend', () => { keys.right = false; });
+            }
+
+            function startGame() {
+                score = 0;
+                cakesCaught = 0;
+                combo = 1;
+                lives = 3;
+                items.length = 0;
+                floatingTexts.length = 0;
+                isRunning = true;
+                modal.classList.add('hidden');
+                updateHUD();
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+
+            function gameOver(won = false) {
+                isRunning = false;
+                modal.classList.remove('hidden');
+
+                if (won || score >= 1000) {
+                    modalEmoji.innerText = '🏆🎉';
+                    modalTitle.innerText = '¡Felicidades, Eres un Maestro Pastelero!';
+                    modalDesc.innerText = `¡Lograste ${score} puntos y atrapaste ${cakesCaught} pasteles! Has desbloqueado un 15% de Descuento en tu primer pedido de Twiins Bakery.`;
+                    modalBadge.innerText = '🎟️ CÓDIGO: DULCE15';
+                    btnModalLogin.style.display = 'inline-flex';
+                    btnStart.querySelector('span').innerText = '🔄 Jugar de Nuevo';
+
+                    if (typeof confetti === 'function') {
+                        confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
+                    }
+                } else {
+                    modalEmoji.innerText = '😢🍰';
+                    modalTitle.innerText = '¡Fin del Juego!';
+                    modalDesc.innerText = `Conseguiste ${score} puntos. ¡Inténtalo de nuevo para alcanzar los 1,000 puntos y ganar tu premio!`;
+                    modalBadge.innerText = '💡 Consejo: Atrapa las estrellas ⭐ y evita los brócolis 🥦';
+                    btnModalLogin.style.display = 'none';
+                    btnStart.querySelector('span').innerText = '🎮 Reintentar';
+                }
+            }
+
+            btnStart.addEventListener('click', startGame);
+
+            function updateHUD() {
+                scoreEl.innerText = `${score} pts`;
+                cakesCaughtEl.innerText = `${cakesCaught}`;
+                comboEl.innerText = `x${combo}`;
+                let hearts = '';
+                for (let i = 0; i < lives; i++) hearts += '❤️';
+                livesEl.innerText = hearts || '💀';
+            }
+
+            function spawnItem() {
+                const isBad = Math.random() < 0.18;
+                let template;
+                if (isBad) {
+                    template = itemTemplates.find(t => t.id === 'broccoli');
+                } else {
+                    const goods = itemTemplates.filter(t => t.id !== 'broccoli');
+                    template = goods[Math.floor(Math.random() * goods.length)];
+                }
+
+                items.push({
+                    id: template.id,
+                    x: 35 + Math.random() * (canvas.width - 70),
+                    y: -40,
+                    points: template.points,
+                    type: template.type,
+                    size: template.size,
+                    speed: 2.5 + Math.random() * 2.6 + (score > 600 ? 1 : 0),
+                    rot: (Math.random() - 0.5) * 0.4,
+                    rotSpeed: (Math.random() - 0.5) * 0.04
+                });
+            }
+
+            let lastTime = 0;
+            function gameLoop(now) {
+                if (!isRunning) return;
+
+                const dt = now - lastTime;
+                lastTime = now;
+
+                if (keys.left) player.x -= player.speed;
+                if (keys.right) player.x += player.speed;
+
+                player.x = Math.max(player.width / 2, Math.min(canvas.width - player.width / 2, player.x));
+
+                if (now - lastSpawnTime > spawnInterval) {
+                    spawnItem();
+                    lastSpawnTime = now;
+                    spawnInterval = Math.max(480, 820 - score * 0.3);
+                }
+
+                if (player.mouthTimer > 0) {
+                    player.mouthTimer -= dt;
+                    if (player.mouthTimer <= 0) player.mouthOpen = false;
+                }
+
+                // Draw Sweet High-Contrast Bakery Arena
+                ctx.fillStyle = '#240f1a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Bakery Background Wooden Counter & Pastel Shelf
+                ctx.fillStyle = '#381a29';
+                ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+                ctx.fillStyle = '#ffd166';
+                ctx.fillRect(0, canvas.height - 40, canvas.width, 4);
+
+                // Hanging Bunting Flags
+                for (let b = 0; b < canvas.width; b += 40) {
+                    ctx.fillStyle = (b / 40) % 2 === 0 ? '#ef5979' : '#ffb703';
+                    ctx.beginPath();
+                    ctx.moveTo(b, 0);
+                    ctx.lineTo(b + 40, 0);
+                    ctx.lineTo(b + 20, 20);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // Update & Draw Items
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    item.y += item.speed;
+                    item.rot += item.rotSpeed;
+
+                    // Draw Custom Pastry Sprite
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    ctx.rotate(item.rot);
+                    const drawer = itemDrawers[item.id] || drawTieredCake;
+                    drawer(ctx, item.size);
+                    ctx.restore();
+
+                    // Check Collision with Pedrito's Tray / Head
+                    const dist = Math.hypot(item.x - player.x, item.y - (player.y - 18));
+                    if (dist < 46) {
+                        if (item.type === 'good' || item.type === 'special') {
+                            const pts = item.points * combo;
+                            score += pts;
+                            cakesCaught++;
+                            combo = Math.min(5, combo + 1);
+                            player.mouthOpen = true;
+                            player.mouthTimer = 240;
+
+                            floatingTexts.push({
+                                text: `+${pts}${combo > 1 ? ` (x${combo}!)` : ''}`,
+                                x: item.x,
+                                y: item.y,
+                                color: item.type === 'special' ? '#ffd166' : '#ff7597',
+                                life: 1.0
+                            });
+                        } else if (item.type === 'bad') {
+                            lives--;
+                            combo = 1;
+                            score = Math.max(0, score + item.points);
+                            floatingTexts.push({
+                                text: `¡Auch! -1 ❤️`,
+                                x: item.x,
+                                y: item.y,
+                                color: '#e63946',
+                                life: 1.2
+                            });
+
+                            if (lives <= 0) {
+                                updateHUD();
+                                gameOver(false);
+                                return;
+                            }
+                        }
+
+                        updateHUD();
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.y > canvas.height + 40) {
+                        if (item.type === 'good') combo = 1;
+                        updateHUD();
+                        items.splice(i, 1);
+                    }
+                }
+
+                // Draw Pedrito (High-Detail Cartoon Baker Boy)
+                ctx.save();
+                ctx.translate(player.x, player.y);
+
+                // Body & Pink Chef Uniform
+                ctx.fillStyle = '#ef5979';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(-24, 10, 48, 32, 10);
+                ctx.fill();
+                ctx.stroke();
+
+                // Gold Baker Tray in Hands
+                ctx.fillStyle = '#ffd166';
+                ctx.strokeStyle = '#b58300';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(0, -6, 44, 11, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Boy Face
+                ctx.fillStyle = '#ffdfba';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, -22, 26, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Rosy Blushing Cheeks
+                ctx.fillStyle = '#ff7597';
+                ctx.beginPath();
+                ctx.arc(-16, -18, 5.5, 0, Math.PI * 2);
+                ctx.arc(16, -18, 5.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Big Sparkling Eyes
+                ctx.fillStyle = '#2b141e';
+                ctx.beginPath();
+                ctx.arc(-10, -26, 4, 0, Math.PI * 2);
+                ctx.arc(10, -26, 4, 0, Math.PI * 2);
+                ctx.fill();
+                // Eye sparkle highlight
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-11, -27, 1.5, 0, Math.PI * 2);
+                ctx.arc(9, -27, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Mouth
+                if (player.mouthOpen) {
+                    ctx.fillStyle = '#d90429';
+                    ctx.strokeStyle = '#2b141e';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, -14, 9, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = '#2b141e';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, -18, 9, 0.2 * Math.PI, 0.8 * Math.PI);
+                    ctx.stroke();
+                }
+
+                // Chef Hat (Toque Blanche)
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#2b141e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(-22, -54, 44, 15, 4);
+                ctx.arc(-12, -58, 14, 0, Math.PI * 2);
+                ctx.arc(12, -58, 14, 0, Math.PI * 2);
+                ctx.arc(0, -66, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+
+                // Draw Floating Point Numbers
+                for (let j = floatingTexts.length - 1; j >= 0; j--) {
+                    const ft = floatingTexts[j];
+                    ft.y -= 1.3;
+                    ft.life -= 0.025;
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, ft.life);
+                    ctx.font = 'bold 24px Poppins, sans-serif';
+                    ctx.fillStyle = ft.color;
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                    ctx.shadowBlur = 8;
+                    ctx.fillText(ft.text, ft.x, ft.y);
+                    ctx.restore();
+
+                    if (ft.life <= 0) floatingTexts.splice(j, 1);
+                }
+
+                requestAnimationFrame(gameLoop);
+            }
+
+        })();
+
+        /* =========================================================
+           4. NAVBAR SCROLL EFFECT
+           ========================================================= */
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('mainHeader');
+            if (header) {
+                if (window.scrollY > 40) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

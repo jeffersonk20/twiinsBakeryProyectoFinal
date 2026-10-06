@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Descubre pasteles y postres artesanales de TWINS Bakery.">
+    <title>TWINS Bakery | Inicio</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/inicio.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{{ url_for('inicio') }}" aria-label="TWINS Bakery, inicio">
+            <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWINS Bakery">
+            <span>TWINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            <a class="active" href="{{ url_for('inicio') }}">Inicio</a>
+            <a href="{{ url_for('catalogo') }}">Catálogo</a>
+            <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
+        </nav>
+        <a class="header-action" href="{{ url_for('catalogo') }}">Ver catálogo <span aria-hidden="true">→</span></a>
+    </header>
+
+    <main>
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% if mensajes %}
+                <div class="flash-messages" role="status">
+                    {% for categoria, texto in mensajes %}
+                        <p class="flash-message flash-{{ categoria }}">{{ texto }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <section class="hero">
+            <div class="hero-copy">
+                <p class="eyebrow"><span></span> Hecho con amor, para compartir</p>
+                <h1>{% if nombre_cliente %}¡Hola, {{ nombre_cliente }}!{% else %}Endulzamos tus momentos <em>especiales.</em>{% endif %}</h1>
+                <p class="intro">Pasteles artesanales, postres y detalles preparados para convertir cualquier día en una celebración.</p>
+                <div class="hero-actions">
+                    <a class="button button-pink" href="{{ url_for('catalogo') }}">Ver catálogo</a>
+                    <a class="button button-outline" href="{{ url_for('catalogo') }}">Explorar postres</a>
+                </div>
+                <div class="hero-note"><span aria-hidden="true">✦</span> Recién horneado, siempre con cariño.</div>
+            </div>
+            <div class="hero-image" role="img" aria-label="Pastel artesanal decorado con fresas">
+                <div class="image-caption"><span>Una ocasión dulce</span><strong>comienza aquí</strong></div>
+                <span class="floating-heart" aria-hidden="true">♡</span>
+            </div>
+        </section>
+
+        <section class="featured-section" aria-labelledby="featured-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Una probadita de felicidad</p>
+                    <h2 id="featured-title">Productos destacados</h2>
+                </div>
+                <a class="text-link" href="{{ url_for('catalogo') }}">Ver todos <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="featured-grid" data-featured-products aria-live="polite"></div>
+        </section>
+        <section class="occasion-banner">
+            <div><p class="eyebrow">Momentos para celebrar</p><h2>Tu próxima celebración merece algo dulce.</h2></div>
+            <a class="button button-dark" href="{{ url_for('catalogo') }}">Encuentra tu favorito</a>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <a class="brand footer-brand" href="{{ url_for('inicio') }}">TWINS <small>BAKERY</small></a>
+        <span>Pastelería artesanal hecha con amor.</span>
+    </footer>
+    <nav class="mobile-nav" aria-label="Navegación móvil">
+        <a class="selected" href="{{ url_for('inicio') }}"><span aria-hidden="true">⌂</span>Inicio</a>
+        <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">▦</span>Catálogo</a>
+        <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">♡</span>Reservar</a>
+        <a href="{{ url_for('cerrar_sesion') }}"><span aria-hidden="true">○</span>Salir</a>
+    </nav>
+    <script src="{{ url_for('static_files', filename='js/productos.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/inicio.js') }}" defer></script>
+</body>
+</html>

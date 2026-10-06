@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear / editar producto | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_agr_producto.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="desktop-only" role="status"><span>TWINS BAKERY · ADMINISTRACIÓN</span><h1>Esta pantalla está diseñada para computadora.</h1><p>Abre la administración desde una pantalla de al menos 900 px de ancho.</p></div>
+    <div class="admin-shell" data-admin-app data-csrf-token="{{ csrf_token }}">
+        <aside class="sidebar">
+            <a href="{{ url_for('inicio') }}" class="admin-brand">TWINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('inicio') }}">Dashboard</a>
+                <a href="{{ url_for('catalogo') }}">Reservas</a>
+                <a class="active" href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('catalogo') }}">Eventos</a>
+                <a href="{{ url_for('catalogo') }}">Clientes</a>
+                <a href="{{ url_for('catalogo') }}">Twins AI</a>
+                <a href="{{ url_for('catalogo') }}">Configuración</a>
+            </nav>
+            <div class="sidebar-footer"><span>Panel administrativo · acceso temporal sin contraseña</span><a href="{{ url_for('inicio') }}">Volver a la tienda</a></div>
+        </aside>
+        <main class="admin-main">
+            <header class="admin-topbar"><div><span class="eyebrow">TWINS Bakery · Panel administrativo</span><h1>Productos</h1></div><a href="{{ url_for('catalogo') }}" target="_blank" rel="noopener">Ver catálogo ↗</a></header>
+            <div class="admin-columns">
+                <section class="editor-panel">
+                    <div class="panel-heading"><div><p class="eyebrow">Inventario de la tienda</p><h2 data-form-heading>Nuevo producto</h2></div><button class="reset-button" type="button" data-reset-form>Limpiar formulario</button></div>
+                    <div class="form-message" data-admin-message role="status" aria-live="polite" hidden></div>
+                    <form data-product-form>
+                        <input type="hidden" name="id">
+                        <div class="field"><label for="product-name">Nombre del producto</label><input id="product-name" name="nombre" type="text" maxlength="80" placeholder="Ej. Pastel de chocolate" required></div>
+                        <div class="form-row">
+                            <div class="field"><label for="product-category">Categoría</label><select id="product-category" name="categoria" required><option value="">Selecciona una categoría</option><option>Pasteles</option><option>Cupcakes</option><option>Galletas</option><option>Bebidas</option></select></div>
+                            <div class="field"><label for="product-price">Precio (USD)</label><div class="price-input"><span>$</span><input id="product-price" name="precio" type="number" min="0.01" max="99999" step="0.01" placeholder="25.00" required></div></div>
+                        </div>
+                        <div class="field"><label for="product-description">Descripción</label><textarea id="product-description" name="descripcion" rows="3" maxlength="300" placeholder="Cuéntales qué hace especial a este producto" required></textarea></div>
+                        <div class="field"><label for="product-status">Disponibilidad</label><select id="product-status" name="disponible"><option value="true">Activo · visible en tienda</option><option value="false">Agotado · oculto en tienda</option></select></div>
+                        <div class="form-actions"><button class="save-button" type="submit" data-save-button>Guardar producto</button><button class="cancel-button" type="button" data-reset-form>Cancelar</button></div>
+                    </form>
+                </section>
+                <aside class="image-panel">
+                    <div class="image-preview" data-image-preview><span aria-hidden="true">🍰</span><p>Vista previa del producto</p></div>
+                    <label class="upload-button" for="product-image">Subir imagen</label>
+                    <input class="file-input" id="product-image" name="imagen" type="file" accept="image/png,image/jpeg,image/webp">
+                    <p class="image-help">JPG, PNG o WEBP. Máximo 1.2 MB.</p>
+                    <p class="image-error" data-image-error role="alert" hidden></p>
+                </aside>
+            </div>
+            <section class="products-panel">
+                <div class="list-heading"><div><p class="eyebrow">Cambios reflejados en la tienda</p><h2>Productos registrados <span data-product-count>0</span></h2></div></div>
+                <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody data-admin-products></tbody></table><div class="empty-list" data-empty-list hidden>No hay productos todavía. Agrega el primero usando el formulario.</div></div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static_files', filename='js/productos.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_productos.js') }}" defer></script>
+</body>
+</html>

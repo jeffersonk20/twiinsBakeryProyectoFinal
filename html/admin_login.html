@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso administrador | TWINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_login.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main class="login-card">
+        <a class="brand" href="{{ url_for('index') }}">TWINS <span>BAKERY · ADMIN</span></a>
+        <p class="eyebrow">Acceso restringido</p>
+        <h1>Panel administrativo</h1>
+        <p class="intro">Ingresa tus credenciales para administrar los productos de la tienda.</p>
+
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% if mensajes %}
+                {% for categoria, texto in mensajes %}
+                    <p class="message message-{{ categoria }}" role="alert">{{ texto }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if not credenciales_configuradas %}
+            <p class="message message-error" role="alert">El acceso está deshabilitado hasta configurar ADMIN_USER y ADMIN_PASSWORD en el archivo .env.</p>
+        {% endif %}
+
+        <form action="{{ url_for('admin_login') }}" method="post">
+            <div class="field">
+                <label for="usuario">Usuario</label>
+                <input id="usuario" name="usuario" type="text" autocomplete="username" required {% if not credenciales_configuradas %}disabled{% endif %}>
+            </div>
+            <div class="field">
+                <label for="contrasena">Contraseña</label>
+                <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required {% if not credenciales_configuradas %}disabled{% endif %}>
+            </div>
+            <button type="submit" {% if not credenciales_configuradas %}disabled{% endif %}>Entrar al panel</button>
+        </form>
+        <a class="return-link" href="{{ url_for('index') }}">Volver a TWINS Bakery</a>
+    </main>
+</body>
+</html>

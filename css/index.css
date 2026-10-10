@@ -314,6 +314,11 @@ body {
     gap: 12px;
 }
 
+.admin-header-link {
+    padding: 9px 16px;
+    font-size: 0.85rem;
+}
+
 /* Primary Button with Sweet Glow */
 .btn-sweet-primary {
     display: inline-flex;
@@ -1229,6 +1234,9 @@ body {
 }
 
 @media (max-width: 768px) {
+    .header-actions { gap: 0; }
+    .header-actions > .btn-sweet-primary { display: none; }
+
     .game-mobile-touch-controls {
         display: flex;
     }
@@ -1492,6 +1500,11 @@ body {
     .btn-sweet-primary {
         padding: 10px 20px;
         font-size: 0.88rem;
+    }
+
+    .admin-header-link {
+        padding: 8px 10px;
+        font-size: 0.72rem;
     }
 
     .btn-sweet-secondary {

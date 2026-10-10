@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Usuario administrador | TWINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-settings data-csrf-token="{{ csrf_token }}">
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_reservas') }}">TWINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a class="active" href="{{ url_for('admin_configuracion') }}">Usuario administrador</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+        <main class="admin-main">
+            <header class="admin-topbar"><div><p class="eyebrow">TWINS Bakery · Seguridad</p><h1>Usuario administrador</h1></div></header>
+            <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
+            <section class="account-panel">
+                <h2>Cuenta única de administración</h2>
+                <p>El sistema permite un solo usuario administrador. Puedes eliminarlo cuando necesites cerrar el acceso; para crear otra cuenta se requerirá nuevamente el código de configuración inicial.</p>
+                <div class="account-detail">Correo de acceso<strong>{{ admin_email }}</strong></div>
+                <button type="button" class="delete-account" data-open-delete>Eliminar usuario administrador</button>
+            </section>
+        </main>
+    </div>
+    <dialog class="edit-dialog" data-delete-dialog>
+        <form method="dialog" class="dialog-close-row"><button class="icon-close" aria-label="Cerrar">×</button></form>
+        <div class="dialog-content">
+            <p class="eyebrow">Acción irreversible</p>
+            <h2>Eliminar usuario</h2>
+            <p>Ingresa tu contraseña actual para confirmar. Después de eliminarlo, el panel cerrará tu sesión.</p>
+            <form class="delete-form" data-delete-form>
+                <label for="delete-password">Contraseña actual<input id="delete-password" name="contrasena" type="password" autocomplete="current-password" required></label>
+                <div class="dialog-actions"><button type="button" class="button-secondary" data-cancel-delete>Cancelar</button><button type="submit" class="delete-account">Eliminar cuenta</button></div>
+            </form>
+        </div>
+    </dialog>
+    <script src="{{ url_for('static_files', filename='js/admin_configuracion.js') }}" defer></script>
+</body>
+</html>

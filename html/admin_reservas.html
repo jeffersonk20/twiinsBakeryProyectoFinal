@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Reservas | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-reservations data-csrf-token="{{ csrf_token }}">
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_reservas') }}">TWINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a class="active" href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_configuracion') }}">Usuario administrador</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div><p class="eyebrow">TWINS Bakery · Panel administrativo</p><h1>Reservas registradas</h1></div>
+                <a class="catalog-link" href="{{ url_for('catalogo') }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+            </header>
+            <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
+
+            <section class="summary-grid" aria-label="Resumen de reservas">
+                <article class="summary-card"><span>Total de reservas</span><strong data-count-total>—</strong><small>Registradas en la tienda</small></article>
+                <article class="summary-card pending"><span>Esperando anticipo</span><strong data-count-pending>—</strong><small>50% aún por pagar</small></article>
+                <article class="summary-card confirmed"><span>Confirmadas</span><strong data-count-confirmed>—</strong><small>Anticipo registrado</small></article>
+                <article class="summary-card ready"><span>Listas para retirar</span><strong data-count-ready>—</strong><small>Pedidos preparados</small></article>
+            </section>
+
+            <section class="reservations-panel">
+                <div class="list-heading">
+                    <div><p class="eyebrow">Clientes y pedidos</p><h2>Gestión de reservas <span data-visible-count>0</span></h2></div>
+                    <div class="filters">
+                        <label class="search-field"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar código o cliente" aria-label="Buscar reservas" data-search></label>
+                        <select aria-label="Filtrar por estado" data-status-filter>
+                            <option value="">Todos los estados</option>
+                            <option value="PENDIENTE_PAGO">Pendiente de anticipo</option>
+                            <option value="CONFIRMADA">Confirmada</option>
+                            <option value="EN_PREPARACION">En preparación</option>
+                            <option value="LISTA">Lista para retirar</option>
+                            <option value="ENTREGADA">Entregada</option>
+                            <option value="CANCELADA">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Código / Cliente</th><th>Producto</th><th>Retiro</th><th>Total / Anticipo</th><th>Estado</th><th>Pago</th><th>Acciones</th></tr></thead>
+                        <tbody data-reservations-body></tbody>
+                    </table>
+                    <div class="empty-list" data-empty-list hidden>No hay reservas que coincidan con la búsqueda.</div>
+                    <div class="loading-state" data-loading>Consultando reservas…</div>
+                </div>
+            </section>
+            <p class="admin-footnote">Las reservas solo se confirman al registrar el anticipo mínimo del 50%. El saldo se paga al retirar el pedido.</p>
+        </main>
+    </div>
+
+    <dialog class="edit-dialog" data-edit-dialog>
+        <form method="dialog" class="dialog-close-row"><button class="icon-close" aria-label="Cerrar">×</button></form>
+        <div class="dialog-content">
+            <p class="eyebrow">Editar reserva <span data-edit-code></span></p>
+            <h2>Datos del pedido</h2>
+            <form data-edit-form>
+                <input type="hidden" name="id">
+                <div class="field"><label for="edit-customer">Nombre del cliente</label><input id="edit-customer" name="nombre_cliente" maxlength="100" required></div>
+                <div class="form-row">
+                    <div class="field"><label for="edit-phone">Teléfono</label><input id="edit-phone" name="telefono" maxlength="30" required></div>
+                    <div class="field"><label for="edit-quantity">Cantidad</label><input id="edit-quantity" name="cantidad" type="number" min="1" max="30" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="field"><label for="edit-date">Fecha de retiro</label><input id="edit-date" name="fecha" type="date" required></div>
+                    <div class="field"><label for="edit-time">Hora</label><input id="edit-time" name="hora" type="time" required></div>
+                </div>
+                <div class="field"><label for="edit-status">Estado</label><select id="edit-status" name="estado" required>
+                    <option value="PENDIENTE_PAGO">Pendiente de anticipo</option><option value="CONFIRMADA">Confirmada</option><option value="EN_PREPARACION">En preparación</option><option value="LISTA">Lista para retirar</option><option value="ENTREGADA">Entregada</option><option value="CANCELADA">Cancelada</option>
+                </select></div>
+                <p class="dialog-help">La cantidad solo se puede cambiar antes de registrar un pago. Una reserva no puede confirmarse sin su anticipo del 50%. Si el cliente cancela, conserva los pagos registrados: no hay devolución.</p>
+                <div class="dialog-actions"><button type="button" class="button-secondary" data-cancel-edit>Cancelar</button><button type="submit" class="button-primary">Guardar cambios</button></div>
+            </form>
+        </div>
+    </dialog>
+    <script src="{{ url_for('static_files', filename='js/admin_reservas.js') }}" defer></script>
+</body>
+</html>

@@ -3,43 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso administrador | TWINS Bakery</title>
+    <meta name="theme-color" content="#153e49">
+    <title>Panel administrativo | TWINS Bakery</title>
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_login.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <main class="login-card">
-        <a class="brand" href="{{ url_for('index') }}">TWINS <span>BAKERY · ADMIN</span></a>
-        <p class="eyebrow">Acceso restringido</p>
-        <h1>Panel administrativo</h1>
-        <p class="intro">Ingresa tus credenciales para administrar los productos de la tienda.</p>
-
-        {% with mensajes = get_flashed_messages(with_categories=true) %}
-            {% if mensajes %}
-                {% for categoria, texto in mensajes %}
-                    <p class="message message-{{ categoria }}" role="alert">{{ texto }}</p>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% if not credenciales_configuradas %}
-            <p class="message message-error" role="alert">El acceso está deshabilitado hasta configurar ADMIN_USER y ADMIN_PASSWORD en el archivo .env.</p>
-        {% endif %}
-
-        <form action="{{ url_for('admin_login') }}" method="post">
-            <div class="field">
-                <label for="usuario">Usuario</label>
-                <input id="usuario" name="usuario" type="text" autocomplete="username" required {% if not credenciales_configuradas %}disabled{% endif %}>
+    <main class="login-layout">
+        <aside class="brand-panel">
+            <a class="brand" href="{{ url_for('index') }}">TWINS<span>BAKERY</span></a>
+            <div class="brand-copy">
+                <p class="brand-kicker">Administración</p>
+                <h1>Panel administrativo</h1>
+                <p>Gestiona productos, reservas y pedidos de TWINS Bakery.</p>
             </div>
-            <div class="field">
-                <label for="contrasena">Contraseña</label>
-                <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required {% if not credenciales_configuradas %}disabled{% endif %}>
+            <span class="brand-decoration" aria-hidden="true">✦</span>
+        </aside>
+
+        <section class="login-panel">
+            <div class="login-content">
+                <p class="eyebrow">TWINS Bakery · Acceso seguro</p>
+                {% if admin_existe %}
+                    <h2>Iniciar sesión</h2>
+                    <p class="intro">Accede al panel de administración con tu cuenta.</p>
+                {% else %}
+                    <h2>Crear usuario administrador</h2>
+                    <p class="intro">Configura una única cuenta para proteger la administración.</p>
+                {% endif %}
+
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                    {% if mensajes %}
+                        {% for categoria, texto in mensajes %}
+                            <p class="message message-{{ categoria }}" role="alert">{{ texto }}</p>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% if error_base_datos %}
+                    <p class="message message-error" role="alert">No se pudo consultar la base de datos. Revisa la conexión y vuelve a cargar esta página.</p>
+                {% elif admin_existe %}
+                    <form action="{{ url_for('admin_login') }}" method="post">
+                        <div class="field">
+                            <label for="correo">Correo electrónico</label>
+                            <input id="correo" name="correo" type="email" autocomplete="username" maxlength="150" required>
+                        </div>
+                        <div class="field">
+                            <label for="contrasena">Contraseña</label>
+                            <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required>
+                        </div>
+                        <button class="submit-button" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
+                    </form>
+                {% elif admin_existe is not none %}
+                    {% if setup_configurado %}
+                        <form action="{{ url_for('admin_login') }}" method="post">
+                            <div class="field">
+                                <label for="nombre">Nombre del administrador</label>
+                                <input id="nombre" name="nombre" type="text" maxlength="100" autocomplete="name" required>
+                            </div>
+                            <div class="field">
+                                <label for="correo">Correo electrónico</label>
+                                <input id="correo" name="correo" type="email" maxlength="150" autocomplete="email" required>
+                            </div>
+                            <div class="field">
+                                <label for="token-configuracion">Código de configuración</label>
+                                <input id="token-configuracion" name="token_configuracion" type="password" autocomplete="off" required>
+                            </div>
+                            <div class="field">
+                                <label for="contrasena">Contraseña (mínimo 10 caracteres)</label>
+                                <input id="contrasena" name="contrasena" type="password" minlength="10" autocomplete="new-password" required>
+                            </div>
+                            <div class="field">
+                                <label for="confirmar-contrasena">Confirmar contraseña</label>
+                                <input id="confirmar-contrasena" name="confirmar_contrasena" type="password" minlength="10" autocomplete="new-password" required>
+                            </div>
+                            <button class="submit-button" type="submit">Crear cuenta segura <span aria-hidden="true">→</span></button>
+                        </form>
+                    {% else %}
+                        <p class="message message-error" role="alert">Para crear el único usuario, primero configura un valor secreto en ADMIN_SETUP_TOKEN dentro de .env y reinicia la aplicación.</p>
+                    {% endif %}
+                {% endif %}
+                <a class="return-link" href="{{ url_for('index') }}">Volver a TWINS Bakery</a>
             </div>
-            <button type="submit" {% if not credenciales_configuradas %}disabled{% endif %}>Entrar al panel</button>
-        </form>
-        <a class="return-link" href="{{ url_for('index') }}">Volver a TWINS Bakery</a>
+        </section>
     </main>
 </body>
 </html>

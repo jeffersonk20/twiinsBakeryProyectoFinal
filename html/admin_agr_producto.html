@@ -10,21 +10,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="desktop-only" role="status"><span>TWINS BAKERY · ADMINISTRACIÓN</span><h1>Esta pantalla está diseñada para computadora.</h1><p>Abre la administración desde una pantalla de al menos 900 px de ancho.</p></div>
     <div class="admin-shell" data-admin-app data-csrf-token="{{ csrf_token }}">
         <aside class="sidebar">
-            <a href="{{ url_for('inicio') }}" class="admin-brand">TWINS<span>BAKERY · ADMIN</span></a>
+            <a href="{{ url_for('admin_reservas') }}" class="admin-brand">TWINS<span>BAKERY · ADMIN</span></a>
             <nav aria-label="Administración">
-                <a href="{{ url_for('inicio') }}">Dashboard</a>
-                <a href="{{ url_for('catalogo') }}">Reservas</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
                 <a class="active" href="{{ url_for('admin_productos') }}">Productos</a>
-                <a href="#vitrina-option">Vitrina</a>
-                <a href="{{ url_for('catalogo') }}">Eventos</a>
-                <a href="{{ url_for('catalogo') }}">Clientes</a>
-                <a href="{{ url_for('catalogo') }}">Twins AI</a>
-                <a href="{{ url_for('catalogo') }}">Configuración</a>
+                <a href="{{ url_for('admin_configuracion') }}">Usuario administrador</a>
             </nav>
-            <div class="sidebar-footer"><span>Panel administrativo · acceso temporal sin contraseña</span><a href="{{ url_for('inicio') }}">Volver a la tienda</a></div>
+            <div class="sidebar-footer">
+                <span>{{ admin_email }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+                <a href="{{ url_for('catalogo') }}">Volver a la tienda</a>
+            </div>
         </aside>
         <main class="admin-main">
             <header class="admin-topbar"><div><span class="eyebrow">TWINS Bakery · Panel administrativo</span><h1>Productos</h1></div><a href="{{ url_for('catalogo') }}" target="_blank" rel="noopener">Ver catálogo ↗</a></header>

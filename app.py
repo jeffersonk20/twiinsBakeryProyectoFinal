@@ -31,6 +31,31 @@ import mysql.connector
 
 load_dotenv()
 
+APP_MODE = os.getenv("APP_MODE", "combined").strip().lower()
+if APP_MODE not in {"combined", "customer", "admin"}:
+    raise RuntimeError("APP_MODE debe ser combined, customer o admin.")
+
+
+def _normalizar_url_publica(valor):
+    valor = valor.strip().rstrip("/")
+    if not valor:
+        return ""
+    url = urlsplit(valor if "://" in valor else f"https://{valor}")
+    if (
+        url.scheme != "https"
+        or not url.netloc
+        or url.path
+        or url.query
+        or url.fragment
+    ):
+        raise RuntimeError("Las URL públicas deben ser HTTPS y no incluir rutas.")
+    return f"https://{url.netloc}"
+
+
+CLIENT_URL = _normalizar_url_publica(os.getenv("CLIENT_URL", ""))
+if APP_MODE == "admin" and not CLIENT_URL:
+    raise RuntimeError("Falta configurar CLIENT_URL para el servicio de administración.")
+
 app = Flask(
     __name__,
     template_folder="html",
@@ -62,7 +87,7 @@ ESTADOS_RESERVA = {
 }
 WOMPI_CLIENT_ID = os.getenv("WOMPI_CLIENT_ID", "")
 WOMPI_CLIENT_SECRET = os.getenv("WOMPI_CLIENT_SECRET", "")
-URL_BASE_TUWEB = os.getenv("URL_BASE_TUWEB", "").rstrip("/")
+URL_BASE_TUWEB = _normalizar_url_publica(os.getenv("URL_BASE_TUWEB", ""))
 WOMPI_TOKEN_URL = "https://id.wompi.sv/connect/token"
 WOMPI_PAYMENT_LINK_URL = "https://api.wompi.sv/EnlacePago"
 WOMPI_TOKEN = {"valor": None, "expira": 0}
@@ -71,6 +96,34 @@ TIPOS_IMAGEN = {
     "image/png": (b"\x89PNG\r\n\x1a\n",),
     "image/webp": (b"RIFF",),
 }
+
+
+@app.before_request
+def separar_sitios():
+    if APP_MODE == "combined":
+        return None
+
+    es_ruta_admin = request.path.startswith(("/admin", "/api/admin"))
+    if APP_MODE == "admin":
+        if request.path == "/":
+            return redirect(url_for("admin_login"))
+        if es_ruta_admin or request.path.startswith("/static/"):
+            return None
+        abort(404)
+
+    if es_ruta_admin:
+        abort(404)
+    return None
+
+
+@app.context_processor
+def urls_entre_sitios():
+    return {
+        "client_home_url": CLIENT_URL or url_for("index"),
+        "client_catalog_url": (
+            f"{CLIENT_URL}/catalogo" if CLIENT_URL else url_for("catalogo")
+        ),
+    }
 
 
 def cliente_requerido(view):
@@ -359,6 +412,8 @@ def _marcar_pago_aprobado(datos_webhook):
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
+    if APP_MODE == "customer" and filename.startswith(("css/admin_", "js/admin_")):
+        abort(404)
 
     # Solo permitir archivos estáticos de la aplicación
     if filename.startswith("css/"):

@@ -13,7 +13,7 @@
 <body>
     <main class="login-layout">
         <aside class="brand-panel">
-            <a class="brand" href="{{ url_for('index') }}">TWINS<span>BAKERY</span></a>
+            <a class="brand" href="{{ client_home_url }}">TWINS<span>BAKERY</span></a>
             <div class="brand-copy">
                 <p class="brand-kicker">Administración</p>
                 <h1>Panel administrativo</h1>
@@ -84,7 +84,7 @@
                         <p class="message message-error" role="alert">Para crear el único usuario, primero configura un valor secreto en ADMIN_SETUP_TOKEN dentro de .env y reinicia la aplicación.</p>
                     {% endif %}
                 {% endif %}
-                <a class="return-link" href="{{ url_for('index') }}">Volver a TWINS Bakery</a>
+                <a class="return-link" href="{{ client_home_url }}">Volver a TWINS Bakery</a>
             </div>
         </section>
     </main>

@@ -1,41 +1,7 @@
 (() => {
-    async function getAll({ admin = false, vitrina = false } = {}) {
-        const endpoint = admin
-            ? "/api/admin/productos"
-            : `/api/productos${vitrina ? "?vitrina=1" : ""}`;
+    async function getAll({ vitrina = false } = {}) {
+        const endpoint = `/api/productos${vitrina ? "?vitrina=1" : ""}`;
         const response = await fetch(endpoint);
-        return readResponse(response);
-    }
-
-    async function save(producto, imageFile) {
-        const formData = new FormData();
-        formData.append("nombre", producto.nombre);
-        formData.append("categoria", producto.categoria);
-        formData.append("precio", String(producto.precio));
-        formData.append("descripcion", producto.descripcion);
-        formData.append("disponible", String(producto.disponible));
-        formData.append("en_vitrina", String(producto.en_vitrina));
-        if (imageFile) formData.append("imagen", imageFile);
-
-        const isEditing = Boolean(producto.id);
-        const csrfToken = document.querySelector("[data-admin-app]")?.dataset.csrfToken;
-        const response = await fetch(
-            isEditing ? `/api/admin/productos/${encodeURIComponent(producto.id)}` : "/api/admin/productos",
-            {
-                method: isEditing ? "PUT" : "POST",
-                headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
-                body: formData
-            }
-        );
-        return readResponse(response);
-    }
-
-    async function remove(id) {
-        const csrfToken = document.querySelector("[data-admin-app]")?.dataset.csrfToken;
-        const response = await fetch(`/api/admin/productos/${encodeURIComponent(id)}`, {
-            method: "DELETE",
-            headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {}
-        });
         return readResponse(response);
     }
 
@@ -83,5 +49,5 @@
         </a>`;
     }
 
-    window.ProductStore = { getAll, save, remove, escapeHtml, formatPrice, renderCard };
+    window.ProductStore = { getAll, escapeHtml, formatPrice, renderCard };
 })();

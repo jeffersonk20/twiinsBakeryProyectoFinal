@@ -10,6 +10,55 @@
     const MAX_IMAGE_SIZE = 1_200_000;
     let products = [];
 
+    async function readResponse(response) {
+        let result;
+        try {
+            result = await response.json();
+        } catch {
+            throw new Error("El servidor devolvió una respuesta que no se pudo interpretar.");
+        }
+        if (!response.ok) {
+            throw new Error(result.error || "No se pudo completar la operación.");
+        }
+        return result;
+    }
+
+    async function loadAdminProducts() {
+        return readResponse(await fetch("/api/admin/productos"));
+    }
+
+    async function saveProduct(producto, imageFile) {
+        const formData = new FormData();
+        formData.append("nombre", producto.nombre);
+        formData.append("categoria", producto.categoria);
+        formData.append("precio", String(producto.precio));
+        formData.append("descripcion", producto.descripcion);
+        formData.append("disponible", String(producto.disponible));
+        formData.append("en_vitrina", String(producto.en_vitrina));
+        if (imageFile) formData.append("imagen", imageFile);
+
+        const isEditing = Boolean(producto.id);
+        const csrfToken = document.querySelector("[data-admin-app]").dataset.csrfToken;
+        const response = await fetch(
+            isEditing ? `/api/admin/productos/${encodeURIComponent(producto.id)}` : "/api/admin/productos",
+            {
+                method: isEditing ? "PUT" : "POST",
+                headers: { "X-CSRF-Token": csrfToken },
+                body: formData
+            }
+        );
+        return readResponse(response);
+    }
+
+    async function deleteProduct(id) {
+        const csrfToken = document.querySelector("[data-admin-app]").dataset.csrfToken;
+        const response = await fetch(`/api/admin/productos/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: { "X-CSRF-Token": csrfToken }
+        });
+        return readResponse(response);
+    }
+
     function showMessage(text, isError = false) {
         message.textContent = text;
         message.classList.toggle("error", isError);
@@ -50,7 +99,7 @@
         list.innerHTML = "";
         document.querySelector("[data-empty-list]").hidden = true;
         try {
-            products = await window.ProductStore.getAll({ admin: true });
+            products = await loadAdminProducts();
             renderList();
             return true;
         } catch (error) {
@@ -140,7 +189,7 @@
         const saveButton = document.querySelector("[data-save-button]");
         saveButton.disabled = true;
         try {
-            await window.ProductStore.save(producto, imageFile);
+            await saveProduct(producto, imageFile);
             const listLoaded = await loadProducts();
             resetForm();
             if (listLoaded) {
@@ -167,7 +216,7 @@
         if (!product || !window.confirm(`¿Eliminar "${product.nombre}" del catálogo?`)) return;
         deleteButton.disabled = true;
         try {
-            await window.ProductStore.remove(product.id);
+            await deleteProduct(product.id);
             if (await loadProducts()) {
                 showMessage("Producto eliminado del catálogo.");
             } else {

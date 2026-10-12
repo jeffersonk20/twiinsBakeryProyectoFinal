@@ -1,0 +1,69 @@
+services:
+  - type: web
+    name: twiins-bakery-clientes
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: APP_MODE
+        value: customer
+      - key: URL_BASE_TUWEB
+        fromService:
+          type: web
+          name: twiins-bakery-clientes
+          property: host
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: WOMPI_CLIENT_ID
+        sync: false
+      - key: WOMPI_CLIENT_SECRET
+        sync: false
+
+  - type: web
+    name: twiins-bakery-admin
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: APP_MODE
+        value: admin
+      - key: CLIENT_URL
+        fromService:
+          type: web
+          name: twiins-bakery-clientes
+          property: host
+      - key: URL_BASE_TUWEB
+        fromService:
+          type: web
+          name: twiins-bakery-clientes
+          property: host
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: ADMIN_SETUP_TOKEN
+        sync: false

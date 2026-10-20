@@ -23,16 +23,46 @@ load_dotenv()
 # WRAPPER COMPATIBLE PARA SQLITE (Permite ejecutar el proyecto sin MySQL)
 # =====================================================================
 
+class SmartDateTime(str):
+    """Cadena con soporte para el método strftime en caso de que Jinja lo invoque."""
+    def strftime(self, fmt):
+        try:
+            clean = self.replace(" ", "T") if " " in self else self
+            return datetime.datetime.fromisoformat(clean).strftime(fmt)
+        except Exception:
+            return str(self)
+
+
+def _parse_sqlite_value(val):
+    """Convierte cadenas ISO de SQLite a objetos datetime o date nativos."""
+    if isinstance(val, str):
+        if len(val) >= 19 and val[4] == "-" and val[7] == "-":
+            try:
+                return datetime.datetime.fromisoformat(val.replace(" ", "T"))
+            except Exception:
+                return SmartDateTime(val)
+        elif len(val) == 10 and val[4] == "-" and val[7] == "-":
+            try:
+                return datetime.date.fromisoformat(val)
+            except Exception:
+                return SmartDateTime(val)
+    return val
+
+
 class SQLiteRow(dict):
     """
     Fila compatible con dict y con tupla/lista (permite row['campo'] y row[0]).
     Satisface isinstance(row, dict) requerido por app.py.
+    Convierte automáticamente campos de fecha/hora en objetos datetime reales.
     """
     def __init__(self, cursor, row):
         super().__init__()
-        self._row = tuple(row)
+        parsed = []
         for idx, col in enumerate(cursor.description):
-            self[col[0]] = row[idx]
+            v = _parse_sqlite_value(row[idx])
+            self[col[0]] = v
+            parsed.append(v)
+        self._row = tuple(parsed)
 
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -43,6 +73,7 @@ class SQLiteRow(dict):
         if isinstance(key, int):
             return self._row[key] if 0 <= key < len(self._row) else default
         return super().get(key, default)
+
 
 
 class SQLiteCursorWrapper:
@@ -207,7 +238,7 @@ class SQLiteCursorWrapper:
             return None
         if self._dictionary:
             return SQLiteRow(self._cursor, row)
-        return row
+        return tuple(_parse_sqlite_value(v) for v in row)
 
     def fetchall(self):
         if self._custom_rows is not None:
@@ -220,7 +251,7 @@ class SQLiteCursorWrapper:
         rows = self._cursor.fetchall()
         if self._dictionary:
             return [SQLiteRow(self._cursor, r) for r in rows]
-        return rows
+        return [tuple(_parse_sqlite_value(v) for v in r) for r in rows]
 
     def close(self):
         try:

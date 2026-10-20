@@ -28,6 +28,12 @@ import time as time_module
 from urllib.parse import urlsplit
 import requests
 import mysql.connector
+from servicios_correo import (
+    enviar_correo_bienvenida,
+    enviar_correo_inicio_sesion,
+    enviar_correo_reserva_creada,
+    enviar_correo_reserva_aceptada,
+)
 
 load_dotenv()
 
@@ -76,7 +82,7 @@ if not app.secret_key:
 
 app.config["MAX_CONTENT_LENGTH"] = int(1.2 * 1024 * 1024) + 65536
 
-CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas"}
+CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas", "Eventos"}
 ESTADOS_RESERVA = {
     "PENDIENTE_PAGO",
     "CONFIRMADA",
@@ -233,6 +239,48 @@ def _normalizar_reserva(registro):
         "metodo_pago": registro["metodo_pago"],
         "pago_estado": registro["pago_estado"],
     }
+
+
+def _notificar_reserva_confirmada(reserva_id):
+    """Consulta los datos de la reserva y notifica al cliente que fue aceptada y confirmada."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT r.codigo, r.nombre_cliente, COALESCE(c.correo, '') AS correo,
+                   r.total, r.monto_pagado, r.fecha_retiro,
+                   d.nombre_producto, d.cantidad
+            FROM RESERVA r
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+            WHERE r.id_reserva = %s
+            ORDER BY d.id_detalle ASC
+            LIMIT 1
+            """,
+            (reserva_id,),
+        )
+        datos = cursor.fetchone()
+        if datos and datos.get("correo"):
+            enviar_correo_reserva_aceptada(
+                destinatario=datos["correo"],
+                nombre=datos["nombre_cliente"],
+                codigo=datos["codigo"],
+                nombre_producto=datos["nombre_producto"],
+                cantidad=datos["cantidad"],
+                total=datos["total"],
+                monto_pagado=datos["monto_pagado"],
+                fecha_retiro=datos["fecha_retiro"],
+            )
+    except Exception as err:
+        app.logger.warning("No se pudo notificar la reserva confirmada %s: %s", reserva_id, err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 def _wompi_configurada():
@@ -393,6 +441,7 @@ def _marcar_pago_aprobado(datos_webhook):
             (pago["monto"], pago["monto"], pago["id_reserva"]),
         )
         conexion.commit()
+        _notificar_reserva_confirmada(pago["id_reserva"])
         return True
     except mysql.connector.Error:
         if conexion:
@@ -1022,7 +1071,7 @@ def reservar_producto(producto_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT id_producto, nombre, precio
+            SELECT id_producto, nombre, categoria, precio
             FROM PRODUCTO
             WHERE id_producto = %s AND disponible = TRUE
             FOR UPDATE
@@ -1084,6 +1133,37 @@ def reservar_producto(producto_id):
             (id_reserva, metodo_pago, anticipo, referencia_pago),
         )
         conexion.commit()
+
+        # Enviar correo de confirmación de reserva al cliente
+        correo_cliente = session.get("correo_cliente")
+        if not correo_cliente and session.get("id_cliente"):
+            try:
+                cursor.execute(
+                    "SELECT correo FROM CLIENTE WHERE id_cliente = %s",
+                    (session["id_cliente"],),
+                )
+                fila_c = cursor.fetchone()
+                if fila_c:
+                    correo_cliente = fila_c["correo"] if isinstance(fila_c, dict) else fila_c[0]
+            except Exception:
+                pass
+
+        if correo_cliente:
+            try:
+                enviar_correo_reserva_creada(
+                    destinatario=correo_cliente,
+                    nombre=nombre,
+                    codigo=codigo,
+                    nombre_producto=producto["nombre"],
+                    categoria=producto.get("categoria", ""),
+                    cantidad=cantidad,
+                    total=total,
+                    anticipo=anticipo,
+                    fecha_retiro=fecha_retiro,
+                    metodo_pago=metodo_pago,
+                )
+            except Exception as err_envio:
+                app.logger.warning("No se pudo disparar correo de reserva creada: %s", err_envio)
     except mysql.connector.Error as error:
         if conexion:
             conexion.rollback()
@@ -1560,6 +1640,8 @@ def api_admin_reserva(reserva_id):
                 tuple(valores),
             )
         conexion.commit()
+        if "estado" in datos and estado == "CONFIRMADA" and actual["estado"] != "CONFIRMADA":
+            _notificar_reserva_confirmada(reserva_id)
         return jsonify({"mensaje": "Reserva actualizada."})
     except mysql.connector.Error as error:
         if conexion:
@@ -1624,6 +1706,7 @@ def api_admin_marcar_pago(reserva_id):
             (pago["monto"], pago["monto"], reserva_id),
         )
         conexion.commit()
+        _notificar_reserva_confirmada(reserva_id)
         return jsonify({"mensaje": "Anticipo de efectivo registrado. La reserva fue confirmada."})
     except mysql.connector.Error as error:
         if conexion:
@@ -1736,6 +1819,12 @@ def registrar_cliente():
 
         conexion.commit()
 
+        # Enviar correo de bienvenida al cliente
+        try:
+            enviar_correo_bienvenida(correo, nombre)
+        except Exception as err_correo:
+            app.logger.warning("No se pudo disparar el correo de bienvenida: %s", err_correo)
+
         # Mensaje para el login
         flash(
             "¡Registro exitoso! 💗 Ya puedes iniciar sesión.",
@@ -1809,6 +1898,12 @@ def iniciar_sesion():
             session["id_cliente"] = cliente["id_cliente"]
             session["nombre_cliente"] = cliente["nombre"]
             session["correo_cliente"] = cliente["correo"]
+
+            # Enviar correo de notificación de inicio de sesión exitoso
+            try:
+                enviar_correo_inicio_sesion(cliente["correo"], cliente["nombre"])
+            except Exception as err_correo:
+                app.logger.warning("No se pudo disparar el correo de inicio de sesión: %s", err_correo)
 
             flash(
                 "¡Bienvenido a TWINS Bakery, "

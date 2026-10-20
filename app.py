@@ -33,6 +33,7 @@ from servicios_correo import (
     enviar_correo_inicio_sesion,
     enviar_correo_reserva_creada,
     enviar_correo_reserva_aceptada,
+    enviar_correo_reserva_lista,
 )
 
 load_dotenv()
@@ -283,6 +284,51 @@ def _notificar_reserva_confirmada(reserva_id):
             conexion.close()
 
 
+def _notificar_reserva_lista(reserva_id):
+    """Consulta los datos de la reserva y notifica al cliente que su pedido ya está listo para retirar."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT r.codigo, r.nombre_cliente, COALESCE(c.correo, '') AS correo,
+                   r.total, r.monto_pagado, r.fecha_retiro,
+                   d.nombre_producto, d.cantidad
+            FROM RESERVA r
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+            WHERE r.id_reserva = %s
+            ORDER BY d.id_detalle ASC
+            LIMIT 1
+            """,
+            (reserva_id,),
+        )
+        datos = cursor.fetchone()
+        if datos and datos.get("correo"):
+            enviar_correo_reserva_lista(
+                destinatario=datos["correo"],
+                nombre=datos["nombre_cliente"],
+                codigo=datos["codigo"],
+                nombre_producto=datos["nombre_producto"],
+                cantidad=datos["cantidad"],
+                total=datos["total"],
+                monto_pagado=datos["monto_pagado"],
+                fecha_retiro=datos["fecha_retiro"],
+            )
+            return True
+        return False
+    except Exception as err:
+        app.logger.warning("No se pudo notificar la reserva lista %s: %s", reserva_id, err)
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
 def _wompi_configurada():
     base_url = urlsplit(URL_BASE_TUWEB)
     return bool(
@@ -516,6 +562,16 @@ def detalle_producto(producto_id):
     return render_template("detalle_producto.html", producto_id=producto_id)
 
 
+@app.route("/admin/dashboard")
+@administrador_requerido
+def admin_dashboard():
+    return render_template(
+        "dashboard_admin.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
 @app.route("/admin/productos")
 @administrador_requerido
 def admin_productos():
@@ -549,7 +605,7 @@ def admin_configuracion():
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if session.get("es_admin"):
-        return redirect(url_for("admin_reservas"))
+        return redirect(url_for("admin_dashboard"))
 
     admin_existe = None
     error_base_datos = False
@@ -598,7 +654,7 @@ def admin_login():
                     session["id_admin"] = 1
                     session["admin_email"] = correo
                     session["csrf_token"] = secrets.token_urlsafe(32)
-                    return redirect(url_for("admin_reservas"))
+                    return redirect(url_for("admin_dashboard"))
                 except mysql.connector.Error as error:
                     if conexion:
                         conexion.rollback()
@@ -632,7 +688,7 @@ def admin_login():
                     session["id_admin"] = admin["id_admin"]
                     session["admin_email"] = admin["correo"]
                     session["csrf_token"] = secrets.token_urlsafe(32)
-                    return redirect(url_for("admin_reservas"))
+                    return redirect(url_for("admin_dashboard"))
                 flash("Correo o contraseña de administrador incorrectos.", "error")
             except mysql.connector.Error:
                 app.logger.exception("No se pudo iniciar sesión como administrador.")
@@ -1463,6 +1519,72 @@ def webhook_wompi():
     return "", 200
 
 
+@app.route("/api/admin/dashboard", methods=["GET"])
+@administrador_requerido
+def api_admin_dashboard():
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # Contadores por estado
+        cursor.execute("""
+            SELECT estado, COUNT(*) AS total
+            FROM RESERVA
+            GROUP BY estado
+        """)
+        estados = {row["estado"]: row["total"] for row in cursor.fetchall()}
+
+        # Reservas de hoy
+        cursor.execute("""
+            SELECT COUNT(*) AS total FROM RESERVA
+            WHERE DATE(fecha_reserva) = DATE('now')
+        """)
+        row_hoy = cursor.fetchone()
+        reservas_hoy = row_hoy["total"] if row_hoy else 0
+
+        # Productos activos
+        cursor.execute("SELECT COUNT(*) AS total FROM PRODUCTO WHERE disponible = TRUE")
+        row_prod = cursor.fetchone()
+        productos_activos = row_prod["total"] if row_prod else 0
+
+        # Reservas de los últimos 7 días (para la gráfica)
+        cursor.execute("""
+            SELECT DATE(fecha_reserva) AS dia, COUNT(*) AS total
+            FROM RESERVA
+            WHERE fecha_reserva >= DATE('now', '-6 days')
+            GROUP BY DATE(fecha_reserva)
+            ORDER BY dia ASC
+        """)
+        reservas_semana = [
+            {"dia": str(row["dia"]), "total": row["total"]}
+            for row in cursor.fetchall()
+        ]
+
+        return jsonify({
+            "reservas_hoy": reservas_hoy,
+            "pendientes": estados.get("PENDIENTE_PAGO", 0),
+            "confirmadas": estados.get("CONFIRMADA", 0),
+            "en_preparacion": estados.get("EN_PREPARACION", 0),
+            "listas": estados.get("LISTA", 0),
+            "entregadas": estados.get("ENTREGADA", 0),
+            "canceladas": estados.get("CANCELADA", 0),
+            "productos_activos": productos_activos,
+            "reservas_semana": reservas_semana,
+        })
+    except mysql.connector.Error as error:
+        return _error_base_datos(error, "No se pudieron cargar las métricas del dashboard.")
+    except Exception:
+        app.logger.exception("No se pudieron cargar las métricas del dashboard.")
+        return jsonify({"error": "No se pudieron cargar las métricas."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
 @app.route("/api/admin/reservas", methods=["GET"])
 @administrador_requerido
 def api_admin_reservas():
@@ -1642,6 +1764,8 @@ def api_admin_reserva(reserva_id):
         conexion.commit()
         if "estado" in datos and estado == "CONFIRMADA" and actual["estado"] != "CONFIRMADA":
             _notificar_reserva_confirmada(reserva_id)
+        if "estado" in datos and estado == "LISTA" and actual["estado"] != "LISTA":
+            _notificar_reserva_lista(reserva_id)
         return jsonify({"mensaje": "Reserva actualizada."})
     except mysql.connector.Error as error:
         if conexion:
@@ -1712,6 +1836,60 @@ def api_admin_marcar_pago(reserva_id):
         if conexion:
             conexion.rollback()
         return _error_base_datos(error, "No se pudo registrar el anticipo en efectivo.")
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/marcar-lista", methods=["POST"])
+@administrador_requerido
+def api_admin_marcar_lista(reserva_id):
+    """Marca la reserva como LISTA para retirar y envía un correo electrónico al cliente."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT r.id_reserva, r.codigo, r.estado, r.monto_pagado, r.anticipo_requerido
+            FROM RESERVA r
+            WHERE r.id_reserva = %s
+            FOR UPDATE
+            """,
+            (reserva_id,),
+        )
+        reserva = cursor.fetchone()
+        if not reserva:
+            conexion.rollback()
+            return jsonify({"error": "La reserva no existe."}), 404
+        if reserva["estado"] == "CANCELADA":
+            conexion.rollback()
+            return jsonify({"error": "No se puede marcar como lista una reserva cancelada."}), 409
+        if reserva["estado"] == "PENDIENTE_PAGO":
+            conexion.rollback()
+            return jsonify({"error": "La reserva aún no ha sido confirmada ni se ha registrado el anticipo."}), 409
+
+        if reserva["estado"] != "LISTA":
+            cursor.execute(
+                "UPDATE RESERVA SET estado = 'LISTA' WHERE id_reserva = %s",
+                (reserva_id,),
+            )
+        conexion.commit()
+
+        # Despacha la notificación por correo al cliente
+        _notificar_reserva_lista(reserva_id)
+
+        return jsonify({
+            "mensaje": f"Reserva {reserva['codigo']} marcada como lista. Notificación enviada al correo del cliente."
+        })
+    except mysql.connector.Error as error:
+        if conexion:
+            conexion.rollback()
+        return _error_base_datos(error, "No se pudo actualizar la reserva a lista.")
     finally:
         if cursor:
             cursor.close()

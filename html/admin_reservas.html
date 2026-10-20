@@ -15,9 +15,10 @@
         <aside class="admin-sidebar">
             <a class="admin-brand" href="{{ url_for('admin_reservas') }}">TWINS<span>BAKERY · ADMIN</span></a>
             <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
                 <a class="active" href="{{ url_for('admin_reservas') }}">Reservas</a>
                 <a href="{{ url_for('admin_productos') }}">Productos</a>
-                <a href="{{ url_for('admin_configuracion') }}">Usuario administrador</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
             </nav>
             <div class="sidebar-footer">
                 <span>{{ admin_email }}</span>

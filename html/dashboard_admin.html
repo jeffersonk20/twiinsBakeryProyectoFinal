@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#123f49">
+    <title>Dashboard | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/dashboard_admin.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-dashboard>
+        <!-- ── SIDEBAR ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a class="active" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── MAIN ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">Twins Bakery · Panel administrativo</p>
+                    <h1>Resumen general</h1>
+                </div>
+                <a class="catalog-link" href="/" target="_blank" rel="noopener">Ver catálogo ↗</a>
+            </header>
+
+            <!-- Tarjetas de métricas -->
+            <section class="stats-grid" aria-label="Métricas principales">
+                <article class="stat-card">
+                    <p class="stat-label">Reservas hoy</p>
+                    <p class="stat-value pink" data-stat-hoy>—</p>
+                    <p class="stat-sub">Registradas en el día</p>
+                </article>
+                <article class="stat-card active-card">
+                    <p class="stat-label">Pendientes</p>
+                    <p class="stat-value orange" data-stat-pendientes>—</p>
+                    <p class="stat-sub">Esperando anticipo</p>
+                </article>
+                <article class="stat-card">
+                    <p class="stat-label">Productos activos</p>
+                    <p class="stat-value teal" data-stat-productos>—</p>
+                    <p class="stat-sub">Visibles en tienda</p>
+                </article>
+                <article class="stat-card">
+                    <p class="stat-label">Listas para retirar</p>
+                    <p class="stat-value blue" data-stat-listas>—</p>
+                    <p class="stat-sub">Pedidos preparados</p>
+                </article>
+            </section>
+
+            <!-- Gráfica + acciones rápidas -->
+            <div class="content-grid">
+                <!-- Gráfica de barras -->
+                <section class="chart-card" aria-label="Reservas últimos 7 días">
+                    <h2>Reservas de los últimos 7 días</h2>
+                    <div class="dash-loading" data-loading hidden>Cargando métricas…</div>
+                    <div class="chart-area" data-chart-area aria-hidden="true"></div>
+                </section>
+
+                <!-- Acciones rápidas -->
+                <aside class="actions-card" aria-label="Acciones rápidas">
+                    <h2>Acciones rápidas</h2>
+                    <div class="quick-actions">
+                        <a class="qa-btn teal" href="{{ url_for('admin_reservas') }}">Ver reservas</a>
+                        <a class="qa-btn pink" href="{{ url_for('admin_productos') }}">Agregar producto</a>
+                        <a class="qa-btn dark"  href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/dashboard_admin.js') }}" defer></script>
+</body>
+</html>

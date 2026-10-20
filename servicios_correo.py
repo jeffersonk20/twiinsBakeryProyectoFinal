@@ -554,3 +554,131 @@ Tu pedido ya está agendado para su preparación. Te esperamos en la sucursal en
 
     html_completo = _plantilla_base_html(f"Reserva {codigo} Aceptada", "Reserva Aceptada por el Administrador", contenido_html)
     _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
+# 5. NOTIFICACIÓN DE RESERVA LISTA PARA RETIRAR EN EL LOCAL
+# ==============================================================================
+
+def enviar_correo_reserva_lista(
+    destinatario,
+    nombre,
+    codigo,
+    nombre_producto,
+    cantidad,
+    total,
+    monto_pagado,
+    fecha_retiro
+):
+    """Envía la notificación al cliente avisando que su pedido ya está listo para ser retirado en el local."""
+    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    asunto = f"¡Tu pedido está listo para retirar! [Código: {codigo}] - TWINS Bakery 🎂🎉"
+
+    if isinstance(fecha_retiro, datetime):
+        fecha_retiro_str = fecha_retiro.strftime("%d/%m/%Y a las %I:%M %p")
+    else:
+        fecha_retiro_str = str(fecha_retiro)
+
+    total_f = float(total)
+    pagado_f = float(monto_pagado)
+    saldo_restante = max(0.0, total_f - pagado_f)
+
+    if saldo_restante <= 0.001:
+        saldo_html = '<span style="color:#22543d; font-weight:700;">¡Totalmente pagado! ($0.00 USD)</span>'
+        saldo_txt = "Totalmente pagado ($0.00 USD)"
+    else:
+        saldo_html = f'<span style="color:#e05374; font-weight:800; font-size:15px;">${saldo_restante:.2f} USD</span> <span style="font-size:12px; color:#718096;">(cancelar al retirar)</span>'
+        saldo_txt = f"${saldo_restante:.2f} USD (a cancelar al retirar en tienda)"
+
+    contenido_html = f"""
+      <div style="text-align:center; margin-bottom:20px;">
+        <span style="display:inline-block; background-color:#d6bcfa; color:#44337a; font-size:13px; font-weight:800; padding:6px 16px; border-radius:50px; text-transform:uppercase; letter-spacing:1px;">
+          ✨ ¡Listo para Retirar!
+        </span>
+      </div>
+
+      <h2 style="color:#153e49; margin-top:0; font-size:23px; font-weight:800; text-align:center;">
+        ¡Tu pedido está listo, {nombre_seguro}! 🎂🎉
+      </h2>
+
+      <p style="font-size:15px; color:#4a5568; text-align:center;">
+        Nos complace informarte que tu pedido correspondiente a la reserva <strong>{codigo}</strong> para 
+        <strong>{nombre_producto}</strong> ya está recién elaborado, empaquetado con amor y 
+        <strong style="color:#20b7b2;">listo para que pases a retirarlo al local</strong>.
+      </p>
+
+      <div style="background-color:#f0fff4; border:1px solid #9ae6b4; border-radius:12px; padding:20px; margin:25px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#2d3748;">
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🔖 Código de reserva:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:800; color:#e05374; font-size:16px;">{codigo}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🍰 Producto:</td>
+            <td style="padding:6px 0; text-align:right;">{nombre_producto}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">📦 Cantidad:</td>
+            <td style="padding:6px 0; text-align:right;">{cantidad} unidad(es)</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💵 Total del pedido:</td>
+            <td style="padding:6px 0; text-align:right;">${total_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💰 Anticipo pagado:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:#38a169;">${pagado_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🏷️ Saldo pendiente:</td>
+            <td style="padding:6px 0; text-align:right;">{saldo_html}</td>
+          </tr>
+          <tr style="border-top:1px dashed #cbd5e0;">
+            <td style="padding:10px 0 0; font-weight:700; color:#153e49;">📅 Horario programado:</td>
+            <td style="padding:10px 0 0; text-align:right; font-weight:800; color:#153e49;">{fecha_retiro_str}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#ebf8ff; border-left:4px solid #3182ce; border-radius:8px; padding:15px; margin:22px 0;">
+        <p style="margin:0; font-size:14px; color:#2b6cb0;">
+          📍 <strong>Instrucciones para retirar tu pedido:</strong><br>
+          • Pasa por nuestro local de <strong>TWINS Bakery</strong>.<br>
+          • Presenta tu código de reserva: <strong>{codigo}</strong>.<br>
+          • Si tienes saldo pendiente ({saldo_txt}), podrás cancelarlo al retirar en efectivo o con tarjeta.<br>
+          • ¡Te entregaremos tu pedido fresco y listo para celebrar!
+        </p>
+      </div>
+
+      <p style="margin:25px 0 0; font-size:15px; color:#4a5568;">
+        ¡Muchísimas gracias por confiar en TWINS Bakery!<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Tu pedido está listo para retirar! 🎂🎉
+
+Hola {nombre_seguro},
+
+Nos complace informarte que tu pedido correspondiente a la reserva con código {codigo} ({nombre_producto}) ya está completamente preparado y listo para retirar en nuestro local de TWINS Bakery.
+
+Detalles de tu pedido:
+- Código de reserva: {codigo}
+- Producto: {nombre_producto}
+- Cantidad: {cantidad} unidad(es)
+- Total: ${total_f:.2f} USD
+- Anticipo registrado: ${pagado_f:.2f} USD
+- Saldo pendiente al retirar: {saldo_txt}
+- Fecha y horario programado: {fecha_retiro_str}
+
+Instrucciones para retirar:
+1. Pasa por nuestro local de TWINS Bakery.
+2. Presenta tu código de reserva ({codigo}) en recepción.
+3. Si tienes saldo pendiente, lo abonas al recibir tu pastel.
+
+¡Esperamos que disfrutes de tu pedido!
+El equipo de TWINS Bakery 💗
+"""
+
+    html_completo = _plantilla_base_html(f"¡Pedido {codigo} Listo!", "Tu pedido está listo en TWINS Bakery", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)

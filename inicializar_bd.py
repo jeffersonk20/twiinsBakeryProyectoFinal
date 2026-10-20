@@ -159,6 +159,22 @@ def _inicializar_sqlite(conexion, cursor):
     FROM PRODUCTO;
     """)
 
+    # 12. DASHBOARD
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS DASHBOARD (
+        id_snapshot INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_snapshot TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reservas_hoy INTEGER NOT NULL DEFAULT 0,
+        reservas_pendientes INTEGER NOT NULL DEFAULT 0,
+        reservas_confirmadas INTEGER NOT NULL DEFAULT 0,
+        reservas_en_preparacion INTEGER NOT NULL DEFAULT 0,
+        reservas_listas INTEGER NOT NULL DEFAULT 0,
+        reservas_entregadas INTEGER NOT NULL DEFAULT 0,
+        reservas_canceladas INTEGER NOT NULL DEFAULT 0,
+        productos_activos INTEGER NOT NULL DEFAULT 0
+    );
+    """)
+
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
@@ -304,6 +320,21 @@ def _inicializar_mysql(conexion, cursor):
     FROM PRODUCTO;
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS DASHBOARD (
+        id_snapshot INT AUTO_INCREMENT PRIMARY KEY,
+        fecha_snapshot TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reservas_hoy INT NOT NULL DEFAULT 0,
+        reservas_pendientes INT NOT NULL DEFAULT 0,
+        reservas_confirmadas INT NOT NULL DEFAULT 0,
+        reservas_en_preparacion INT NOT NULL DEFAULT 0,
+        reservas_listas INT NOT NULL DEFAULT 0,
+        reservas_entregadas INT NOT NULL DEFAULT 0,
+        reservas_canceladas INT NOT NULL DEFAULT 0,
+        productos_activos INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB;
+    """)
+
 
 def _sembrar_datos_iniciales(cursor):
     """Inserta únicamente el administrador por defecto si no existe."""
@@ -351,7 +382,7 @@ def inicializar_base_datos():
         print(f"  Tablas creadas y verificadas:")
         print(f"    - CLIENTE, ADMINISTRADOR, PRODUCTO, RESERVA")
         print(f"    - DETALLE_RESERVA, PAGO, INVENTARIO, MOVIMIENTO_INVENTARIO")
-        print(f"    - CHAT, MENSAJE, VISTA PASTEL")
+        print(f"    - CHAT, MENSAJE, VISTA PASTEL, DASHBOARD")
         print(f"")
         print(f"  Acceso Administrador por defecto:")
         print(f"    - URL:   /admin/login")

@@ -101,6 +101,8 @@
             const cashPending = paymentPending
                 && reservation.metodo_pago === "EFECTIVO_TIENDA"
                 && reservation.estado !== "CANCELADA";
+            const canMarkReady = ["CONFIRMADA", "EN_PREPARACION"].includes(reservation.estado);
+            const isReady = reservation.estado === "LISTA";
             const paidLabel = paymentPending ? "Pendiente" : "Anticipo pagado";
             const paymentClass = paymentPending ? "" : "paid";
             return `<tr>
@@ -112,6 +114,8 @@
                 <td><span class="payment-state ${paymentClass}">${paidLabel}</span><span class="muted-cell">${escapeHtml(paymentName(reservation.metodo_pago))}</span></td>
                 <td><div class="row-actions">
                     <button type="button" data-edit="${reservation.id}">Editar</button>
+                    ${canMarkReady ? `<button type="button" class="ready-action" data-ready="${reservation.id}" title="Avisar al cliente que su pedido ya está listo para retirar">🔔 Avisar lista</button>` : ""}
+                    ${isReady ? `<button type="button" class="ready-again-action" data-ready="${reservation.id}" title="Reenviar aviso por correo al cliente">✉️ Reenviar aviso</button>` : ""}
                     ${cashPending ? `<button type="button" data-pay="${reservation.id}">Registrar efectivo</button>` : ""}
                     <button type="button" class="delete-action" data-delete="${reservation.id}">Eliminar</button>
                 </div></td>
@@ -178,6 +182,35 @@
         if (button.dataset.edit) {
             const reservation = reservations.find((item) => item.id === Number(button.dataset.edit));
             if (reservation) openEdit(reservation);
+            return;
+        }
+        if (button.dataset.ready) {
+            const reservation = reservations.find((item) => item.id === Number(button.dataset.ready));
+            const codigo = reservation ? reservation.codigo : "";
+            const cliente = reservation ? reservation.cliente : "el cliente";
+            const correo = reservation ? reservation.correo : "";
+            const msgConfirm = correo
+                ? `¿Avisar a ${cliente} (${correo}) que la reserva ${codigo} está lista para retirar?\nSe le enviará una notificación por correo electrónico.`
+                : `¿Marcar la reserva ${codigo} como lista para retirar?`;
+
+            if (!window.confirm(msgConfirm)) return;
+
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.textContent = "Avisando…";
+
+            try {
+                const result = await readResponse(await fetch(`/api/admin/reservas/${button.dataset.ready}/marcar-lista`, {
+                    method: "POST",
+                    headers: { "X-CSRF-Token": csrfToken }
+                }));
+                showMessage(result.mensaje || "Reserva lista y notificación enviada al cliente.");
+                await loadReservations();
+            } catch (error) {
+                showMessage(error.message, true);
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
             return;
         }
         if (button.dataset.delete) {

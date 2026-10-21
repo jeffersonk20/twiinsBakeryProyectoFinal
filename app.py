@@ -14,6 +14,7 @@ from flask import (
 )
 
 from werkzeug.security import generate_password_hash, check_password_hash
+# pyrefly: ignore[missing-import]
 from conexion import obtener_conexion
 from dotenv import load_dotenv
 import os
@@ -28,6 +29,7 @@ import time as time_module
 from urllib.parse import urlsplit
 import requests
 import mysql.connector
+# pyrefly: ignore[missing-import]
 from servicios_correo import (
     enviar_correo_bienvenida,
     enviar_correo_inicio_sesion,
@@ -560,6 +562,197 @@ def vitrina():
 @cliente_requerido
 def detalle_producto(producto_id):
     return render_template("detalle_producto.html", producto_id=producto_id)
+
+# ==========================================
+# SECCIÓN DE EVENTOS Y CELEBRACIONES
+# ==========================================
+
+EVENTOS_DISPONIBLES = {
+    "cumpleanos": {
+        "tipo": "cumpleanos",
+        "tipo_label": "Cumpleaños",
+        "nombre": "Celebración de Cumpleaños",
+        "titulo": "Cumpleaños Inolvidables",
+        "descripcion_corta": "Pasteles personalizados, cupcakes temáticos y detalles dulces para celebrar un año más de vida.",
+        "descripcion": "Haz que cada cumpleaños sea una fiesta inolvidable con nuestros pasteles temáticos personalizados, cupcakes a juego y mesas de postres diseñadas para deleitar a todos tus invitados.",
+        "imagen": "https://crumblegf.com/wp-content/uploads/2022/09/IMG_7836-scaled.jpg",
+        "incluye": [
+            "Pastel personalizado con diseño a elección",
+            "Docena de cupcakes decorados en temática",
+            "Galletas personalizadas con glaseado real",
+            "Velas especiales y topper decorativo",
+            "Asesoría personalizada en sabores y rellenos",
+        ],
+        "condiciones": [
+            "Reserva con un mínimo de 5 días de anticipación",
+            "Anticipo del 50% al confirmar la solicitud",
+            "Cancelaciones permitidas hasta 48 horas antes",
+        ],
+    },
+    "bodas": {
+        "tipo": "bodas",
+        "tipo_label": "Bodas",
+        "nombre": "Pastelería para Bodas",
+        "titulo": "Bodas de Ensueño",
+        "descripcion_corta": "Pasteles de varios pisos de diseño elegante y estaciones de postres finos para el gran día.",
+        "descripcion": "El momento más especial de tu vida merece un pastel extraordinario. Diseñamos pasteles nupciales de pisos elegantes con flores naturales o comestibles, macarons finos y estaciones dulces completas.",
+        "imagen": "https://i.pinimg.com/originals/81/20/10/812010c47bf072b813c0bab59b86d100.jpg",
+        "incluye": [
+            "Pastel de bodas de 2 o 3 niveles con acabados finos",
+            "Mesa de degustación previa para la pareja",
+            "Mesa de mini postres artesanales (macarons, vasitos dulces)",
+            "Montaje y entrega puntual en el lugar del evento",
+            "Soporte y base para el pastel incluidos en préstamo",
+        ],
+        "condiciones": [
+            "Reserva recomendada con 15 a 30 días de anticipación",
+            "Anticipo del 50% para apartar la fecha",
+            "Prueba de degustación programada previamente",
+        ],
+    },
+    "graduaciones": {
+        "tipo": "graduaciones",
+        "tipo_label": "Graduaciones",
+        "nombre": "Celebración de Graduación",
+        "titulo": "Logros & Graduaciones",
+        "descripcion_corta": "Celebra metas alcanzadas con pasteles temáticos de birretes, diplomas y postres de gala.",
+        "descripcion": "Celebra la culminación de un gran esfuerzo académico con nuestros paquetes de graduación. Pasteles con detalles de birrete, pergaminos comestibles y bocadillos dulces para compartir con familia y amigos.",
+        "imagen": "https://i.pinimg.com/736x/c9/01/b0/c901b0b6f95d5dba9ff31fb0753ce636.jpg",
+        "incluye": [
+            "Pastel con temática de carrera universitaria o colegio",
+            "Birretes y diplomas en fondant comestible",
+            "Docena de galletas decoradas alusivas a la graduación",
+            "Caja especial para transporte seguro",
+            "Topper personalizado con el nombre del graduado",
+        ],
+        "condiciones": [
+            "Reserva con un mínimo de 5 días de anticipación",
+            "Anticipo del 50% para confirmación del pedido",
+            "Horarios de retiro coordinados según la ceremonia",
+        ],
+    },
+    "baby-shower": {
+        "tipo": "baby-shower",
+        "tipo_label": "Baby Shower",
+        "nombre": "Baby Showers & Revelación",
+        "titulo": "Baby Shower & Revelación de Género",
+        "descripcion_corta": "Pasteles de revelación con relleno sorpresa, colores pastel y detalles tiernos.",
+        "descripcion": "Damos la bienvenida al nuevo integrante de la familia con ternura y dulzura. Especialistas en pasteles de revelación de sexo (gender reveal) con rellenos sorpresa, tonos pasteles y mini postres temáticos.",
+        "imagen": "https://i.pinimg.com/736x/5e/c6/a4/5ec6a4ad29c3cf91ff0922369052a1d1.jpg",
+        "incluye": [
+            "Pastel temático en tonos pastel o efecto sorpresa",
+            "Relleno secreto para revelación (azul o rosa)",
+            "Cupcakes a juego con decoraciones tiernas",
+            "Galletas con figuras de biberones, mamelucos y sonajeros",
+            "Asesoría para coordinar con organizadores del evento",
+        ],
+        "condiciones": [
+            "Reserva con un mínimo de 5 días de anticipación",
+            "Para revelación: entrega del resultado en sobre cerrado",
+            "Anticipo del 50% al momento de apartar fecha",
+        ],
+    },
+    "aniversarios": {
+        "tipo": "aniversarios",
+        "tipo_label": "Aniversarios",
+        "nombre": "Aniversarios Especiales",
+        "titulo": "Aniversarios & Fechas Románticas",
+        "descripcion_corta": "Pasteles corazón, cajas de postres gourmet y detalles románticos para celebrar el amor.",
+        "descripcion": "Celebra otro año juntos con una experiencia dulce inolvidable. Creamos pasteles estilo vintage lambeth en forma de corazón, fresas cubiertas de chocolate belga y postres íntimos para dos o para toda la familia.",
+        "imagen": "https://i.pinimg.com/originals/7a/fd/b0/7afdb01b692ad27113fc297aab34477e.jpg",
+        "incluye": [
+            "Pastel vintage en forma de corazón o diseño romántico",
+            "Caja de fresas bañadas en chocolate fino",
+            "Mensaje personalizado en glaseado o placa de chocolate",
+            "Empaque de lujo listo para regalo",
+            "Tarjeta con dedicatoria personalizada",
+        ],
+        "condiciones": [
+            "Reserva con un mínimo de 3 a 5 días de anticipación",
+            "Anticipo del 50% requerido",
+            "Opción de entrega coordinada sorpresa",
+        ],
+    },
+}
+
+
+@app.route("/eventos")
+@cliente_requerido
+def eventos():
+    return render_template("eventos.html")
+
+
+@app.route("/eventos/<tipo>")
+@cliente_requerido
+def evento_detalle(tipo):
+    evento = EVENTOS_DISPONIBLES.get(tipo)
+    if not evento:
+        flash("La categoría de evento seleccionada no existe.", "error")
+        return redirect(url_for("eventos"))
+    return render_template("evento_detalle.html", evento=evento)
+
+
+@app.route("/ver-eventos")
+@cliente_requerido
+def ver_eventos():
+    lista_eventos = list(EVENTOS_DISPONIBLES.values())
+    return render_template("ver_eventos.html", eventos=lista_eventos)
+
+
+@app.route("/eventos/planificar", methods=["GET"])
+@cliente_requerido
+def planifica_evento():
+    tipo = request.args.get("tipo", "").strip()
+    ev = EVENTOS_DISPONIBLES.get(tipo)
+    tipo_nombre = ev["tipo_label"] if ev else (tipo.capitalize() if tipo else "")
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "planifica_evento.html",
+        tipo_preseleccionado=tipo_nombre,
+        csrf_token=session["csrf_token"],
+    )
+
+
+@app.route("/eventos/planificar", methods=["POST"])
+@cliente_requerido
+def planifica_evento_post():
+    if not _csrf_valido():
+        flash("La sesión de seguridad venció. Vuelve a intentarlo.", "error")
+        return redirect(url_for("planifica_evento"))
+
+    tipo_evento = request.form.get("tipo_evento", "").strip()
+    fecha_evento = request.form.get("fecha_evento", "").strip()
+    num_invitados = request.form.get("num_invitados", "").strip()
+    lugar_evento = request.form.get("lugar_evento", "").strip()
+    presupuesto = request.form.get("presupuesto", "").strip()
+    servicios = request.form.get("servicios", "").strip()
+
+    if not tipo_evento or not fecha_evento or not num_invitados or not lugar_evento:
+        flash("Por favor completa todos los campos requeridos para cotizar tu evento.", "error")
+        return redirect(url_for("planifica_evento"))
+
+    try:
+        invitados_num = int(num_invitados)
+        if invitados_num <= 0:
+            raise ValueError()
+    except ValueError:
+        flash("Ingresa un número válido de invitados.", "error")
+        return redirect(url_for("planifica_evento"))
+
+    app.logger.info(
+        "Solicitud de evento recibida | Cliente: %s (%s) | Tipo: %s | Fecha: %s | Invitados: %s | Lugar: %s | Presupuesto: %s | Servicios: %s",
+        session.get("nombre_cliente", "Anónimo"),
+        session.get("correo_cliente", "Sin correo"),
+        tipo_evento,
+        fecha_evento,
+        num_invitados,
+        lugar_evento,
+        presupuesto or "No especificado",
+        servicios or "Ninguno",
+    )
+
+    flash("¡Solicitud enviada con éxito! Nos comunicaremos contigo pronto para coordinar todos los detalles de tu evento.", "success")
+    return redirect(url_for("eventos"))
 
 
 @app.route("/admin/dashboard")

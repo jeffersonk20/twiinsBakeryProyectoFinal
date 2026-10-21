@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>{{ evento.nombre }} | TWINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/eventos.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="customer-header">
+        <a class="customer-brand" href="{{ url_for('inicio') }}">TWINS <span>BAKERY</span></a>
+        <nav aria-label="Navegacion de cliente">
+            <a href="{{ url_for('catalogo') }}">Catalogo</a>
+            <a href="{{ url_for('vitrina') }}">Vitrina</a>
+            <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
+            <a class="active" href="{{ url_for('eventos') }}">Eventos</a>
+            <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesion</a>
+        </nav>
+    </header>
+
+    <main class="evento-detalle-page">
+        <a class="back-link-evento" href="{{ url_for('eventos') }}">&#8249; {{ evento.nombre }}</a>
+
+        <div class="evento-detalle-img-wrap">
+            <img src="{{ evento.imagen }}" alt="{{ evento.nombre }}" class="evento-detalle-img">
+        </div>
+
+        <div class="evento-detalle-body">
+            <p class="evento-descripcion">{{ evento.descripcion }}</p>
+
+            <p class="evento-incluye-titulo">Incluye:</p>
+            <ul class="evento-incluye-lista">
+                {% for item in evento.incluye %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+
+            <p class="evento-condiciones-titulo">Condiciones de reserva:</p>
+            <div class="evento-condiciones">
+                {% for cond in evento.condiciones %}
+                    <div class="condicion-pill">
+                        <span class="condicion-icon">&#36;</span>
+                        <span>{{ cond | safe }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="evento-detalle-actions">
+            <a href="{{ url_for('planifica_evento', tipo=evento.tipo) }}" class="btn-solicitar" id="btnSolicitarInfo">Solicitar informacion</a>
+        </div>
+    </main>
+
+    <nav class="customer-mobile-nav" aria-label="Navegacion movil">
+        <a href="{{ url_for('inicio') }}"><span aria-hidden="true">&#8962;</span>Inicio</a>
+        <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">&#9638;</span>Catalogo</a>
+        <a href="{{ url_for('mis_reservas') }}"><span aria-hidden="true">&#9635;</span>Reservas</a>
+        <a class="active" href="{{ url_for('eventos') }}"><span aria-hidden="true">&#10022;</span>Eventos</a>
+        <a href="{{ url_for('cerrar_sesion') }}"><span aria-hidden="true">&#9675;</span>Salir</a>
+    </nav>
+</body>
+</html>

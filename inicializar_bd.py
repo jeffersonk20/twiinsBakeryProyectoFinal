@@ -1,5 +1,6 @@
 import os
 from werkzeug.security import generate_password_hash
+# pyrefly: ignore[missing-import]
 from conexion import obtener_conexion, SQLiteConnectionWrapper
 
 

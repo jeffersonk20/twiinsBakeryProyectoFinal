@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Chat · Mensajes | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-chat data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
+                TWINS<span>BAKERY · ADMIN</span>
+            </a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a class="active active-pill" href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="#" class="nav-dimmed">Clientes</a>
+                <a href="#" class="nav-dimmed">Twins AI</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── MAIN CONTENT ── -->
+        <main class="admin-main main-admin-chat">
+            <header class="admin-chat-topbar">
+                <div>
+                    <h1>Centro de Mensajes</h1>
+                    <p class="subtitle">Twins Bakery · Panel administrativo</p>
+                </div>
+            </header>
+
+            <div class="admin-chat-box">
+                <!-- PANEL IZQUIERDO: LISTA DE CONVERSACIONES -->
+                <aside class="conversations-column">
+                    <div class="conv-tabs">
+                        <button type="button" class="conv-tab-btn active" data-tab="general">
+                            Clientes (General)
+                        </button>
+                        <button type="button" class="conv-tab-btn" data-tab="eventos">
+                            Eventos
+                        </button>
+                    </div>
+
+                    <div class="conv-list-body" id="convListBody">
+                        <div class="loading-state">Cargando conversaciones…</div>
+                    </div>
+                </aside>
+
+                <!-- PANEL DERECHO: MENSAJES Y RESPUESTA -->
+                <section class="messages-column">
+                    <header class="active-conv-header" id="activeConvHeader">
+                        <div class="active-conv-info">
+                            <h2 id="activeConvTitle">Selecciona una conversación</h2>
+                            <p id="activeConvSub">Elige un chat para ver y responder mensajes</p>
+                        </div>
+                    </header>
+
+                    <div class="messages-feed" id="adminMessagesFeed">
+                        <div class="empty-feed-placeholder">
+                            <span>💬</span>
+                            <p>Selecciona una conversación a la izquierda para empezar a responder.</p>
+                        </div>
+                    </div>
+
+                    <footer class="reply-footer" id="replyFooter" hidden>
+                        <form id="adminReplyForm" class="reply-form">
+                            <input type="hidden" id="replyTargetType" value="">
+                            <input type="hidden" id="replyTargetId" value="">
+                            <input 
+                                type="text" 
+                                id="adminReplyInput" 
+                                placeholder="Escribe tu respuesta como Administrador…" 
+                                autocomplete="off"
+                                required
+                            >
+                            <button type="submit" id="btnAdminSend" class="btn-reply-send">
+                                <span>Responder</span>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </footer>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_chat.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+/* Estilos específicos para la pantalla de Administración de Eventos */
+
+.main-eventos {
+    background: #fdf8f0 !important;
+    min-height: 100vh;
+    padding: 38px 45px 50px;
+}
+
+.admin-sidebar nav a.active-pill {
+    background: #ff2d6c !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 14px rgba(255, 45, 108, 0.35);
+}
+
+.admin-sidebar nav a.nav-dimmed {
+    opacity: 0.8;
+}
+
+.eventos-topbar {
+    margin-bottom: 24px;
+}
+
+.eventos-topbar h1 {
+    margin: 0;
+    color: #153e49;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.eventos-topbar .subtitle {
+    margin: 4px 0 0;
+    color: #8c999e;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* Píldoras de filtro */
+.tabs-pills {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.tab-pill {
+    padding: 7px 20px;
+    border-radius: 50px;
+    border: none;
+    background: #f9eae9;
+    color: #7a545a;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.tab-pill:hover {
+    background: #f3dddc;
+    color: #553339;
+}
+
+.tab-pill.active {
+    background: #ff2d6c;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(255, 45, 108, 0.3);
+}
+
+/* Tarjeta y Tabla */
+.eventos-table-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #f6ebe6;
+    box-shadow: 0 4px 20px rgba(21, 62, 73, 0.03);
+    overflow: hidden;
+}
+
+.eventos-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.eventos-table thead {
+    background: #fcebee;
+}
+
+.eventos-table th {
+    padding: 14px 20px;
+    color: #3b5258;
+    font-size: 11px;
+    font-weight: 600;
+    border-bottom: none;
+    text-transform: none;
+    letter-spacing: 0.01em;
+}
+
+.eventos-table td {
+    padding: 18px 20px;
+    border-bottom: 1px solid #f9f2ef;
+    color: #4f6368;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+.eventos-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.eventos-table tbody tr:hover {
+    background: #fffcfb;
+}
+
+.cell-cliente strong {
+    display: block;
+    color: #153e49;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.cell-cliente small {
+    display: block;
+    color: #8c999e;
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+.cell-evento {
+    font-weight: 500;
+    color: #3d545a;
+}
+
+.cell-fecha {
+    color: #4f6368;
+}
+
+.cell-invitados {
+    color: #4f6368;
+}
+
+.cell-presupuesto {
+    color: #4f6368;
+    font-weight: 600;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Acciones de la fila */
+.actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.btn-aceptar {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #ff2d6c;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.btn-aceptar:hover {
+    background: #e41f5a;
+    transform: translateY(-1px);
+}
+
+.btn-rechazar {
+    padding: 6px 12px;
+    border: 1px solid #fed2dd;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #c53056;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.btn-rechazar:hover {
+    background: #fff2f5;
+    border-color: #ff9cb2;
+}
+
+.btn-chat-evento {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #153e49;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.btn-chat-evento:hover {
+    background: #ff2d6c;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.badge-estado {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 50px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.badge-estado.aceptada {
+    background: #e6f9f0;
+    color: #23835a;
+}
+
+.badge-estado.rechazada {
+    background: #ffebeb;
+    color: #b8334a;
+}
+
+.badge-estado.revision {
+    background: #fff4e5;
+    color: #b26a15;
+}
+
+.badge-estado.nueva {
+    background: #ffe9f0;
+    color: #d6245e;
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #eee6e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 11px;
+    color: #153e49;
+    outline: none;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.form-textarea:focus {
+    border-color: #ff2d6c;
+    box-shadow: 0 0 0 3px rgba(255, 45, 108, 0.15);
+}
+
+.btn-danger {
+    background: #d6245e !important;
+}
+
+.btn-danger:hover {
+    background: #b5174a !important;
+}
+
+@media (max-width: 900px) {
+    .main-eventos {
+        padding: 24px 18px 40px;
+    }
+}

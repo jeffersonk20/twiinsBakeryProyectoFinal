@@ -682,3 +682,170 @@ El equipo de TWINS Bakery 💗
 
     html_completo = _plantilla_base_html(f"¡Pedido {codigo} Listo!", "Tu pedido está listo en TWINS Bakery", contenido_html)
     _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
+# 6. NOTIFICACIÓN DE SOLICITUD DE EVENTO ACEPTADA
+# ==============================================================================
+
+def enviar_correo_evento_aceptado(
+    destinatario,
+    nombre,
+    tipo_evento,
+    fecha_evento,
+    num_invitados=None,
+    presupuesto_estimado=None,
+):
+    """Envía un correo al cliente notificando que su solicitud de evento fue aceptada por el administrador."""
+    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    asunto = f"¡Tu solicitud de evento ha sido aceptada! ({tipo_evento}) - TWINS Bakery 🎂🎉"
+
+    if isinstance(fecha_evento, (datetime, datetime.date)):
+        fecha_evento_str = fecha_evento.strftime("%d/%m/%Y")
+    else:
+        fecha_evento_str = str(fecha_evento)
+
+    invitados_str = f"{num_invitados} personas" if num_invitados else "No especificado"
+    presupuesto_str = f"${float(presupuesto_estimado):.2f} USD" if presupuesto_estimado else "Por cotizar"
+
+    contenido_html = f"""
+      <div style="text-align:center; margin-bottom:20px;">
+        <span style="display:inline-block; background-color:#c6f6d5; color:#22543d; font-size:13px; font-weight:800; padding:6px 16px; border-radius:50px; text-transform:uppercase; letter-spacing:1px;">
+          ✓ Solicitud Aceptada
+        </span>
+      </div>
+
+      <h2 style="color:#22543d; margin-top:0; font-size:23px; font-weight:800; text-align:center;">
+        ¡Buenas noticias, {nombre_seguro}! 🎉
+      </h2>
+
+      <p style="font-size:15px; color:#4a5568; text-align:center;">
+        Nos alegra comunicarte que tu solicitud de planificación para tu <strong>{tipo_evento}</strong>
+        ha sido <strong style="color:#38a169;">aceptada</strong> por nuestro equipo administrativo.
+      </p>
+
+      <div style="background-color:#f0fff4; border:1px solid #9ae6b4; border-radius:12px; padding:20px; margin:25px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#2d3748;">
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🎈 Tipo de Evento:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:800; color:#22543d;">{tipo_evento}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">📅 Fecha programada:</td>
+            <td style="padding:6px 0; text-align:right;">{fecha_evento_str}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">👥 Número de invitados:</td>
+            <td style="padding:6px 0; text-align:right;">{invitados_str}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💵 Presupuesto estimado:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700;">{presupuesto_str}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#fff5f7; border-left:4px solid #e05374; border-radius:8px; padding:15px; margin:22px 0;">
+        <p style="margin:0; font-size:14px; color:#70243b;">
+          💬 <strong>Canal de Chat habilitado:</strong><br>
+          Hemos habilitado un chat exclusivo para tu evento en tu cuenta de TWINS Bakery para afinar los detalles de repostería, temáticas y cotizaciones finales.
+        </p>
+      </div>
+
+      <p style="margin:25px 0 0; font-size:15px; color:#4a5568;">
+        ¡Estamos emocionados de endulzar tu celebración especial!<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Tu solicitud de evento ha sido aceptada! 🎉
+
+Hola {nombre_seguro},
+
+Nos complace informarte que tu solicitud de planificación para tu {tipo_evento} programado para el {fecha_evento_str} ha sido ACEPTADA por el equipo de TWINS Bakery.
+
+Detalles:
+- Evento: {tipo_evento}
+- Fecha: {fecha_evento_str}
+- Invitados: {invitados_str}
+- Presupuesto aproximado: {presupuesto_str}
+
+Hemos habilitado un chat dedicado para este evento en la plataforma para coordinar los sabores, decoración y presupuestos.
+
+¡Gracias por confiar en TWINS Bakery!
+"""
+
+    html_completo = _plantilla_base_html(f"Evento Aceptado: {tipo_evento}", "Planificación de Eventos TWINS Bakery", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
+# 7. NOTIFICACIÓN DE SOLICITUD DE EVENTO NO ACEPTADA (RECHAZADA)
+# ==============================================================================
+
+def enviar_correo_evento_rechazado(
+    destinatario,
+    nombre,
+    tipo_evento,
+    fecha_evento,
+    motivo=None,
+):
+    """Envía un correo al cliente notificando que su solicitud no pudo ser aceptada para esa fecha o condiciones."""
+    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    asunto = f"Actualización sobre tu solicitud de evento ({tipo_evento}) - TWINS Bakery"
+
+    if isinstance(fecha_evento, (datetime, datetime.date)):
+        fecha_evento_str = fecha_evento.strftime("%d/%m/%Y")
+    else:
+        fecha_evento_str = str(fecha_evento)
+
+    motivo_texto = motivo.strip() if motivo else "Disponibilidad de agenda completa para la fecha solicitada o capacidad logística."
+
+    contenido_html = f"""
+      <div style="text-align:center; margin-bottom:20px;">
+        <span style="display:inline-block; background-color:#fed7d7; color:#9b2c2c; font-size:13px; font-weight:800; padding:6px 16px; border-radius:50px; text-transform:uppercase; letter-spacing:1px;">
+          Solicitud No Aceptada
+        </span>
+      </div>
+
+      <h2 style="color:#9b2c2c; margin-top:0; font-size:22px; font-weight:800; text-align:center;">
+        Hola, {nombre_seguro}
+      </h2>
+
+      <p style="font-size:15px; color:#4a5568;">
+        Lamentamos informarte que en esta ocasión <strong>no ha sido posible aceptar</strong> tu solicitud de planificación 
+        para el evento <strong>{tipo_evento}</strong> previsto para el <strong>{fecha_evento_str}</strong>.
+      </p>
+
+      <div style="background-color:#fff5f5; border:1px solid #feb2b2; border-radius:10px; padding:18px; margin:20px 0;">
+        <p style="margin:0; font-size:14px; color:#742a2a;">
+          <strong>Motivo / Nota de administración:</strong><br>
+          {motivo_texto}
+        </p>
+      </div>
+
+      <p style="font-size:14px; color:#718096;">
+        Si deseas cotizar para otra fecha o ajustar los requerimientos de tu pedido, no dudes en escribirnos por el chat de la plataforma o enviar una nueva solicitud con gusto te atenderemos.
+      </p>
+
+      <p style="margin:25px 0 0; font-size:15px; color:#4a5568;">
+        Agradecemos profundamente tu preferencia e interés en nuestros servicios.<br>
+        <strong>El equipo de TWINS Bakery</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""Hola {nombre_seguro},
+
+Te informamos que no fue posible aceptar tu solicitud de planificación para el evento {tipo_evento} (fecha: {fecha_evento_str}).
+
+Motivo: {motivo_texto}
+
+Puedes intentar solicitar una nueva fecha a través de la plataforma o comunicarte con nosotros por el chat general.
+
+Atentamente,
+El equipo de TWINS Bakery.
+"""
+
+    html_completo = _plantilla_base_html("Actualización de Solicitud de Evento", "Información de Planificación", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+

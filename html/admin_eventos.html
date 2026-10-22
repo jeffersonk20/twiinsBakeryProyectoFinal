@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Eventos · Solicitudes | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_eventos.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-eventos data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
+                TWINS<span>BAKERY · ADMIN</span>
+            </a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a class="active active-pill" href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="#" class="nav-dimmed">Clientes</a>
+                <a href="#" class="nav-dimmed">Twins AI</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL ── -->
+        <main class="admin-main main-eventos">
+            <header class="eventos-topbar">
+                <div>
+                    <h1>Solicitudes de planificación</h1>
+                    <p class="subtitle">Twins Bakery · Panel administrativo</p>
+                </div>
+            </header>
+
+            <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
+
+            <!-- FILTROS EN PÍLDORAS -->
+            <div class="tabs-pills" role="tablist" aria-label="Filtrar solicitudes">
+                <button type="button" class="tab-pill active" data-filter="NUEVA">Nuevas</button>
+                <button type="button" class="tab-pill" data-filter="EN_REVISION">En revisión</button>
+                <button type="button" class="tab-pill" data-filter="ACEPTADA">Aceptadas</button>
+                <button type="button" class="tab-pill" data-filter="TODAS">Todas</button>
+            </div>
+
+            <!-- TABLA DE SOLICITUDES -->
+            <section class="eventos-table-card">
+                <div class="table-wrap">
+                    <table class="eventos-table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Evento</th>
+                                <th>Fecha</th>
+                                <th>Invitados</th>
+                                <th>Presupuesto</th>
+                                <th class="text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody data-eventos-body>
+                            <!-- Rellenado dinámicamente con JavaScript -->
+                        </tbody>
+                    </table>
+
+                    <div class="empty-list" data-empty-list hidden>
+                        No hay solicitudes en esta sección.
+                    </div>
+                    <div class="loading-state" data-loading>
+                        Cargando solicitudes de eventos…
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- DIALOG PARA RECHAZAR SOLICITUD CON MOTIVO OPCIONAL -->
+    <dialog class="edit-dialog" data-reject-dialog>
+        <form method="dialog" class="dialog-close-row">
+            <button class="icon-close" aria-label="Cerrar">×</button>
+        </form>
+        <div class="dialog-content">
+            <p class="eyebrow">Solicitud de evento</p>
+            <h2>Rechazar solicitud</h2>
+            <p class="dialog-help" style="margin-bottom: 14px;">
+                Al rechazar la solicitud, se enviará automáticamente un correo electrónico al cliente explicando el motivo de forma cortés.
+            </p>
+            <form data-reject-form>
+                <input type="hidden" name="solicitud_id" id="reject-solicitud-id">
+                <div class="field">
+                    <label for="reject-motivo">Motivo o mensaje para el cliente (opcional):</label>
+                    <textarea id="reject-motivo" name="motivo" rows="3" class="form-textarea" placeholder="Ej: No disponemos de cupo para esa fecha en nuestra agenda de producción..."></textarea>
+                </div>
+                <div class="dialog-actions">
+                    <button type="button" class="button-secondary" data-cancel-reject>Cancelar</button>
+                    <button type="submit" class="button-primary btn-danger">Confirmar rechazo y notificar</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <script src="{{ url_for('static_files', filename='js/admin_eventos.js') }}" defer></script>
+</body>
+</html>

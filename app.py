@@ -107,6 +107,52 @@ TIPOS_IMAGEN = {
 }
 
 
+def _asegurar_columna_correo_reserva():
+    """Garantiza que la columna 'correo' exista en RESERVA para SQLite y MySQL."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        try:
+            # Comprobación para SQLite
+            cursor.execute("PRAGMA table_info(RESERVA)")
+            columnas = [col[1] for col in cursor.fetchall()]
+            if columnas and "correo" not in columnas:
+                cursor.execute("ALTER TABLE RESERVA ADD COLUMN correo TEXT NULL")
+                if hasattr(conexion, "commit"):
+                    conexion.commit()
+        except Exception:
+            try:
+                # Comprobación para MySQL
+                cursor.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'RESERVA' AND COLUMN_NAME = 'correo'
+                    """
+                )
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE RESERVA ADD COLUMN correo VARCHAR(150) NULL AFTER nombre_cliente")
+                    if hasattr(conexion, "commit"):
+                        conexion.commit()
+            except Exception as e_mysql:
+                app.logger.warning("No se pudo verificar columna correo en MySQL: %s", e_mysql)
+    except Exception as err:
+        app.logger.warning("No se pudo verificar o agregar columna correo en RESERVA: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+try:
+    _asegurar_columna_correo_reserva()
+except Exception:
+    pass
+
+
 @app.before_request
 def separar_sitios():
     if APP_MODE == "combined":
@@ -253,7 +299,8 @@ def _notificar_reserva_confirmada(reserva_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT r.codigo, r.nombre_cliente, COALESCE(c.correo, '') AS correo,
+            SELECT r.codigo, r.nombre_cliente,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo,
                    r.total, r.monto_pagado, r.fecha_retiro,
                    d.nombre_producto, d.cantidad
             FROM RESERVA r
@@ -295,7 +342,8 @@ def _notificar_reserva_lista(reserva_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT r.codigo, r.nombre_cliente, COALESCE(c.correo, '') AS correo,
+            SELECT r.codigo, r.nombre_cliente,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo,
                    r.total, r.monto_pagado, r.fecha_retiro,
                    d.nombre_producto, d.cantidad
             FROM RESERVA r
@@ -783,6 +831,230 @@ def admin_reservas():
         csrf_token=session["csrf_token"],
         admin_email=session.get("admin_email", ""),
     )
+
+
+@app.route("/admin/reservas/nueva", methods=["GET", "POST"])
+@administrador_requerido
+def admin_nueva_reserva():
+    if request.method == "GET":
+        minimo_retiro = datetime.now() + timedelta(days=5)
+        productos = []
+        ultimas_reservas = []
+        conexion = None
+        cursor = None
+        try:
+            conexion = obtener_conexion()
+            cursor = conexion.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT id_producto, nombre, categoria, precio, descripcion, disponible,
+                       en_vitrina,
+                       (imagen IS NOT NULL AND tipo_imagen IS NOT NULL) AS tiene_imagen
+                FROM PRODUCTO
+                WHERE disponible = TRUE
+                ORDER BY fecha_creacion DESC, id_producto DESC
+                """
+            )
+            productos = [_producto_publico(reg) for reg in cursor.fetchall()]
+
+            cursor.execute(
+                """
+                SELECT r.id_reserva, r.codigo, r.nombre_cliente,
+                       COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo, r.telefono,
+                       d.nombre_producto, d.cantidad, d.precio_unitario,
+                       r.total, r.anticipo_requerido, r.monto_pagado,
+                       r.fecha_retiro, r.estado, p.metodo_pago,
+                       p.estado AS pago_estado
+                FROM RESERVA r
+                LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+                JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+                LEFT JOIN PAGO p ON p.id_pago = (
+                    SELECT MAX(p2.id_pago) FROM PAGO p2
+                    WHERE p2.id_reserva = r.id_reserva
+                )
+                ORDER BY r.id_reserva DESC
+                LIMIT 8
+                """
+            )
+            ultimas_reservas = [_normalizar_reserva(row) for row in cursor.fetchall()]
+        except Exception as error:
+            app.logger.warning("Error al preparar datos de nueva reserva: %s", error)
+        finally:
+            if cursor:
+                cursor.close()
+            if conexion and conexion.is_connected():
+                conexion.close()
+
+        session.setdefault("csrf_token", secrets.token_urlsafe(32))
+        return render_template(
+            "admin_nueva_reserva.html",
+            csrf_token=session["csrf_token"],
+            admin_email=session.get("admin_email", ""),
+            productos=productos,
+            ultimas_reservas=ultimas_reservas,
+            fecha_minima_retiro=minimo_retiro.strftime("%Y-%m-%d"),
+            fecha_minima_display=minimo_retiro.strftime("%d/%m/%Y"),
+            client_catalog_url=url_for("catalogo"),
+        )
+
+    # POST: Crear reserva desde panel administrativo
+    if not _csrf_valido():
+        flash("La sesión de seguridad venció. Vuelve a intentarlo.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+
+    try:
+        producto_id = int(request.form.get("producto_id", "0"))
+        cantidad = int(request.form.get("cantidad", "1"))
+    except (ValueError, TypeError):
+        flash("Selecciona un producto y una cantidad válidos.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    telefono = request.form.get("telefono", "").strip()
+    fecha_str = request.form.get("fecha", "").strip()
+    hora_str = request.form.get("hora", "").strip()
+
+    if not nombre or len(nombre) > 100:
+        flash("Ingresa el nombre del cliente para identificar la reserva.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+    if correo and ("@" not in correo or len(correo) > 150):
+        flash("Si ingresas un correo electrónico, debe tener un formato válido.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+    if not telefono or len(telefono) > 30:
+        flash("Ingresa un número de teléfono de contacto.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+    if cantidad < 1 or cantidad > 30:
+        flash("La cantidad debe estar entre 1 y 30 unidades.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+
+    fecha = None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            fecha = datetime.strptime(fecha_str, fmt).date()
+            break
+        except (ValueError, TypeError):
+            pass
+    if not fecha:
+        flash("Por favor indica una fecha válida para la reserva.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+
+    hora = None
+    for fmt in ("%I:%M %p", "%I:%M%p", "%H:%M", "%H:%M:%S"):
+        try:
+            hora = datetime.strptime(hora_str.strip().upper(), fmt).time()
+            break
+        except (ValueError, TypeError):
+            pass
+    if not hora:
+        hora = time(15, 0)
+
+    fecha_retiro = datetime.combine(fecha, hora)
+    if fecha_retiro < datetime.now() + timedelta(days=5):
+        flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT id_producto, nombre, categoria, precio
+            FROM PRODUCTO
+            WHERE id_producto = %s
+            """,
+            (producto_id,),
+        )
+        producto = cursor.fetchone()
+        if not producto:
+            conexion.rollback()
+            flash("El producto seleccionado no está disponible.", "error")
+            return redirect(url_for("admin_nueva_reserva"))
+
+        id_cliente = None
+        if correo:
+            cursor.execute(
+                "SELECT id_cliente FROM CLIENTE WHERE correo = %s LIMIT 1",
+                (correo,),
+            )
+            cliente_existente = cursor.fetchone()
+            if cliente_existente:
+                id_cliente = cliente_existente["id_cliente"]
+
+        total = (Decimal(str(producto["precio"])) * cantidad).quantize(Decimal("0.01"))
+        anticipo = (total / 2).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        codigo = f"TB-{secrets.token_hex(4).upper()}"
+
+        cursor.execute(
+            """
+            INSERT INTO RESERVA
+                (codigo, id_cliente, fecha_reserva, fecha_retiro, estado,
+                 nombre_cliente, correo, telefono, total, anticipo_requerido, monto_pagado)
+            VALUES (%s, %s, %s, %s, 'PENDIENTE_PAGO', %s, %s, %s, %s, %s, 0)
+            """,
+            (
+                codigo,
+                id_cliente,
+                datetime.now(),
+                fecha_retiro,
+                nombre,
+                correo or None,
+                telefono,
+                total,
+                anticipo,
+            ),
+        )
+        id_reserva = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO DETALLE_RESERVA
+                (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                id_reserva,
+                producto["id_producto"],
+                producto["nombre"],
+                producto["precio"],
+                cantidad,
+            ),
+        )
+
+        cursor.execute(
+            """
+            INSERT INTO PAGO
+                (id_reserva, metodo_pago, monto, estado, referencia)
+            VALUES (%s, 'EFECTIVO_TIENDA', %s, 'PENDIENTE', %s)
+            """,
+            (id_reserva, anticipo, codigo),
+        )
+
+        conexion.commit()
+        # NOTA IMPORTANTE: Por solicitud explícita del usuario, NO se envía correo de confirmación.
+        flash(f"¡Reserva {codigo} registrada exitosamente! Se agregó a reservas registradas.", "success")
+        return redirect(url_for("admin_reservas"))
+    except mysql.connector.Error as error:
+        if conexion:
+            conexion.rollback()
+        _error_base_datos(error, "No se pudo registrar la reserva.")
+        flash("No se pudo registrar la reserva. Inténtalo de nuevo.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+    except Exception:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("No se pudo registrar la reserva administrativa.")
+        flash("Ocurrió un error inesperado al registrar la reserva.", "error")
+        return redirect(url_for("admin_nueva_reserva"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 @app.route("/admin/configuracion")
@@ -1789,7 +2061,7 @@ def api_admin_reservas():
         cursor.execute(
             """
             SELECT r.id_reserva, r.codigo, r.nombre_cliente,
-                   COALESCE(c.correo, '') AS correo, r.telefono,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo, r.telefono,
                    d.nombre_producto, d.cantidad, d.precio_unitario,
                    r.total, r.anticipo_requerido, r.monto_pagado,
                    r.fecha_retiro, r.estado, p.metodo_pago,
@@ -1853,12 +2125,14 @@ def api_admin_reserva(reserva_id):
     datos = request.get_json(silent=True)
     if not isinstance(datos, dict):
         return jsonify({"error": "Los datos enviados no tienen un formato válido."}), 400
-    if not set(datos).issubset({"estado", "nombre_cliente", "telefono", "fecha_retiro", "cantidad"}):
+    if not set(datos).issubset({"estado", "nombre_cliente", "correo", "telefono", "fecha_retiro", "cantidad"}):
         return jsonify({"error": "La solicitud contiene campos que no se pueden modificar."}), 400
     if "estado" in datos and datos["estado"] not in ESTADOS_RESERVA:
         return jsonify({"error": "Selecciona un estado de reserva válido."}), 400
     if "nombre_cliente" in datos and (not str(datos["nombre_cliente"]).strip() or len(str(datos["nombre_cliente"])) > 100):
         return jsonify({"error": "El nombre del cliente no es válido."}), 400
+    if "correo" in datos and datos["correo"] is not None and (not str(datos["correo"]).strip() or "@" not in str(datos["correo"]) or len(str(datos["correo"])) > 150):
+        return jsonify({"error": "El correo del cliente no es válido."}), 400
     if "telefono" in datos and (not str(datos["telefono"]).strip() or len(str(datos["telefono"])) > 30):
         return jsonify({"error": "El teléfono del cliente no es válido."}), 400
     try:
@@ -1908,10 +2182,10 @@ def api_admin_reserva(reserva_id):
 
         asignaciones = []
         valores = []
-        for campo in ("nombre_cliente", "telefono"):
+        for campo in ("nombre_cliente", "correo", "telefono"):
             if campo in datos:
                 asignaciones.append(f"{campo} = %s")
-                valores.append(str(datos[campo]).strip())
+                valores.append(str(datos[campo]).strip().lower() if campo == "correo" else str(datos[campo]).strip())
         if fecha_retiro:
             fecha_actual = actual["fecha_retiro"].replace(second=0, microsecond=0)
             if (

@@ -163,6 +163,7 @@
         const localTime = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
         editForm.elements.id.value = reservation.id;
         editForm.elements.nombre_cliente.value = reservation.cliente;
+        if (editForm.elements.correo) editForm.elements.correo.value = reservation.correo || "";
         editForm.elements.telefono.value = reservation.telefono;
         editForm.elements.cantidad.value = reservation.cantidad;
         editForm.elements.fecha.value = localDate;
@@ -249,6 +250,7 @@
         const fechaRetiro = `${form.get("fecha")}T${form.get("hora")}:00`;
         const updates = {
             nombre_cliente: form.get("nombre_cliente"),
+            correo: form.get("correo") ? form.get("correo").trim().toLowerCase() : "",
             telefono: form.get("telefono"),
             cantidad: Number(form.get("cantidad")),
             fecha_retiro: fechaRetiro,

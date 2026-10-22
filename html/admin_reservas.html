@@ -31,8 +31,20 @@
         <main class="admin-main">
             <header class="admin-topbar">
                 <div><p class="eyebrow">TWINS Bakery · Panel administrativo</p><h1>Reservas registradas</h1></div>
-                <a class="catalog-link" href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a class="catalog-link primary" href="{{ url_for('admin_nueva_reserva') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">＋ Nueva reserva</a>
+                    <a class="catalog-link" href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+                </div>
             </header>
+            {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                    {% for categoria, texto in mensajes %}
+                        <div class="admin-message {% if categoria == 'error' %}error{% endif %}" role="status" aria-live="polite" style="display: block; margin-bottom: 15px;">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
 
             <section class="summary-grid" aria-label="Resumen de reservas">
@@ -79,6 +91,7 @@
             <form data-edit-form>
                 <input type="hidden" name="id">
                 <div class="field"><label for="edit-customer">Nombre del cliente</label><input id="edit-customer" name="nombre_cliente" maxlength="100" required></div>
+                <div class="field"><label for="edit-email">Correo electrónico (para notificaciones)</label><input id="edit-email" name="correo" type="email" maxlength="150"></div>
                 <div class="form-row">
                     <div class="field"><label for="edit-phone">Teléfono</label><input id="edit-phone" name="telefono" maxlength="30" required></div>
                     <div class="field"><label for="edit-quantity">Cantidad</label><input id="edit-quantity" name="cantidad" type="number" min="1" max="30" required></div>

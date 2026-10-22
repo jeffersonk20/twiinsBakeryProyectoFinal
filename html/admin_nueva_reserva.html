@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#123f49">
+    <title>Nueva Reserva | TWINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_nueva_reserva.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-new-reservation-page>
+        <!-- ── SIDEBAR ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a class="active" href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── MAIN ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWINS Bakery · Panel administrativo</p>
+                    <h1>Generar nueva reserva</h1>
+                </div>
+                <div class="topbar-actions">
+                    <a class="catalog-link" href="{{ url_for('admin_reservas') }}">← Volver a Reservas</a>
+                    <a class="catalog-link" href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+                </div>
+            </header>
+
+            {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                    {% for categoria, texto in mensajes %}
+                        <div class="admin-notice admin-notice-{{ categoria }}" role="alert">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="new-reservation-grid">
+                <!-- ── PANEL DE FORMULARIO NATIVO ── -->
+                <section class="panel-card form-panel" aria-label="Formulario de reserva">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">Registro de pedido</p>
+                            <h2>Datos de la nueva reserva</h2>
+                        </div>
+                    </div>
+
+                    <!-- Banner del producto seleccionado (con imagen, nombre y precio) -->
+                    <div class="selected-product-banner" data-selected-banner>
+                        <div class="banner-img" data-selected-image>
+                            {% if productos and productos[0].imagen %}
+                            <img src="{{ productos[0].imagen }}" alt="{{ productos[0].nombre }}" id="form-img">
+                            {% else %}
+                            <span class="cake-emoji" aria-hidden="true">🍰</span>
+                            {% endif %}
+                        </div>
+                        <div class="banner-info">
+                            <span class="banner-badge">Producto seleccionado</span>
+                            <h3 id="form-product-name">
+                                {% if productos %}{{ productos[0].nombre }}{% else %}Selecciona un producto{% endif %}
+                            </h3>
+                            <p class="banner-price" id="form-product-price">
+                                Desde ${% if productos %}{{ "%.2f"|format(productos[0].precio) }}{% else %}0.00{% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Formulario nativo conectado al backend Python (Flask) -->
+                    <form method="post" action="{{ url_for('admin_nueva_reserva') }}" class="native-reservation-form" data-reservation-form>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="producto_id" id="form-producto-id" value="{% if productos %}{{ productos[0].id }}{% endif %}">
+
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="input-cantidad">Cantidad</label>
+                                <input id="input-cantidad" name="cantidad" type="number" min="1" max="30" value="1" required data-qty-input>
+                            </div>
+                            <div class="field">
+                                <label for="input-fecha">Fecha de retiro (mínimo 5 días)</label>
+                                <input id="input-fecha" name="fecha" type="date" min="{{ fecha_minima_retiro }}" value="{{ fecha_minima_retiro }}" required data-date-input>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="input-hora">Hora para recoger</label>
+                                <input id="input-hora" name="hora" type="text" value="3:00 PM" placeholder="Ej. 3:00 PM" required data-time-input>
+                            </div>
+                            <div class="field">
+                                <label for="input-telefono">Teléfono del cliente</label>
+                                <input id="input-telefono" name="telefono" type="tel" placeholder="Tu teléfono de contacto" maxlength="30" required>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="input-nombre">Nombre completo del cliente</label>
+                            <input id="input-nombre" name="nombre" type="text" placeholder="Ej. Ana Martínez" maxlength="100" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="input-correo">Correo electrónico <span class="field-hint">(opcional · para avisar cuando esté lista)</span></label>
+                            <input id="input-correo" name="correo" type="email" placeholder="cliente@ejemplo.com (opcional)" maxlength="150" data-email-input>
+                        </div>
+
+                        <!-- Resumen de montos calculado en tiempo real -->
+                        <div class="financial-summary">
+                            <div class="summary-box">
+                                <span>Total del pedido</span>
+                                <strong id="summary-total">${% if productos %}{{ "%.2f"|format(productos[0].precio) }}{% else %}0.00{% endif %}</strong>
+                            </div>
+                            <div class="summary-box highlight">
+                                <span>Anticipo requerido (50%)</span>
+                                <strong id="summary-deposit">${% if productos %}{{ "%.2f"|format(productos[0].precio / 2) }}{% else %}0.00{% endif %}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Condiciones de reserva (siguiendo el ejemplo de la referencia) -->
+                        <div class="conditions-section">
+                            <h4>Condiciones de reserva</h4>
+                            <div class="conditions-card">
+                                <ul>
+                                    <li>Anticipo: 50% al confirmar.</li>
+                                    <li>Sin retiro: no hay devolución.</li>
+                                    <li>No elaborado: devolución íntegra.</li>
+                                    <li>Reserva mínima 5 días antes.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Botón de confirmación -->
+                        <div class="form-actions-wrapper">
+                            <button type="submit" class="confirm-btn" data-submit-button>
+                                Confirmar reserva
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ── PANEL DE TABLA DE PRODUCTOS PARA SELECCIONAR ── -->
+                <section class="panel-card table-panel" aria-label="Catálogo de productos">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">Catálogo disponible</p>
+                            <h2>Seleccionar producto de la vitrina <span class="badge-count" data-product-count>{{ productos|length }}</span></h2>
+                        </div>
+                    </div>
+
+                    <div class="table-filters-bar">
+                        <div class="search-box">
+                            <span class="search-icon" aria-hidden="true">⌕</span>
+                            <input type="search" placeholder="Buscar por nombre o categoría…" aria-label="Buscar productos" data-product-search>
+                        </div>
+                        <div class="category-tabs" data-category-filters>
+                            <button type="button" class="tab-btn active" data-category="">Todos</button>
+                            <button type="button" class="tab-btn" data-category="Pasteles">Pasteles</button>
+                            <button type="button" class="tab-btn" data-category="Cupcakes">Cupcakes</button>
+                            <button type="button" class="tab-btn" data-category="Galletas">Galletas</button>
+                            <button type="button" class="tab-btn" data-category="Bebidas">Bebidas</button>
+                            <button type="button" class="tab-btn" data-category="Eventos">Eventos</button>
+                        </div>
+                    </div>
+
+                    <div class="table-scroll-wrap">
+                        <table class="native-products-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Precio</th>
+                                    <th>Disponibilidad</th>
+                                    <th style="text-align: right;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody data-products-body>
+                                {% for prod in productos %}
+                                <tr class="product-row"
+                                    data-id="{{ prod.id }}"
+                                    data-nombre="{{ prod.nombre }}"
+                                    data-precio="{{ prod.precio }}"
+                                    data-categoria="{{ prod.categoria }}"
+                                    data-imagen="{{ prod.imagen }}">
+                                    <td>
+                                        <div class="product-item-cell">
+                                            <div class="product-item-thumb">
+                                                {% if prod.imagen %}
+                                                <img src="{{ prod.imagen }}" alt="{{ prod.nombre }}" loading="lazy">
+                                                {% else %}
+                                                <span aria-hidden="true">🍰</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="product-item-info">
+                                                <strong>{{ prod.nombre }}</strong>
+                                                <span>{{ prod.descripcion[:46] }}{% if prod.descripcion|length > 46 %}…{% endif %}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="category-tag">{{ prod.categoria or 'General' }}</span></td>
+                                    <td><strong class="price-value">${{ "%.2f"|format(prod.precio) }}</strong></td>
+                                    <td><span class="stock-badge available">Disponible</span></td>
+                                    <td style="text-align: right;">
+                                        <button type="button" class="row-select-btn" data-select-prod="{{ prod.id }}">
+                                            Seleccionar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="empty-table-cell">No hay productos disponibles actualmente en el catálogo.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ── TABLA DE RESERVAS REGISTRADAS RECIENTEMENTE ── -->
+            <section class="panel-card history-panel" aria-label="Reservas registradas">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Historial en tienda</p>
+                        <h2>Reservas registradas recientemente</h2>
+                    </div>
+                    <a class="catalog-link sm" href="{{ url_for('admin_reservas') }}">Gestionar todas las reservas ↗</a>
+                </div>
+                <div class="table-scroll-wrap">
+                    <table class="native-reservations-table">
+                        <thead>
+                            <tr>
+                                <th>Código / Cliente</th>
+                                <th>Producto</th>
+                                <th>Retiro</th>
+                                <th>Total / Anticipo</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in ultimas_reservas %}
+                            <tr>
+                                <td>
+                                    <strong class="res-code-highlight">{{ res.codigo }}</strong>
+                                    <span class="res-subtext">{{ res.cliente }}{% if res.correo %} · {{ res.correo }}{% endif %} · {{ res.telefono }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ res.producto }}</strong>
+                                    <span class="res-subtext">{{ res.cantidad }} unidad(es)</span>
+                                </td>
+                                <td><span class="res-date-text">{{ res.fecha_retiro }}</span></td>
+                                <td>
+                                    <strong>${{ "%.2f"|format(res.total) }}</strong>
+                                    <span class="res-subtext">Anticipo: ${{ "%.2f"|format(res.anticipo_requerido) }}</span>
+                                </td>
+                                <td>
+                                    <span class="status-pill {{ res.estado|lower }}">{{ res.estado.replace('_', ' ') }}</span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="empty-table-cell">Aún no hay reservas registradas en la tienda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_nueva_reserva.js') }}" defer></script>
+</body>
+</html>

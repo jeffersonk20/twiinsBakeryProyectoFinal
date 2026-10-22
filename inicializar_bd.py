@@ -177,6 +177,64 @@ def _inicializar_sqlite(conexion, cursor):
     );
     """)
 
+    # Telefono en CLIENTE
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN telefono TEXT NULL;")
+    except Exception:
+        pass
+
+    # 13. SOLICITUD_PLANIFICACION
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS SOLICITUD_PLANIFICACION (
+        id_solicitud INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_cliente INT NOT NULL,
+        tipo_evento TEXT NOT NULL,
+        num_invitados INT NOT NULL,
+        presupuesto_estimado NUMERIC NULL,
+        fecha_evento DATE NOT NULL,
+        lugar_evento TEXT NULL,
+        servicios TEXT NULL,
+        estado TEXT NOT NULL DEFAULT 'NUEVA',
+        fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_solicitud_cliente ON SOLICITUD_PLANIFICACION (id_cliente);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_solicitud_estado ON SOLICITUD_PLANIFICACION (estado);")
+
+    # 14. CHAT_EVENTO (Relación 1:1 estricta con SOLICITUD_PLANIFICACION via id_solicitud UNIQUE)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CHAT_EVENTO (
+        id_chat_evento INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_solicitud INT NOT NULL UNIQUE,
+        id_cliente INT NOT NULL,
+        id_admin INT NULL,
+        titulo TEXT NOT NULL,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_solicitud) REFERENCES SOLICITUD_PLANIFICACION(id_solicitud) ON DELETE CASCADE,
+        FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        FOREIGN KEY (id_admin) REFERENCES ADMINISTRADOR(id_admin) ON DELETE SET NULL
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chatevento_solicitud ON CHAT_EVENTO (id_solicitud);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chatevento_cliente ON CHAT_EVENTO (id_cliente);")
+
+    # 15. MENSAJE_EVENTO
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS MENSAJE_EVENTO (
+        id_mensaje_evento INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_chat_evento INT NOT NULL,
+        rol TEXT NOT NULL,
+        mensaje TEXT NOT NULL,
+        fecha_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_chat_evento) REFERENCES CHAT_EVENTO(id_chat_evento) ON DELETE CASCADE
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_msgevento_chat ON MENSAJE_EVENTO (id_chat_evento);")
+
+    # Unicidad 1:1 en chat general cliente-administrador
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_cliente_unico ON CHAT (id_cliente);")
+
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
@@ -338,9 +396,69 @@ def _inicializar_mysql(conexion, cursor):
     ) ENGINE=InnoDB;
     """)
 
+    # Telefono en CLIENTE
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN telefono VARCHAR(30) NULL;")
+    except Exception:
+        pass
+
+    # 13. SOLICITUD_PLANIFICACION
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS SOLICITUD_PLANIFICACION (
+        id_solicitud INT AUTO_INCREMENT PRIMARY KEY,
+        id_cliente INT NOT NULL,
+        tipo_evento VARCHAR(100) NOT NULL,
+        num_invitados INT NOT NULL,
+        presupuesto_estimado DECIMAL(10, 2) NULL,
+        fecha_evento DATE NOT NULL,
+        lugar_evento VARCHAR(150) NULL,
+        servicios VARCHAR(255) NULL,
+        estado VARCHAR(30) NOT NULL DEFAULT 'NUEVA',
+        fecha_solicitud DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_solicitud_cliente (id_cliente),
+        INDEX idx_solicitud_estado (estado),
+        CONSTRAINT fk_solicitud_cliente FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+    """)
+
+    # 14. CHAT_EVENTO (Restricción 1:1 con SOLICITUD_PLANIFICACION mediante UNIQUE en id_solicitud)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CHAT_EVENTO (
+        id_chat_evento INT AUTO_INCREMENT PRIMARY KEY,
+        id_solicitud INT NOT NULL UNIQUE,
+        id_cliente INT NOT NULL,
+        id_admin INT NULL,
+        titulo VARCHAR(150) NOT NULL,
+        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_chatevento_solicitud (id_solicitud),
+        INDEX idx_chatevento_cliente (id_cliente),
+        CONSTRAINT fk_chatevento_solicitud FOREIGN KEY (id_solicitud) REFERENCES SOLICITUD_PLANIFICACION(id_solicitud) ON DELETE CASCADE,
+        CONSTRAINT fk_chatevento_cliente FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        CONSTRAINT fk_chatevento_admin FOREIGN KEY (id_admin) REFERENCES ADMINISTRADOR(id_admin) ON DELETE SET NULL
+    ) ENGINE=InnoDB;
+    """)
+
+    # 15. MENSAJE_EVENTO
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS MENSAJE_EVENTO (
+        id_mensaje_evento INT AUTO_INCREMENT PRIMARY KEY,
+        id_chat_evento INT NOT NULL,
+        rol VARCHAR(20) NOT NULL,
+        mensaje TEXT NOT NULL,
+        fecha_envio DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_msgevento_chat (id_chat_evento),
+        CONSTRAINT fk_msgevento_chat FOREIGN KEY (id_chat_evento) REFERENCES CHAT_EVENTO(id_chat_evento) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+    """)
+
+    try:
+        cursor.execute("CREATE UNIQUE INDEX idx_chat_cliente_unico ON CHAT (id_cliente);")
+    except Exception:
+        pass
+
 
 def _sembrar_datos_iniciales(cursor):
-    """Inserta únicamente el administrador por defecto si no existe."""
+    """Inserta el administrador por defecto y datos iniciales de solicitudes si no existen."""
     # 1. Administrador por defecto
     cursor.execute("SELECT COUNT(*) FROM ADMINISTRADOR WHERE id_admin = 1")
     fila_admin = cursor.fetchone()
@@ -355,6 +473,58 @@ def _sembrar_datos_iniciales(cursor):
             ("Administrador Twins", "admin@twinsbakery.com", generate_password_hash("admin1234")),
         )
         print(" -> Administrador inicial verificado: admin@twinsbakery.com / clave: admin1234")
+
+    # 2. Solicitudes de ejemplo para panel administrativo de eventos si está vacía
+    cursor.execute("SELECT COUNT(*) FROM SOLICITUD_PLANIFICACION")
+    fila_sol = cursor.fetchone()
+    conteo_sol = fila_sol[0] if isinstance(fila_sol, (list, tuple)) else fila_sol.get("COUNT(*)", 0)
+
+    if conteo_sol == 0:
+        # Clientes de demostración reflejados en el diseño de la imagen
+        clientes_demo = [
+            ("Laura Gómez", "laura.gomez@gmail.com", "7712-3401"),
+            ("Daniel Hernández", "daniel.hernandez@gmail.com", "7845-9012"),
+            ("Paola Rivera", "paola.rivera@gmail.com", "7123-4567"),
+            ("Miguel Cruz", "miguel.cruz@gmail.com", "7999-8877"),
+        ]
+
+        ids_clientes = {}
+        for nom, cor, tel in clientes_demo:
+            cursor.execute("SELECT id_cliente FROM CLIENTE WHERE correo = %s", (cor,))
+            fila_c = cursor.fetchone()
+            if fila_c:
+                c_id = fila_c[0] if isinstance(fila_c, (list, tuple)) else fila_c.get("id_cliente")
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO CLIENTE (nombre, correo, contrasena, telefono)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (nom, cor, generate_password_hash("cliente123"), tel),
+                )
+                c_id = cursor.lastrowid
+            ids_clientes[nom] = c_id
+
+        # Insertar solicitudes de la imagen
+        solicitudes_demo = [
+            ("Laura Gómez", "Cumpleaños", 50, 500.00, "2026-10-05", "San Salvador", "Pastel, Cupcakes", "NUEVA"),
+            ("Daniel Hernández", "Graduación", 80, 700.00, "2026-10-10", "Santa Tecla", "Pastel, Decoración", "NUEVA"),
+            ("Paola Rivera", "Baby Shower", 35, 350.00, "2026-10-15", "Antiguo Cuscatlán", "Pastel, Mesa de postres", "NUEVA"),
+            ("Miguel Cruz", "Empresarial", 100, 1000.00, "2026-10-20", "San Salvador", "Bebidas, Pastel, Galletas", "NUEVA"),
+        ]
+
+        for nom, tipo, inv, pres, fec, lug, serv, est in solicitudes_demo:
+            c_id = ids_clientes.get(nom)
+            if c_id:
+                cursor.execute(
+                    """
+                    INSERT INTO SOLICITUD_PLANIFICACION 
+                    (id_cliente, tipo_evento, num_invitados, presupuesto_estimado, fecha_evento, lugar_evento, servicios, estado)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (c_id, tipo, inv, pres, fec, lug, serv, est),
+                )
+        print(" -> Solicitudes iniciales de eventos agregadas según diseño.")
 
 
 

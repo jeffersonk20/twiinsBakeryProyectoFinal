@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>{{ chat.titulo }} | TWINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/chat_evento.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="{{ 'mode-admin' if es_admin else 'mode-client' }}">
+    <div class="chat-container" data-chat-evento-id="{{ chat.id_chat_evento }}" data-es-admin="{{ 'true' if es_admin else 'false' }}">
+        <!-- CABECERA PRINCIPAL -->
+        <header class="chat-header">
+            <div class="chat-header-main">
+                <a href="{{ url_for('admin_eventos') if es_admin else url_for('inicio') }}" class="btn-back" aria-label="Volver">
+                    &#8249; Volver
+                </a>
+                <div class="chat-title-group">
+                    <span class="badge-tag">Chat de Evento</span>
+                    <h1 class="chat-title">{{ chat.titulo }}</h1>
+                    <p class="chat-subtitle">
+                        Coordinación directa de detalles, sabores y cotizaciones con {{ chat.cliente_nombre if es_admin else 'TWINS Bakery' }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- TARJETA RESUMEN DE DETALLES DEL EVENTO -->
+            <div class="event-summary-bar">
+                <div class="summary-item">
+                    <span class="item-label">📅 Fecha:</span>
+                    <strong>{{ chat.fecha_evento }}</strong>
+                </div>
+                <div class="summary-item">
+                    <span class="item-label">👥 Invitados:</span>
+                    <strong>{{ chat.num_invitados }} pers.</strong>
+                </div>
+                {% if chat.presupuesto_estimado %}
+                <div class="summary-item">
+                    <span class="item-label">💵 Presupuesto:</span>
+                    <strong>${{ chat.presupuesto_estimado }} USD</strong>
+                </div>
+                {% endif %}
+                {% if chat.lugar_evento %}
+                <div class="summary-item">
+                    <span class="item-label">📍 Lugar:</span>
+                    <strong>{{ chat.lugar_evento }}</strong>
+                </div>
+                {% endif %}
+                {% if chat.servicios %}
+                <div class="summary-item">
+                    <span class="item-label">🍰 Servicios:</span>
+                    <strong>{{ chat.servicios }}</strong>
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- ÁREA DE MENSAJES -->
+        <main class="chat-feed" id="chatFeed" aria-live="polite">
+            <div class="loading-messages" id="chatLoading">Cargando conversación…</div>
+        </main>
+
+        <!-- FORMULARIO DE ENVÍO -->
+        <footer class="chat-footer">
+            <form id="chatForm" class="chat-input-bar">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input 
+                    type="text" 
+                    id="mensajeInput" 
+                    name="mensaje" 
+                    placeholder="Escribe un mensaje aquí para coordinar el evento…" 
+                    autocomplete="off" 
+                    maxlength="1000"
+                    required
+                >
+                <button type="submit" id="btnEnviar" class="btn-send">
+                    <span>Enviar</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/chat_evento.js') }}" defer></script>
+</body>
+</html>

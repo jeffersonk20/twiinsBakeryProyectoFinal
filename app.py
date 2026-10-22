@@ -18,6 +18,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from conexion import obtener_conexion
 from dotenv import load_dotenv
 import os
+import re
 from functools import wraps
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
@@ -36,6 +37,8 @@ from servicios_correo import (
     enviar_correo_reserva_creada,
     enviar_correo_reserva_aceptada,
     enviar_correo_reserva_lista,
+    enviar_correo_evento_aceptado,
+    enviar_correo_evento_rechazado,
 )
 
 load_dotenv()
@@ -787,20 +790,58 @@ def planifica_evento_post():
         flash("Ingresa un número válido de invitados.", "error")
         return redirect(url_for("planifica_evento"))
 
-    app.logger.info(
-        "Solicitud de evento recibida | Cliente: %s (%s) | Tipo: %s | Fecha: %s | Invitados: %s | Lugar: %s | Presupuesto: %s | Servicios: %s",
-        session.get("nombre_cliente", "Anónimo"),
-        session.get("correo_cliente", "Sin correo"),
-        tipo_evento,
-        fecha_evento,
-        num_invitados,
-        lugar_evento,
-        presupuesto or "No especificado",
-        servicios or "Ninguno",
-    )
+    # Limpiar y parsear presupuesto aproximado
+    presupuesto_num = None
+    if presupuesto:
+        presupuesto_limpio = re.sub(r"[^\d.]", "", presupuesto)
+        try:
+            presupuesto_num = float(presupuesto_limpio)
+        except (ValueError, TypeError):
+            presupuesto_num = None
 
-    flash("¡Solicitud enviada con éxito! Nos comunicaremos contigo pronto para coordinar todos los detalles de tu evento.", "success")
-    return redirect(url_for("eventos"))
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            INSERT INTO SOLICITUD_PLANIFICACION
+            (id_cliente, tipo_evento, num_invitados, presupuesto_estimado, fecha_evento, lugar_evento, servicios, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'NUEVA')
+            """,
+            (
+                session["id_cliente"],
+                tipo_evento,
+                invitados_num,
+                presupuesto_num,
+                fecha_evento,
+                lugar_evento,
+                servicios or None,
+            ),
+        )
+        conexion.commit()
+
+        app.logger.info(
+            "Solicitud de planificación guardada | Cliente ID: %s | Evento: %s | Fecha: %s",
+            session.get("id_cliente"),
+            tipo_evento,
+            fecha_evento,
+        )
+
+        flash("¡Solicitud enviada con éxito! La administración la revisará y podrás coordinar todos los detalles en tu chat de evento una vez aceptada.", "success")
+        return redirect(url_for("eventos"))
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al registrar solicitud de evento: %s", err)
+        flash("Ocurrió un error al enviar tu solicitud. Vuelve a intentarlo.", "error")
+        return redirect(url_for("planifica_evento"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 @app.route("/admin/dashboard")
@@ -1065,6 +1106,115 @@ def admin_configuracion():
         csrf_token=session["csrf_token"],
         admin_email=session.get("admin_email", ""),
     )
+
+
+@app.route("/admin/eventos")
+@administrador_requerido
+def admin_eventos():
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "admin_eventos.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+@app.route("/admin/chat")
+@administrador_requerido
+def admin_chat():
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "admin_chat.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+@app.route("/admin/chat/evento/<int:chat_evento_id>")
+@administrador_requerido
+def admin_chat_evento(chat_evento_id):
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT ce.id_chat_evento, ce.titulo, ce.id_solicitud, ce.id_cliente,
+                   c.nombre AS cliente_nombre, c.correo AS cliente_correo,
+                   s.tipo_evento, s.num_invitados, s.presupuesto_estimado,
+                   s.fecha_evento, s.lugar_evento, s.servicios
+            FROM CHAT_EVENTO ce
+            JOIN CLIENTE c ON c.id_cliente = ce.id_cliente
+            JOIN SOLICITUD_PLANIFICACION s ON s.id_solicitud = ce.id_solicitud
+            WHERE ce.id_chat_evento = %s
+            """,
+            (chat_evento_id,),
+        )
+        chat = cursor.fetchone()
+        if not chat:
+            abort(404)
+        session.setdefault("csrf_token", secrets.token_urlsafe(32))
+        return render_template(
+            "chat_evento.html",
+            chat=chat,
+            es_admin=True,
+            csrf_token=session["csrf_token"],
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/chat")
+@cliente_requerido
+def chat_general():
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "chat_cliente.html",
+        csrf_token=session["csrf_token"],
+        nombre_cliente=session.get("nombre_cliente", ""),
+    )
+
+
+@app.route("/chat/evento/<int:chat_evento_id>")
+@cliente_requerido
+def cliente_chat_evento(chat_evento_id):
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT ce.id_chat_evento, ce.titulo, ce.id_solicitud, ce.id_cliente,
+                   c.nombre AS cliente_nombre, c.correo AS cliente_correo,
+                   s.tipo_evento, s.num_invitados, s.presupuesto_estimado,
+                   s.fecha_evento, s.lugar_evento, s.servicios
+            FROM CHAT_EVENTO ce
+            JOIN CLIENTE c ON c.id_cliente = ce.id_cliente
+            JOIN SOLICITUD_PLANIFICACION s ON s.id_solicitud = ce.id_solicitud
+            WHERE ce.id_chat_evento = %s AND ce.id_cliente = %s
+            """,
+            (chat_evento_id, session["id_cliente"]),
+        )
+        chat = cursor.fetchone()
+        if not chat:
+            abort(404)
+        session.setdefault("csrf_token", secrets.token_urlsafe(32))
+        return render_template(
+            "chat_evento.html",
+            chat=chat,
+            es_admin=False,
+            csrf_token=session["csrf_token"],
+        )
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -2357,6 +2507,640 @@ def api_admin_marcar_lista(reserva_id):
         if conexion:
             conexion.rollback()
         return _error_base_datos(error, "No se pudo actualizar la reserva a lista.")
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# APIS PARA EVENTOS Y SOLICITUDES DE PLANIFICACIÓN
+# ==========================================
+
+@app.route("/api/admin/eventos", methods=["GET"])
+@administrador_requerido
+def api_admin_eventos():
+    """Retorna la lista de solicitudes de planificación para el administrador."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT s.id_solicitud, s.id_cliente, c.nombre AS cliente,
+                   COALESCE(c.correo, '') AS correo, COALESCE(c.telefono, '') AS telefono,
+                   s.tipo_evento, s.num_invitados, s.presupuesto_estimado,
+                   s.fecha_evento, s.lugar_evento, s.servicios, s.estado,
+                   s.fecha_solicitud, ce.id_chat_evento
+            FROM SOLICITUD_PLANIFICACION s
+            JOIN CLIENTE c ON c.id_cliente = s.id_cliente
+            LEFT JOIN CHAT_EVENTO ce ON ce.id_solicitud = s.id_solicitud
+            ORDER BY s.fecha_solicitud DESC, s.id_solicitud DESC
+            """
+        )
+        filas = cursor.fetchall()
+        resultados = []
+        for f in filas:
+            presupuesto_val = None
+            if f.get("presupuesto_estimado") is not None:
+                try:
+                    presupuesto_val = float(f["presupuesto_estimado"])
+                except (ValueError, TypeError):
+                    presupuesto_val = None
+
+            resultados.append({
+                "id_solicitud": f["id_solicitud"],
+                "id_cliente": f["id_cliente"],
+                "cliente": f["cliente"],
+                "correo": f["correo"],
+                "telefono": f["telefono"],
+                "tipo_evento": f["tipo_evento"],
+                "num_invitados": f["num_invitados"],
+                "presupuesto_estimado": presupuesto_val,
+                "fecha_evento": str(f["fecha_evento"]),
+                "lugar_evento": f.get("lugar_evento") or "",
+                "servicios": f.get("servicios") or "",
+                "estado": f["estado"],
+                "fecha_solicitud": str(f["fecha_solicitud"]),
+                "id_chat_evento": f.get("id_chat_evento"),
+            })
+        return jsonify(resultados)
+    except Exception as err:
+        app.logger.exception("Error al consultar solicitudes de eventos: %s", err)
+        return jsonify({"error": "No se pudieron consultar las solicitudes de eventos."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/eventos/<int:solicitud_id>/aceptar", methods=["POST"])
+@administrador_requerido
+def api_admin_evento_aceptar(solicitud_id):
+    """Acepta la solicitud, notifica por correo al cliente y crea el chat-evento 1:1 redirigiendo a él."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT s.id_solicitud, s.id_cliente, s.tipo_evento, s.num_invitados,
+                   s.presupuesto_estimado, s.fecha_evento, s.lugar_evento, s.estado,
+                   c.nombre, c.correo
+            FROM SOLICITUD_PLANIFICACION s
+            JOIN CLIENTE c ON c.id_cliente = s.id_cliente
+            WHERE s.id_solicitud = %s
+            """,
+            (solicitud_id,),
+        )
+        solicitud = cursor.fetchone()
+        if not solicitud:
+            return jsonify({"error": "La solicitud ya no existe."}), 404
+
+        # Cambiar estado a ACEPTADA
+        cursor.execute(
+            "UPDATE SOLICITUD_PLANIFICACION SET estado = 'ACEPTADA' WHERE id_solicitud = %s",
+            (solicitud_id,),
+        )
+
+        # Crear o consultar el CHAT_EVENTO con restricción 1:1
+        cursor.execute(
+            "SELECT id_chat_evento FROM CHAT_EVENTO WHERE id_solicitud = %s",
+            (solicitud_id,),
+        )
+        chat_existente = cursor.fetchone()
+        if chat_existente:
+            id_chat_evento = chat_existente["id_chat_evento"] if isinstance(chat_existente, dict) else chat_existente[0]
+        else:
+            titulo_default = f"{solicitud['tipo_evento']} - {solicitud['nombre']}"
+            cursor.execute(
+                """
+                INSERT INTO CHAT_EVENTO (id_solicitud, id_cliente, id_admin, titulo)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (solicitud_id, solicitud["id_cliente"], 1, titulo_default),
+            )
+            id_chat_evento = cursor.lastrowid
+
+            # Mensaje de bienvenida inicial
+            mensaje_bienvenida = (
+                f"¡Hola {solicitud['nombre']}! Tu solicitud para el evento '{solicitud['tipo_evento']}' "
+                f"ha sido aceptada por TWINS Bakery. Estaremos coordinando todos los detalles aquí."
+            )
+            cursor.execute(
+                """
+                INSERT INTO MENSAJE_EVENTO (id_chat_evento, rol, mensaje)
+                VALUES (%s, 'admin', %s)
+                """,
+                (id_chat_evento, mensaje_bienvenida),
+            )
+
+        conexion.commit()
+
+        # Despachar correo de notificación de evento aceptado
+        try:
+            enviar_correo_evento_aceptado(
+                destinatario=solicitud["correo"],
+                nombre=solicitud["nombre"],
+                tipo_evento=solicitud["tipo_evento"],
+                fecha_evento=solicitud["fecha_evento"],
+                num_invitados=solicitud["num_invitados"],
+                presupuesto_estimado=solicitud["presupuesto_estimado"],
+            )
+        except Exception as err_mail:
+            app.logger.warning("No se pudo despachar correo de evento aceptado: %s", err_mail)
+
+        return jsonify({
+            "ok": True,
+            "mensaje": "Solicitud aceptada y notificación enviada.",
+            "id_chat_evento": id_chat_evento,
+            "redirect_url": url_for("admin_chat_evento", chat_evento_id=id_chat_evento),
+        })
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al aceptar solicitud de evento: %s", err)
+        return jsonify({"error": "No se pudo aceptar la solicitud de evento."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/eventos/<int:solicitud_id>/rechazar", methods=["POST"])
+@administrador_requerido
+def api_admin_evento_rechazar(solicitud_id):
+    """Rechaza la solicitud y envía notificación por correo explicando el motivo."""
+    datos = request.get_json(silent=True) or {}
+    motivo = datos.get("motivo", "").strip() if isinstance(datos, dict) else ""
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT s.id_solicitud, s.tipo_evento, s.fecha_evento,
+                   c.nombre, c.correo
+            FROM SOLICITUD_PLANIFICACION s
+            JOIN CLIENTE c ON c.id_cliente = s.id_cliente
+            WHERE s.id_solicitud = %s
+            """,
+            (solicitud_id,),
+        )
+        solicitud = cursor.fetchone()
+        if not solicitud:
+            return jsonify({"error": "La solicitud ya no existe."}), 404
+
+        cursor.execute(
+            "UPDATE SOLICITUD_PLANIFICACION SET estado = 'RECHAZADA' WHERE id_solicitud = %s",
+            (solicitud_id,),
+        )
+        conexion.commit()
+
+        try:
+            enviar_correo_evento_rechazado(
+                destinatario=solicitud["correo"],
+                nombre=solicitud["nombre"],
+                tipo_evento=solicitud["tipo_evento"],
+                fecha_evento=solicitud["fecha_evento"],
+                motivo=motivo or None,
+            )
+        except Exception as err_mail:
+            app.logger.warning("No se pudo enviar correo de evento rechazado: %s", err_mail)
+
+        return jsonify({
+            "ok": True,
+            "mensaje": "Solicitud rechazada y notificación enviada por correo al cliente.",
+        })
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al rechazar solicitud de evento: %s", err)
+        return jsonify({"error": "No se pudo procesar el rechazo de la solicitud."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# APIS PARA CHAT DE EVENTO (CHAT-EVENTO)
+# ==========================================
+
+@app.route("/api/chat-evento/<int:chat_evento_id>/mensajes", methods=["GET"])
+def api_chat_evento_mensajes(chat_evento_id):
+    """Obtiene los mensajes de un chat-evento verificando permisos."""
+    es_admin = bool(session.get("es_admin"))
+    id_cliente = session.get("id_cliente")
+
+    if not es_admin and not id_cliente:
+        return jsonify({"error": "No autorizado."}), 401
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT ce.id_chat_evento, ce.id_solicitud, ce.id_cliente, ce.titulo,
+                   s.tipo_evento, s.fecha_evento, s.num_invitados, s.presupuesto_estimado,
+                   s.lugar_evento, s.servicios, c.nombre AS cliente_nombre
+            FROM CHAT_EVENTO ce
+            JOIN SOLICITUD_PLANIFICACION s ON s.id_solicitud = ce.id_solicitud
+            JOIN CLIENTE c ON c.id_cliente = ce.id_cliente
+            WHERE ce.id_chat_evento = %s
+            """,
+            (chat_evento_id,),
+        )
+        chat = cursor.fetchone()
+        if not chat:
+            return jsonify({"error": "El chat de evento no existe."}), 404
+
+        if not es_admin and chat["id_cliente"] != id_cliente:
+            return jsonify({"error": "No tienes acceso a este chat."}), 403
+
+        cursor.execute(
+            """
+            SELECT id_mensaje_evento, rol, mensaje, fecha_envio
+            FROM MENSAJE_EVENTO
+            WHERE id_chat_evento = %s
+            ORDER BY id_mensaje_evento ASC
+            """,
+            (chat_evento_id,),
+        )
+        mensajes = cursor.fetchall()
+        mensajes_serializables = []
+        for m in mensajes:
+            mensajes_serializables.append({
+                "id_mensaje_evento": m["id_mensaje_evento"],
+                "rol": m["rol"],
+                "mensaje": m["mensaje"],
+                "fecha_envio": str(m["fecha_envio"]),
+            })
+
+        return jsonify({
+            "chat": {
+                "id_chat_evento": chat["id_chat_evento"],
+                "titulo": chat["titulo"],
+                "tipo_evento": chat["tipo_evento"],
+                "fecha_evento": str(chat["fecha_evento"]),
+                "num_invitados": chat["num_invitados"],
+                "presupuesto_estimado": float(chat["presupuesto_estimado"]) if chat.get("presupuesto_estimado") is not None else None,
+                "cliente_nombre": chat["cliente_nombre"],
+            },
+            "mensajes": mensajes_serializables,
+        })
+    except Exception as err:
+        app.logger.exception("Error al consultar mensajes de chat-evento: %s", err)
+        return jsonify({"error": "No se pudieron obtener los mensajes."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/chat-evento/<int:chat_evento_id>/mensaje", methods=["POST"])
+def api_chat_evento_enviar_mensaje(chat_evento_id):
+    """Envía un mensaje a un chat de evento (cliente o administrador)."""
+    es_admin = bool(session.get("es_admin"))
+    id_cliente = session.get("id_cliente")
+
+    if not es_admin and not id_cliente:
+        return jsonify({"error": "No autorizado."}), 401
+
+    datos = request.get_json(silent=True) or {}
+    texto = str(datos.get("mensaje", "")).strip()
+    if not texto:
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+    if len(texto) > 1000:
+        return jsonify({"error": "El mensaje supera los 1000 caracteres permitidos."}), 400
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute("SELECT id_cliente FROM CHAT_EVENTO WHERE id_chat_evento = %s", (chat_evento_id,))
+        chat = cursor.fetchone()
+        if not chat:
+            return jsonify({"error": "El chat no existe."}), 404
+
+        if not es_admin and chat["id_cliente"] != id_cliente:
+            return jsonify({"error": "No tienes acceso a este chat."}), 403
+
+        rol = "admin" if es_admin else "cliente"
+        cursor.execute(
+            """
+            INSERT INTO MENSAJE_EVENTO (id_chat_evento, rol, mensaje)
+            VALUES (%s, %s, %s)
+            """,
+            (chat_evento_id, rol, texto),
+        )
+        conexion.commit()
+        return jsonify({"ok": True, "mensaje_id": cursor.lastrowid})
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al guardar mensaje en chat-evento: %s", err)
+        return jsonify({"error": "No se pudo enviar el mensaje."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# APIS PARA CHAT GENERAL (CLIENTE - ADMINISTRADOR)
+# ==========================================
+
+@app.route("/api/chat/mensajes", methods=["GET"])
+@cliente_requerido
+def api_chat_general_mensajes():
+    """Consulta los mensajes del chat general del cliente logueado."""
+    id_cliente = session["id_cliente"]
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # Buscar o crear chat general (1:1 con cliente)
+        cursor.execute("SELECT id_chat FROM CHAT WHERE id_cliente = %s", (id_cliente,))
+        chat = cursor.fetchone()
+        if not chat:
+            cursor.execute("INSERT INTO CHAT (id_cliente, id_admin) VALUES (%s, 1)", (id_cliente,))
+            id_chat = cursor.lastrowid
+            conexion.commit()
+        else:
+            id_chat = chat["id_chat"] if isinstance(chat, dict) else chat[0]
+
+        cursor.execute(
+            """
+            SELECT id_mensaje, rol, mensaje, fecha_envio
+            FROM MENSAJE
+            WHERE id_chat = %s
+            ORDER BY id_mensaje ASC
+            """,
+            (id_chat,),
+        )
+        mensajes = cursor.fetchall()
+        serializables = [
+            {
+                "id_mensaje": m["id_mensaje"],
+                "rol": m["rol"],
+                "mensaje": m["mensaje"],
+                "fecha_envio": str(m["fecha_envio"]),
+            }
+            for m in mensajes
+        ]
+        return jsonify({"id_chat": id_chat, "mensajes": serializables})
+    except Exception as err:
+        app.logger.exception("Error al consultar mensajes de chat general: %s", err)
+        return jsonify({"error": "No se pudieron obtener los mensajes."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/chat/mensaje", methods=["POST"])
+@cliente_requerido
+def api_chat_general_enviar():
+    """Envía un mensaje en el chat general desde la perspectiva del cliente."""
+    id_cliente = session["id_cliente"]
+    datos = request.get_json(silent=True) or {}
+    texto = str(datos.get("mensaje", "")).strip()
+
+    if not texto:
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+    if len(texto) > 1000:
+        return jsonify({"error": "El mensaje no puede superar 1000 caracteres."}), 400
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute("SELECT id_chat FROM CHAT WHERE id_cliente = %s", (id_cliente,))
+        chat = cursor.fetchone()
+        if not chat:
+            cursor.execute("INSERT INTO CHAT (id_cliente, id_admin) VALUES (%s, 1)", (id_cliente,))
+            id_chat = cursor.lastrowid
+        else:
+            id_chat = chat["id_chat"] if isinstance(chat, dict) else chat[0]
+
+        cursor.execute(
+            "INSERT INTO MENSAJE (id_chat, rol, mensaje) VALUES (%s, 'cliente', %s)",
+            (id_chat, texto),
+        )
+        conexion.commit()
+        return jsonify({"ok": True, "id_mensaje": cursor.lastrowid})
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al enviar mensaje en chat general: %s", err)
+        return jsonify({"error": "No se pudo enviar el mensaje."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/cliente/chats-eventos", methods=["GET"])
+@cliente_requerido
+def api_cliente_chats_eventos():
+    """Lista los chats de eventos correspondientes al cliente en sesión."""
+    id_cliente = session["id_cliente"]
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT ce.id_chat_evento, ce.titulo, s.tipo_evento, s.fecha_evento
+            FROM CHAT_EVENTO ce
+            JOIN SOLICITUD_PLANIFICACION s ON s.id_solicitud = ce.id_solicitud
+            WHERE ce.id_cliente = %s
+            ORDER BY ce.fecha_creacion DESC
+            """,
+            (id_cliente,),
+        )
+        chats = cursor.fetchall()
+        serializables = [
+            {
+                "id_chat_evento": c["id_chat_evento"],
+                "titulo": c["titulo"],
+                "tipo_evento": c["tipo_evento"],
+                "fecha_evento": str(c["fecha_evento"]),
+            }
+            for c in chats
+        ]
+        return jsonify({"chats": serializables})
+    except Exception as err:
+        app.logger.exception("Error al consultar chats de eventos del cliente: %s", err)
+        return jsonify({"error": "No se pudieron obtener los chats de eventos."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/chats", methods=["GET"])
+@administrador_requerido
+def api_admin_chats_lista():
+    """Retorna para el administrador las conversaciones generales y de eventos."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # Conversaciones generales de clientes
+        cursor.execute(
+            """
+            SELECT ch.id_chat, ch.id_cliente, c.nombre AS cliente_nombre, c.correo AS cliente_correo,
+                   (SELECT mensaje FROM MENSAJE m WHERE m.id_chat = ch.id_chat ORDER BY m.id_mensaje DESC LIMIT 1) AS ultimo_mensaje
+            FROM CHAT ch
+            JOIN CLIENTE c ON c.id_cliente = ch.id_cliente
+            ORDER BY ch.fecha_creacion DESC
+            """
+        )
+        generales = cursor.fetchall()
+
+        # Conversaciones de eventos
+        cursor.execute(
+            """
+            SELECT ce.id_chat_evento, ce.id_solicitud, ce.id_cliente, ce.titulo,
+                   c.nombre AS cliente_nombre, s.tipo_evento, s.fecha_evento,
+                   (SELECT mensaje FROM MENSAJE_EVENTO me WHERE me.id_chat_evento = ce.id_chat_evento ORDER BY me.id_mensaje_evento DESC LIMIT 1) AS ultimo_mensaje
+            FROM CHAT_EVENTO ce
+            JOIN CLIENTE c ON c.id_cliente = ce.id_cliente
+            JOIN SOLICITUD_PLANIFICACION s ON s.id_solicitud = ce.id_solicitud
+            ORDER BY ce.fecha_creacion DESC
+            """
+        )
+        eventos = cursor.fetchall()
+
+        return jsonify({
+            "general": [
+                {
+                    "id_chat": g["id_chat"],
+                    "id_cliente": g["id_cliente"],
+                    "cliente_nombre": g["cliente_nombre"],
+                    "cliente_correo": g["cliente_correo"],
+                    "ultimo_mensaje": g.get("ultimo_mensaje") or "Sin mensajes",
+                }
+                for g in generales
+            ],
+            "eventos": [
+                {
+                    "id_chat_evento": e["id_chat_evento"],
+                    "id_solicitud": e["id_solicitud"],
+                    "titulo": e["titulo"],
+                    "cliente_nombre": e["cliente_nombre"],
+                    "tipo_evento": e["tipo_evento"],
+                    "fecha_evento": str(e["fecha_evento"]),
+                    "ultimo_mensaje": e.get("ultimo_mensaje") or "Sin mensajes",
+                }
+                for e in eventos
+            ]
+        })
+    except Exception as err:
+        app.logger.exception("Error al consultar lista de chats de admin: %s", err)
+        return jsonify({"error": "No se pudieron obtener las conversaciones."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/chat/<int:chat_id>/mensajes", methods=["GET"])
+@administrador_requerido
+def api_admin_chat_mensajes(chat_id):
+    """Obtiene los mensajes de un chat general de cliente específico."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT m.id_mensaje, m.rol, m.mensaje, m.fecha_envio
+            FROM MENSAJE m
+            WHERE m.id_chat = %s
+            ORDER BY m.id_mensaje ASC
+            """,
+            (chat_id,),
+        )
+        mensajes = cursor.fetchall()
+        serializables = [
+            {
+                "id_mensaje": m["id_mensaje"],
+                "rol": m["rol"],
+                "mensaje": m["mensaje"],
+                "fecha_envio": str(m["fecha_envio"]),
+            }
+            for m in mensajes
+        ]
+        return jsonify({"mensajes": serializables})
+    except Exception as err:
+        app.logger.exception("Error al consultar mensajes de chat: %s", err)
+        return jsonify({"error": "No se pudieron obtener los mensajes."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/chat/<int:chat_id>/mensaje", methods=["POST"])
+@administrador_requerido
+def api_admin_chat_enviar(chat_id):
+    """Envía un mensaje de respuesta del administrador a un chat general de cliente."""
+    datos = request.get_json(silent=True) or {}
+    texto = str(datos.get("mensaje", "")).strip()
+
+    if not texto:
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+    if len(texto) > 1000:
+        return jsonify({"error": "El mensaje supera los 1000 caracteres permitidos."}), 400
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "INSERT INTO MENSAJE (id_chat, rol, mensaje) VALUES (%s, 'admin', %s)",
+            (chat_id, texto),
+        )
+        conexion.commit()
+        return jsonify({"ok": True, "id_mensaje": cursor.lastrowid})
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al responder chat general: %s", err)
+        return jsonify({"error": "No se pudo enviar la respuesta."}), 500
     finally:
         if cursor:
             cursor.close()

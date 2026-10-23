@@ -103,6 +103,18 @@ ESTADOS_RESERVA = {
     "ENTREGADA",
     "CANCELADA",
 }
+
+
+def _hora_retiro_dentro_horario(fecha, hora):
+    if hora.minute != 0 or hora.second != 0 or hora.microsecond != 0:
+        return False
+    if fecha.weekday() == 0:
+        return 14 <= hora.hour < 18
+    if fecha.weekday() == 6:
+        return False
+    return 10 <= hora.hour < 18
+
+
 WOMPI_CLIENT_ID = os.getenv("WOMPI_CLIENT_ID", "")
 WOMPI_CLIENT_SECRET = os.getenv("WOMPI_CLIENT_SECRET", "")
 URL_BASE_TUWEB = _normalizar_url_publica(os.getenv("URL_BASE_TUWEB", ""))
@@ -1723,9 +1735,11 @@ def reservar_producto(producto_id):
         flash("Completa una cantidad, fecha y hora válidas.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
-    if not nombre or len(nombre) > 100 or not telefono or len(telefono) > 30:
-        flash("Ingresa tu nombre y teléfono para identificar la reserva.", "error")
+    if not nombre or len(nombre) > 100 or not re.fullmatch(r"[0-9]{4}-?[0-9]{4}", telefono):
+        flash("Ingresa tu nombre y un teléfono válido de 8 dígitos.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
+    telefono = telefono.replace("-", "")
+    telefono = f"{telefono[:4]}-{telefono[4:]}"
     if cantidad < 1 or cantidad > 30:
         flash("La cantidad debe estar entre 1 y 30.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
@@ -1737,8 +1751,16 @@ def reservar_producto(producto_id):
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     fecha_retiro = datetime.combine(fecha, hora)
-    if fecha_retiro < datetime.now() + timedelta(days=5):
+    if fecha < date.today() + timedelta(days=5):
         flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
+        return redirect(url_for("reservar_producto", producto_id=producto_id))
+    if not _hora_retiro_dentro_horario(fecha, hora):
+        flash(
+            "Selecciona una hora disponible: lunes de 2:00 p. m. a 5:00 p. m. "
+            "o martes a sábado de 10:00 a. m. a 5:00 p. m. "
+            "TWINS Bakery cierra los domingos.",
+            "error",
+        )
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     conexion = None

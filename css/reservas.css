@@ -34,12 +34,10 @@ button, input { font: inherit; }
 .field label { color: #37565d; font-size: 10px; font-weight: 600; }
 .field input { width: 100%; min-height: 41px; padding: 0 11px; border: 1px solid #eee6e1; border-radius: 8px; outline: none; color: var(--ink); background: #fff; font-size: 11px; }
 .field select { width: 100%; min-height: 41px; padding: 0 11px; border: 1px solid #eee6e1; border-radius: 8px; outline: none; color: var(--ink); background: #fff; font: inherit; font-size: 11px; }
+.field small { color: var(--muted); font-size: 9px; }
 .field input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #20b7b21c; }
 .field select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #20b7b21c; }
 .field input::placeholder { color: #a0aaad; }
-.time-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-.time-fields > div { display: grid; gap: 6px; }
-.time-fields label { color: #718187; font-size: 9px; }
 .payment-options { display: grid; gap: 11px; margin: 22px 0 15px; padding: 0; border: 0; }
 .payment-options legend { margin-bottom: 3px; color: #37565d; font-size: 11px; font-weight: 600; }
 .payment-choice { position: relative; min-height: 96px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 24px; align-items: center; gap: 14px; padding: 16px; border: 1px solid #e8eeec; border-radius: 14px; background: linear-gradient(120deg, #fff 50%, #fbfdfc); cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }

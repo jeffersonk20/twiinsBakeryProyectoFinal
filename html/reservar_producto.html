@@ -60,18 +60,17 @@
                             <input id="cantidad" name="cantidad" type="number" min="1" max="30" value="1" required data-quantity>
                         </div>
                         <div class="field">
-                            <label for="fecha">Fecha para recoger (mínimo 5 días)</label>
+                            <label for="fecha">Fecha para recoger</label>
                             <input id="fecha" name="fecha" type="date" min="{{ fecha_minima_retiro }}" required data-date>
+                            <small>La reserva debe solicitarse con al menos 5 días de anticipación. Elige la fecha de retiro para ver las horas disponibles.</small>
                         </div>
                     </div>
                     <div class="field">
-                        <label for="hora-12">Hora para recoger</label>
-                        <div class="time-fields">
-                            <div><label for="hora-12">Hora</label><input id="hora-12" type="number" min="1" max="12" value="12" required></div>
-                            <div><label for="minutos">Minutos</label><input id="minutos" type="number" min="0" max="59" value="00" required></div>
-                            <div><label for="periodo">AM / PM</label><select id="periodo" required><option value="AM">AM</option><option value="PM">PM</option></select></div>
-                        </div>
-                        <input id="hora" name="hora" type="hidden">
+                        <label for="hora">Hora para recoger</label>
+                        <select id="hora" name="hora" required data-time disabled>
+                            <option value="">Primero selecciona una fecha</option>
+                        </select>
+                        <small>Elige primero la fecha. Lunes: 2:00 p. m. a 6:00 p. m. · Martes a sábado: 10:00 a. m. a 6:00 p. m. · Domingo: cerrado.</small>
                     </div>
                     <div class="field">
                         <label for="nombre">Nombre completo</label>
@@ -79,7 +78,8 @@
                     </div>
                     <div class="field">
                         <label for="telefono">Teléfono</label>
-                        <input id="telefono" name="telefono" type="tel" maxlength="30" autocomplete="tel" placeholder="Tu número de contacto" required>
+                        <input id="telefono" name="telefono" type="tel" inputmode="numeric" pattern="[0-9]{4}-[0-9]{4}" minlength="9" maxlength="9" autocomplete="tel-national" placeholder="1234-5678" aria-describedby="telefono-ayuda" required>
+                        <small id="telefono-ayuda">Ingresa 8 dígitos; el guion se agrega después del cuarto.</small>
                     </div>
 
                     <fieldset class="payment-options">

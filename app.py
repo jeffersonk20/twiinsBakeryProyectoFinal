@@ -86,6 +86,12 @@ app.config.update(
 if not app.secret_key:
     raise RuntimeError("Falta configurar SECRET_KEY en el archivo .env")
 
+# ==============================================================================
+# INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
+# ==============================================================================
+from ia_asistente import ia_bp
+app.register_blueprint(ia_bp)
+
 app.config["MAX_CONTENT_LENGTH"] = int(1.2 * 1024 * 1024) + 65536
 
 CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas", "Eventos"}
@@ -165,7 +171,8 @@ def separar_sitios():
     if APP_MODE == "admin":
         if request.path == "/":
             return redirect(url_for("admin_login"))
-        if es_ruta_admin or request.path.startswith("/static/"):
+        # Permitir rutas estáticas y endpoints del Asistente de IA en modo admin
+        if es_ruta_admin or request.path.startswith(("/static/", "/api/ia/")):
             return None
         abort(404)
 

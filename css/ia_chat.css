@@ -1,0 +1,589 @@
+/* ==============================================================================
+   ESTILOS DEL ASISTENTE DE INTELIGENCIA ARTIFICIAL - TWINS BAKERY
+   Color Primario de IA: #B1F2D2 (HEX Institucional)
+   Paleta Complementaria: #123F49 (Teal Obscuro), #0D2A31, #FFFFFF, #E8FBF2
+   ============================================================================== */
+
+:root {
+    --ia-mint-primary: #B1F2D2;
+    --ia-mint-dark: #86deb3;
+    --ia-mint-light: #e8fbf2;
+    --ia-mint-glow: rgba(177, 242, 210, 0.45);
+    --ia-dark-teal: #123F49;
+    --ia-deep-slate: #0b252c;
+    --ia-text-dark: #102a30;
+    --ia-text-muted: #527982;
+    --ia-card-bg: #ffffff;
+    --ia-user-bubble: #123F49;
+    --ia-user-text: #ffffff;
+    --ia-ai-bubble: #f4faf7;
+    --ia-border: rgba(18, 63, 73, 0.12);
+    --ia-radius: 16px;
+    --ia-shadow-float: 0 12px 36px rgba(18, 63, 73, 0.22), 0 4px 12px rgba(177, 242, 210, 0.35);
+    --ia-shadow-modal: 0 20px 50px rgba(11, 37, 44, 0.28), 0 0 0 1px rgba(177, 242, 210, 0.4);
+    --ia-font: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ==============================================================================
+   1. BOTÓN FLOTANTE INTERACTIVO (TRIGGER)
+   ============================================================================== */
+.twins-ia-trigger {
+    position: fixed;
+    bottom: 26px;
+    right: 26px;
+    z-index: 99999;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px 12px 14px;
+    background: linear-gradient(135deg, #123F49 0%, #174b57 100%);
+    color: #ffffff;
+    border: 2px solid var(--ia-mint-primary);
+    border-radius: 50px;
+    box-shadow: var(--ia-shadow-float);
+    cursor: pointer;
+    font-family: var(--ia-font);
+    font-size: 0.92rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+    user-select: none;
+}
+
+.twins-ia-trigger:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 16px 42px rgba(18, 63, 73, 0.32), 0 0 24px var(--ia-mint-glow);
+    border-color: #ffffff;
+}
+
+.twins-ia-trigger:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.twins-ia-trigger-avatar {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--ia-mint-primary);
+    color: var(--ia-dark-teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.twins-ia-pulse-ring {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--ia-mint-primary);
+    animation: iaPulseRing 2.4s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+    pointer-events: none;
+}
+
+@keyframes iaPulseRing {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.9;
+    }
+    70% {
+        transform: scale(1.45);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+.twins-ia-trigger-label {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+}
+
+.twins-ia-trigger-title {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.twins-ia-trigger-sparkle {
+    color: var(--ia-mint-primary);
+    font-size: 0.85rem;
+}
+
+.twins-ia-trigger-sub {
+    font-size: 0.72rem;
+    color: var(--ia-mint-primary);
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* ==============================================================================
+   2. VENTANA MODAL / DRAWER DEL CHAT
+   ============================================================================== */
+.twins-ia-window {
+    position: fixed;
+    bottom: 92px;
+    right: 26px;
+    width: 410px;
+    max-width: calc(100vw - 32px);
+    height: 620px;
+    max-height: calc(100vh - 120px);
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: var(--ia-shadow-modal);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 100000;
+    font-family: var(--ia-font);
+    border: 1px solid rgba(18, 63, 73, 0.15);
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.twins-ia-window.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+/* Header de la ventana */
+.twins-ia-header {
+    background: linear-gradient(135deg, #123F49 0%, #184853 100%);
+    color: #ffffff;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--ia-mint-primary);
+    position: relative;
+}
+
+.twins-ia-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.twins-ia-header-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--ia-mint-primary);
+    color: var(--ia-dark-teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.twins-ia-header-text h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.twins-ia-role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--ia-mint-primary);
+    color: var(--ia-dark-teal);
+    margin-top: 3px;
+}
+
+.twins-ia-role-badge.admin-mode {
+    background: #ffdb8e;
+    color: #4a3400;
+}
+
+.twins-ia-header-status {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+}
+
+.twins-ia-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ia-mint-primary);
+    box-shadow: 0 0 6px var(--ia-mint-primary);
+}
+
+.twins-ia-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.twins-ia-btn-icon {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s, transform 0.15s;
+}
+
+.twins-ia-btn-icon:hover {
+    background: rgba(177, 242, 210, 0.25);
+    color: var(--ia-mint-primary);
+    transform: scale(1.05);
+}
+
+/* ==============================================================================
+   3. SUGERENCIAS RÁPIDAS (PROMPT CHIPS)
+   ============================================================================== */
+.twins-ia-chips-bar {
+    padding: 10px 14px;
+    background: #fbfdfc;
+    border-bottom: 1px solid rgba(18, 63, 73, 0.08);
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+}
+
+.twins-ia-chips-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.twins-ia-chips-bar::-webkit-scrollbar-thumb {
+    background: var(--ia-mint-dark);
+    border-radius: 4px;
+}
+
+.twins-ia-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    background: #ffffff;
+    border: 1px solid rgba(18, 63, 73, 0.15);
+    color: var(--ia-dark-teal);
+    border-radius: 20px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.twins-ia-chip:hover {
+    background: var(--ia-mint-light);
+    border-color: var(--ia-mint-dark);
+    color: var(--ia-dark-teal);
+    transform: translateY(-1px);
+}
+
+/* ==============================================================================
+   4. ÁREA DE MENSAJES (FEED)
+   ============================================================================== */
+.twins-ia-messages {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #fafcfb;
+    scroll-behavior: smooth;
+}
+
+.twins-ia-message-row {
+    display: flex;
+    gap: 10px;
+    max-width: 88%;
+    animation: iaMessageFade 0.25s ease-out;
+}
+
+@keyframes iaMessageFade {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.twins-ia-message-row.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.twins-ia-message-row.ia {
+    align-self: flex-start;
+}
+
+.twins-ia-msg-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--ia-mint-primary);
+    color: var(--ia-dark-teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.twins-ia-msg-bubble {
+    padding: 12px 15px;
+    border-radius: 14px;
+    font-size: 0.86rem;
+    line-height: 1.48;
+    position: relative;
+    word-break: break-word;
+}
+
+.twins-ia-message-row.user .twins-ia-msg-bubble {
+    background: var(--ia-user-bubble);
+    color: var(--ia-user-text);
+    border-bottom-right-radius: 3px;
+    box-shadow: 0 4px 14px rgba(18, 63, 73, 0.16);
+}
+
+.twins-ia-message-row.ia .twins-ia-msg-bubble {
+    background: #ffffff;
+    color: var(--ia-text-dark);
+    border: 1px solid rgba(18, 63, 73, 0.12);
+    border-bottom-left-radius: 3px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.twins-ia-msg-bubble strong {
+    color: var(--ia-dark-teal);
+    font-weight: 700;
+}
+
+.twins-ia-message-row.user .twins-ia-msg-bubble strong {
+    color: #ffffff;
+}
+
+.twins-ia-msg-bubble ul, .twins-ia-msg-bubble ol {
+    margin: 6px 0 6px 18px;
+    padding: 0;
+}
+
+.twins-ia-msg-bubble li {
+    margin-bottom: 4px;
+}
+
+.twins-ia-msg-bubble p {
+    margin: 0 0 6px 0;
+}
+
+.twins-ia-msg-bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.twins-ia-msg-time {
+    font-size: 0.65rem;
+    color: var(--ia-text-muted);
+    margin-top: 4px;
+    display: block;
+    text-align: right;
+}
+
+.twins-ia-message-row.user .twins-ia-msg-time {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Indicador de escritura (Typing loader) */
+.twins-ia-typing-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(18, 63, 73, 0.1);
+    border-radius: 12px;
+    width: fit-content;
+    align-self: flex-start;
+}
+
+.twins-ia-typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ia-mint-dark);
+    animation: iaTypingBounce 1.4s infinite ease-in-out both;
+}
+
+.twins-ia-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.twins-ia-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+.twins-ia-typing-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes iaTypingBounce {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+    40% {
+        transform: scale(1.15);
+        opacity: 1;
+        background: var(--ia-dark-teal);
+    }
+}
+
+.twins-ia-typing-label {
+    font-size: 0.74rem;
+    color: var(--ia-text-muted);
+    font-weight: 500;
+}
+
+/* ==============================================================================
+   5. FORMULARIO DE ENTRADA (FOOTER INPUT)
+   ============================================================================== */
+.twins-ia-footer {
+    padding: 12px 14px 10px 14px;
+    background: #ffffff;
+    border-top: 1px solid rgba(18, 63, 73, 0.1);
+}
+
+.twins-ia-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7faf9;
+    border: 1.5px solid rgba(18, 63, 73, 0.18);
+    border-radius: 30px;
+    padding: 4px 6px 4px 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.twins-ia-form:focus-within {
+    border-color: var(--ia-dark-teal);
+    box-shadow: 0 0 0 3px var(--ia-mint-glow);
+    background: #ffffff;
+}
+
+.twins-ia-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: var(--ia-font);
+    font-size: 0.88rem;
+    color: var(--ia-text-dark);
+    outline: none;
+    padding: 8px 0;
+}
+
+.twins-ia-input::placeholder {
+    color: #8da4a9;
+    font-size: 0.83rem;
+}
+
+.twins-ia-send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--ia-mint-primary);
+    color: var(--ia-dark-teal);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+}
+
+.twins-ia-send-btn:hover:not(:disabled) {
+    transform: scale(1.08);
+    background: var(--ia-mint-dark);
+    box-shadow: 0 2px 10px rgba(18, 63, 73, 0.2);
+}
+
+.twins-ia-send-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.twins-ia-security-note {
+    font-size: 0.65rem;
+    color: var(--ia-text-muted);
+    text-align: center;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.twins-ia-security-note svg {
+    color: #123F49;
+}
+
+/* ==============================================================================
+   6. RESPONSIVIDAD (MÓVIL / PANTALLAS PEQUEÑAS)
+   ============================================================================== */
+@media (max-width: 480px) {
+    .twins-ia-trigger {
+        bottom: 18px;
+        right: 18px;
+        padding: 10px 16px 10px 12px;
+    }
+
+    .twins-ia-trigger-sub {
+        display: none;
+    }
+
+    .twins-ia-window {
+        bottom: 0;
+        right: 0;
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+    }
+
+    .twins-ia-header {
+        border-radius: 0;
+        padding-top: max(16px, env(safe-area-inset-top));
+    }
+
+    .twins-ia-footer {
+        padding-bottom: max(14px, env(safe-area-inset-bottom));
+    }
+}

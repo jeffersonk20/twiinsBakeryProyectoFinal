@@ -1,23 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Twiins Bakery | Pastelería Artesanal & Momentos Especiales</title>
-    <meta name="description" content="Descubre la magia de Twiins Bakery. Pasteles 3D realistas, café humeante y recetas artesanales para cumpleaños, bodas, graduaciones y fiestas inolvidables.">
+    <meta name="description"
+        content="Descubre la magia de Twiins Bakery. Pasteles 3D realistas, café humeante y recetas artesanales para cumpleaños, bodas, graduaciones y fiestas inolvidables.">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
 
     <!-- CSS -->
     <link rel="stylesheet" href="/static/css/index.css" onerror="this.onerror=null;this.href='../css/index.css';">
+    <link rel="stylesheet" href="/static/css/ia_chat.css" onerror="this.onerror=null;this.href='../css/ia_chat.css';">
 
     <!-- Three.js for 3D Rotating Cake & Steaming Coffee -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
+
 <body>
 
     <!-- Ambient glowing backdrop -->
@@ -38,7 +43,8 @@
             <!-- Brand -->
             <a href="#" class="brand-wrapper" id="navBrand">
                 <div class="brand-logo-badge">
-                    <img src="/static/img/logo.png" onerror="this.onerror=null;this.src='../img/logo.png';" alt="Twiins Bakery Logo">
+                    <img src="/static/img/logo.png" onerror="this.onerror=null;this.src='../img/logo.png';"
+                        alt="Twiins Bakery Logo">
                 </div>
                 <div class="brand-text">
                     <h1>Twiins Bakery ✨</h1>
@@ -59,7 +65,8 @@
 
             <!-- Actions -->
             <div class="header-actions">
-                <a href="/login" class="btn-sweet-primary" id="headerLoginBtn" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="btn-sweet-primary" id="headerLoginBtn"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <span>🍰 Iniciar Sesión</span>
                 </a>
             </div>
@@ -72,7 +79,7 @@
              ========================================== -->
         <section class="hero-section">
             <div class="hero-grid">
-                
+
                 <!-- Left Hero Text & Call to Actions -->
                 <div class="hero-content">
                     <div class="welcome-chip">
@@ -85,11 +92,14 @@
                     </h1>
 
                     <p class="hero-description">
-                        En <strong>Twiins Bakery</strong> convertimos tus celebraciones en recuerdos inolvidables. Diseños 100% artesanales, recetas exclusivas con ingredientes selectos y un toque de amor en cada detalle.
+                        En <strong>Twiins Bakery</strong> convertimos tus celebraciones en recuerdos inolvidables.
+                        Diseños 100% artesanales, recetas exclusivas con ingredientes selectos y un toque de amor en
+                        cada detalle.
                     </p>
 
                     <div class="hero-cta-group">
-                        <a href="/login" class="btn-sweet-primary" id="heroOrderBtn" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                        <a href="/login" class="btn-sweet-primary" id="heroOrderBtn"
+                            onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                             <span>🎂 Iniciar Sesión / Ordenar</span>
                         </a>
                         <a href="#eventos" class="btn-sweet-secondary" id="heroExploreBtn">
@@ -125,7 +135,7 @@
                 <!-- Right Hero 3D Stage (Cake & Steaming Coffee) -->
                 <div class="hero-stage-container" id="experiencia-3d">
                     <div class="cake-stage-card">
-                        
+
                         <div class="stage-badge-top">
                             <span class="pulse-dot"></span>
                             <span id="stageBadgeText">Estudio 3D · Pastel de Fresa Gourmet</span>
@@ -143,10 +153,12 @@
 
                         <!-- 3D Interactive Controls -->
                         <div class="cake-controls-bar">
-                            <button class="flavor-pill active" data-flavor="strawberry" title="Pastel de Fresa & Nata Artesanal">
+                            <button class="flavor-pill active" data-flavor="strawberry"
+                                title="Pastel de Fresa & Nata Artesanal">
                                 🍓 Fresa Gourmet
                             </button>
-                            <button class="flavor-pill" data-flavor="chocolate" title="Pastel de Chocolate Trufado Intenso">
+                            <button class="flavor-pill" data-flavor="chocolate"
+                                title="Pastel de Chocolate Trufado Intenso">
                                 🍫 Choco Trufa
                             </button>
                             <button class="flavor-pill" data-flavor="caramel" title="Vainilla Dorada & Dulce de Leche">
@@ -188,22 +200,31 @@
             </div>
 
             <div class="cartoon-characters-grid">
-                
+
                 <!-- Character 1: Chef Cupi -->
                 <div class="character-card" onclick="triggerBurstAtEl(this)">
                     <div class="character-avatar-wrap anim-bounce">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22 55 L30 88 C31 92 34 95 38 95 L62 95 C66 95 69 92 70 88 L78 55 Z" fill="#ff7597" stroke="#e03362" stroke-width="3" stroke-linejoin="round"/>
-                            <path d="M35 55 L38 95 M50 55 L50 95 M65 55 L62 95" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M16 55 C16 46 25 44 32 46 C35 36 46 32 54 36 C60 30 74 34 76 45 C83 45 86 52 82 58 C78 63 20 63 16 55 Z" fill="#fff0f5" stroke="#f48ca8" stroke-width="3"/>
-                            <circle cx="34" cy="52" r="4" fill="#ff8da1" opacity="0.8"/>
-                            <circle cx="66" cy="52" r="4" fill="#ff8da1" opacity="0.8"/>
-                            <path d="M36 47 Q40 43 44 47" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
-                            <path d="M56 47 Q60 43 64 47" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
-                            <path d="M47 52 Q50 56 53 52" stroke="#331c26" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-                            <circle cx="50" cy="24" r="8" fill="#e63946" stroke="#b71c1c" stroke-width="2"/>
-                            <path d="M50 18 Q55 10 62 12" stroke="#40916c" stroke-width="3" stroke-linecap="round" fill="none"/>
-                            <path d="M26 28 C26 22 32 20 38 24 C42 18 52 18 56 24 C62 20 68 24 66 30 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="2" opacity="0.95"/>
+                            <path d="M22 55 L30 88 C31 92 34 95 38 95 L62 95 C66 95 69 92 70 88 L78 55 Z" fill="#ff7597"
+                                stroke="#e03362" stroke-width="3" stroke-linejoin="round" />
+                            <path d="M35 55 L38 95 M50 55 L50 95 M65 55 L62 95" stroke="#ffffff" stroke-width="2.5"
+                                stroke-linecap="round" opacity="0.6" />
+                            <path
+                                d="M16 55 C16 46 25 44 32 46 C35 36 46 32 54 36 C60 30 74 34 76 45 C83 45 86 52 82 58 C78 63 20 63 16 55 Z"
+                                fill="#fff0f5" stroke="#f48ca8" stroke-width="3" />
+                            <circle cx="34" cy="52" r="4" fill="#ff8da1" opacity="0.8" />
+                            <circle cx="66" cy="52" r="4" fill="#ff8da1" opacity="0.8" />
+                            <path d="M36 47 Q40 43 44 47" stroke="#331c26" stroke-width="3" stroke-linecap="round"
+                                fill="none" />
+                            <path d="M56 47 Q60 43 64 47" stroke="#331c26" stroke-width="3" stroke-linecap="round"
+                                fill="none" />
+                            <path d="M47 52 Q50 56 53 52" stroke="#331c26" stroke-width="2.5" stroke-linecap="round"
+                                fill="none" />
+                            <circle cx="50" cy="24" r="8" fill="#e63946" stroke="#b71c1c" stroke-width="2" />
+                            <path d="M50 18 Q55 10 62 12" stroke="#40916c" stroke-width="3" stroke-linecap="round"
+                                fill="none" />
+                            <path d="M26 28 C26 22 32 20 38 24 C42 18 52 18 56 24 C62 20 68 24 66 30 Z" fill="#ffffff"
+                                stroke="#e0e0e0" stroke-width="2" opacity="0.95" />
                         </svg>
                     </div>
                     <h4>Chef Cupi 🧁</h4>
@@ -215,16 +236,23 @@
                 <div class="character-card" onclick="triggerBurstAtEl(this)">
                     <div class="character-avatar-wrap anim-wobble">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="18" y="62" width="64" height="28" rx="8" fill="#ffb703" stroke="#e09400" stroke-width="3"/>
-                            <rect x="28" y="40" width="44" height="24" rx="6" fill="#fb8500" stroke="#d46b00" stroke-width="3"/>
-                            <path d="M28 48 Q33 54 38 48 Q43 54 48 48 Q53 54 58 48 Q63 54 68 48 L72 40 L28 40 Z" fill="#ffffff"/>
-                            <path d="M18 70 Q24 76 30 70 Q36 76 42 70 Q48 76 54 70 Q60 76 66 70 Q72 76 78 70 L82 62 L18 62 Z" fill="#ffffff"/>
-                            <circle cx="42" cy="74" r="2.5" fill="#331c26"/>
-                            <circle cx="58" cy="74" r="2.5" fill="#331c26"/>
-                            <path d="M47 79 Q50 83 53 79" stroke="#331c26" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-                            <rect x="47" y="24" width="6" height="16" rx="2" fill="#ef5979" stroke="#c92a4e" stroke-width="1.5"/>
-                            <path d="M50 12 C47 16 46 19 50 23 C54 19 53 16 50 12 Z" fill="#ffd166"/>
-                            <circle cx="50" cy="19" r="2" fill="#ff6b6b"/>
+                            <rect x="18" y="62" width="64" height="28" rx="8" fill="#ffb703" stroke="#e09400"
+                                stroke-width="3" />
+                            <rect x="28" y="40" width="44" height="24" rx="6" fill="#fb8500" stroke="#d46b00"
+                                stroke-width="3" />
+                            <path d="M28 48 Q33 54 38 48 Q43 54 48 48 Q53 54 58 48 Q63 54 68 48 L72 40 L28 40 Z"
+                                fill="#ffffff" />
+                            <path
+                                d="M18 70 Q24 76 30 70 Q36 76 42 70 Q48 76 54 70 Q60 76 66 70 Q72 76 78 70 L82 62 L18 62 Z"
+                                fill="#ffffff" />
+                            <circle cx="42" cy="74" r="2.5" fill="#331c26" />
+                            <circle cx="58" cy="74" r="2.5" fill="#331c26" />
+                            <path d="M47 79 Q50 83 53 79" stroke="#331c26" stroke-width="2.5" stroke-linecap="round"
+                                fill="none" />
+                            <rect x="47" y="24" width="6" height="16" rx="2" fill="#ef5979" stroke="#c92a4e"
+                                stroke-width="1.5" />
+                            <path d="M50 12 C47 16 46 19 50 23 C54 19 53 16 50 12 Z" fill="#ffd166" />
+                            <circle cx="50" cy="19" r="2" fill="#ff6b6b" />
                         </svg>
                     </div>
                     <h4>Don Pastelón 🎂</h4>
@@ -236,16 +264,23 @@
                 <div class="character-card" onclick="triggerBurstAtEl(this)">
                     <div class="character-avatar-wrap anim-nod">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="38" fill="#e9c46a" stroke="#d4a343" stroke-width="3"/>
-                            <path d="M50 14 C68 14 84 28 84 50 C84 62 76 74 68 80 C60 76 56 82 48 80 C40 82 34 76 26 78 C18 70 16 58 16 50 C16 28 32 14 50 14 Z" fill="#ff7597"/>
-                            <circle cx="50" cy="50" r="14" fill="#fffaf7" stroke="#d4a343" stroke-width="3"/>
-                            <rect x="30" y="26" width="6" height="3" rx="1.5" transform="rotate(25 30 26)" fill="#ffffff"/>
-                            <rect x="64" y="28" width="6" height="3" rx="1.5" transform="rotate(-30 64 28)" fill="#ffd166"/>
-                            <rect x="70" y="55" width="6" height="3" rx="1.5" transform="rotate(45 70 55)" fill="#06d6a0"/>
-                            <rect x="25" y="52" width="6" height="3" rx="1.5" transform="rotate(-15 25 52)" fill="#118ab2"/>
-                            <circle cx="44" cy="38" r="2.5" fill="#331c26"/>
-                            <circle cx="56" cy="38" r="2.5" fill="#331c26"/>
-                            <path d="M48 42 Q50 44 52 42" stroke="#331c26" stroke-width="2" stroke-linecap="round" fill="none"/>
+                            <circle cx="50" cy="50" r="38" fill="#e9c46a" stroke="#d4a343" stroke-width="3" />
+                            <path
+                                d="M50 14 C68 14 84 28 84 50 C84 62 76 74 68 80 C60 76 56 82 48 80 C40 82 34 76 26 78 C18 70 16 58 16 50 C16 28 32 14 50 14 Z"
+                                fill="#ff7597" />
+                            <circle cx="50" cy="50" r="14" fill="#fffaf7" stroke="#d4a343" stroke-width="3" />
+                            <rect x="30" y="26" width="6" height="3" rx="1.5" transform="rotate(25 30 26)"
+                                fill="#ffffff" />
+                            <rect x="64" y="28" width="6" height="3" rx="1.5" transform="rotate(-30 64 28)"
+                                fill="#ffd166" />
+                            <rect x="70" y="55" width="6" height="3" rx="1.5" transform="rotate(45 70 55)"
+                                fill="#06d6a0" />
+                            <rect x="25" y="52" width="6" height="3" rx="1.5" transform="rotate(-15 25 52)"
+                                fill="#118ab2" />
+                            <circle cx="44" cy="38" r="2.5" fill="#331c26" />
+                            <circle cx="56" cy="38" r="2.5" fill="#331c26" />
+                            <path d="M48 42 Q50 44 52 42" stroke="#331c26" stroke-width="2" stroke-linecap="round"
+                                fill="none" />
                         </svg>
                     </div>
                     <h4>Doña Rosquilla 🍩</h4>
@@ -257,14 +292,18 @@
                 <div class="character-card" onclick="triggerBurstAtEl(this)">
                     <div class="character-avatar-wrap anim-bounce">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M50 12 C70 12 88 28 88 50 C88 68 74 86 52 88 C30 88 12 70 12 50 C12 28 28 12 50 12 Z" fill="#ddb892" stroke="#b08968" stroke-width="3"/>
-                            <circle cx="34" cy="30" r="4.5" fill="#6f4e37"/>
-                            <circle cx="68" cy="32" r="5" fill="#6f4e37"/>
-                            <circle cx="66" cy="68" r="4" fill="#6f4e37"/>
-                            <circle cx="30" cy="66" r="4.5" fill="#6f4e37"/>
-                            <path d="M42 48 Q46 44 50 48" stroke="#331c26" stroke-width="3" stroke-linecap="round" fill="none"/>
-                            <circle cx="60" cy="48" r="3" fill="#331c26"/>
-                            <path d="M48 56 Q54 62 60 56" stroke="#e63946" stroke-width="3" stroke-linecap="round" fill="#ff7597"/>
+                            <path
+                                d="M50 12 C70 12 88 28 88 50 C88 68 74 86 52 88 C30 88 12 70 12 50 C12 28 28 12 50 12 Z"
+                                fill="#ddb892" stroke="#b08968" stroke-width="3" />
+                            <circle cx="34" cy="30" r="4.5" fill="#6f4e37" />
+                            <circle cx="68" cy="32" r="5" fill="#6f4e37" />
+                            <circle cx="66" cy="68" r="4" fill="#6f4e37" />
+                            <circle cx="30" cy="66" r="4.5" fill="#6f4e37" />
+                            <path d="M42 48 Q46 44 50 48" stroke="#331c26" stroke-width="3" stroke-linecap="round"
+                                fill="none" />
+                            <circle cx="60" cy="48" r="3" fill="#331c26" />
+                            <path d="M48 56 Q54 62 60 56" stroke="#e63946" stroke-width="3" stroke-linecap="round"
+                                fill="#ff7597" />
                         </svg>
                     </div>
                     <h4>Galletita Cookie 🍪</h4>
@@ -287,14 +326,16 @@
                     Sugerencias para tus <span>Ocasiones Especiales</span>
                 </h2>
                 <p class="section-subtitle">
-                    Selecciona tu evento favorito para personalizar tu pastel o cotizar con nuestro equipo de reposteros.
+                    Selecciona tu evento favorito para personalizar tu pastel o cotizar con nuestro equipo de
+                    reposteros.
                 </p>
             </div>
 
             <div class="events-grid">
-                
+
                 <!-- Event 1: Cumpleaños -->
-                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="event-card-link"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <article class="event-card event-birthday">
                         <div class="event-header">
                             <div class="event-icon-box">🎂</div>
@@ -302,7 +343,8 @@
                         </div>
                         <h3 class="event-title">Cumpleaños & Fiestas Temáticas</h3>
                         <p class="event-desc">
-                            Pasteles vibrantes con personajes, números 3D, decoraciones en fondant y rellenos deliciosos para todas las edades.
+                            Pasteles vibrantes con personajes, números 3D, decoraciones en fondant y rellenos deliciosos
+                            para todas las edades.
                         </p>
                         <div class="event-tags">
                             <span class="event-tag">✨ Diseños Infantiles</span>
@@ -317,7 +359,8 @@
                 </a>
 
                 <!-- Event 2: Bodas & Aniversarios -->
-                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="event-card-link"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <article class="event-card event-wedding">
                         <div class="event-header">
                             <div class="event-icon-box">💍</div>
@@ -325,7 +368,8 @@
                         </div>
                         <h3 class="event-title">Bodas & Aniversarios</h3>
                         <p class="event-desc">
-                            Elegancia suprema de varios pisos, texturas de encaje comestible, flores naturales y detalles en pan de oro de 24k.
+                            Elegancia suprema de varios pisos, texturas de encaje comestible, flores naturales y
+                            detalles en pan de oro de 24k.
                         </p>
                         <div class="event-tags">
                             <span class="event-tag">👑 Múltiples Pisos</span>
@@ -340,7 +384,8 @@
                 </a>
 
                 <!-- Event 3: Graduaciones -->
-                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="event-card-link"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <article class="event-card event-graduation">
                         <div class="event-header">
                             <div class="event-icon-box">🎓</div>
@@ -348,7 +393,8 @@
                         </div>
                         <h3 class="event-title">Graduaciones & Logros</h3>
                         <p class="event-desc">
-                            Celebra la meta alcanzada con pasteles decorados con birretes, diplomas en azúcar y los colores de tu facultad.
+                            Celebra la meta alcanzada con pasteles decorados con birretes, diplomas en azúcar y los
+                            colores de tu facultad.
                         </p>
                         <div class="event-tags">
                             <span class="event-tag">📜 Birretes 3D</span>
@@ -363,7 +409,8 @@
                 </a>
 
                 <!-- Event 4: Baby Shower & Revelación de Sexo -->
-                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="event-card-link"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <article class="event-card event-babyshower">
                         <div class="event-header">
                             <div class="event-icon-box">👶</div>
@@ -371,7 +418,8 @@
                         </div>
                         <h3 class="event-title">Baby Shower & Revelación</h3>
                         <p class="event-desc">
-                            Tiernos tonos pasteles, nubes de azúcar y el emocionante relleno de color rosa o azul para revelar el secreto.
+                            Tiernos tonos pasteles, nubes de azúcar y el emocionante relleno de color rosa o azul para
+                            revelar el secreto.
                         </p>
                         <div class="event-tags">
                             <span class="event-tag">🎀 Gender Reveal</span>
@@ -386,7 +434,8 @@
                 </a>
 
                 <!-- Event 5: Quinceañeras & Fiestas de Gala -->
-                <a href="/login" class="event-card-link" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+                <a href="/login" class="event-card-link"
+                    onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
                     <article class="event-card event-quince">
                         <div class="event-header">
                             <div class="event-icon-box">👑</div>
@@ -394,7 +443,8 @@
                         </div>
                         <h3 class="event-title">Quinceañeras & 15 Años</h3>
                         <p class="event-desc">
-                            Estructuras deslumbrantes con coronas brillantes, efectos de cascada y combinaciones de sabores inolvidables.
+                            Estructuras deslumbrantes con coronas brillantes, efectos de cascada y combinaciones de
+                            sabores inolvidables.
                         </p>
                         <div class="event-tags">
                             <span class="event-tag">💎 Toques de Brillo</span>
@@ -423,7 +473,8 @@
                     ¡Ayuda a Pedrito a <span>Atrapar Pasteles</span>!
                 </h2>
                 <p class="section-subtitle">
-                    Mueve a Pedrito con el mouse, toque o flechas del teclado para atrapar deliciosos pasteles y postres reales. ¡Gana tu descuento especial!
+                    Mueve a Pedrito con el mouse, toque o flechas del teclado para atrapar deliciosos pasteles y postres
+                    reales. ¡Gana tu descuento especial!
                 </p>
             </div>
 
@@ -473,7 +524,8 @@
                             <div style="font-size: 3.5rem; margin-bottom: 10px;" id="modalEmoji">👦🎂</div>
                             <h3 id="modalTitle">¡Atrapa los Pasteles!</h3>
                             <p id="modalDesc">
-                                Mueve a Pedrito con tu mouse, dedo o teclado (← / →) para atrapar pasteles, cupcakes y fresas en su bandeja. ¡Cuidado con los brócolis!
+                                Mueve a Pedrito con tu mouse, dedo o teclado (← / →) para atrapar pasteles, cupcakes y
+                                fresas en su bandeja. ¡Cuidado con los brócolis!
                             </p>
                             <div class="game-modal-badge" id="modalBadge">
                                 🎁 ¡Alcanza 1,000 pts para ganar un 15% de Descuento!
@@ -482,7 +534,8 @@
                                 <button class="btn-sweet-primary" id="btnStartGame" style="width: 100%;">
                                     <span>🎮 ¡Jugar Ahora!</span>
                                 </button>
-                                <a href="/login" class="btn-sweet-secondary" id="btnModalLogin" style="width: 100%; display: none;">
+                                <a href="/login" class="btn-sweet-secondary" id="btnModalLogin"
+                                    style="width: 100%; display: none;">
                                     <span>🎂 Canjear Descuento en Iniciar Sesión</span>
                                 </a>
                             </div>
@@ -492,8 +545,10 @@
 
                 <!-- On-Screen Touch Buttons for Mobile -->
                 <div class="game-mobile-touch-controls">
-                    <button class="game-touch-btn" id="btnTouchLeft" aria-label="Mover a la izquierda">◀️ Izquierda</button>
-                    <button class="game-touch-btn" id="btnTouchRight" aria-label="Mover a la derecha">Derecha ▶️</button>
+                    <button class="game-touch-btn" id="btnTouchLeft" aria-label="Mover a la izquierda">◀️
+                        Izquierda</button>
+                    <button class="game-touch-btn" id="btnTouchRight" aria-label="Mover a la derecha">Derecha
+                        ▶️</button>
                 </div>
             </div>
         </section>
@@ -507,7 +562,8 @@
             <div class="footer-brand">
                 <h4>Twiins Bakery 💗</h4>
                 <p>
-                    Creando momentos mágicos y recuerdos dulces en cada celebración. Calidad artesanal, dedicación e ingredientes selectos de primera.
+                    Creando momentos mágicos y recuerdos dulces en cada celebración. Calidad artesanal, dedicación e
+                    ingredientes selectos de primera.
                 </p>
             </div>
 
@@ -540,7 +596,8 @@
 
     <!-- Mobile Sticky CTA Bar -->
     <div class="mobile-sticky-bar">
-        <a href="/login" class="btn-sweet-primary" onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
+        <a href="/login" class="btn-sweet-primary"
+            onclick="if(window.location.protocol==='file:'){window.location.href='login.html';return false;}">
             <span>🎂 Iniciar Sesión en Twiins Bakery</span>
         </a>
     </div>
@@ -620,7 +677,7 @@
             if (!container || typeof THREE === 'undefined') return;
 
             const scene = new THREE.Scene();
-            
+
             const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 1000);
             camera.position.set(0, 3.6, 9.5);
             camera.lookAt(0, 0.1, 0);
@@ -1768,4 +1825,5 @@
         });
     </script>
 </body>
+
 </html>

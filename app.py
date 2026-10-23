@@ -103,18 +103,6 @@ ESTADOS_RESERVA = {
     "ENTREGADA",
     "CANCELADA",
 }
-
-
-def _hora_retiro_dentro_horario(fecha, hora):
-    if hora.minute != 0 or hora.second != 0 or hora.microsecond != 0:
-        return False
-    if fecha.weekday() == 0:
-        return 14 <= hora.hour < 18
-    if fecha.weekday() == 6:
-        return False
-    return 10 <= hora.hour < 18
-
-
 WOMPI_CLIENT_ID = os.getenv("WOMPI_CLIENT_ID", "")
 WOMPI_CLIENT_SECRET = os.getenv("WOMPI_CLIENT_SECRET", "")
 URL_BASE_TUWEB = _normalizar_url_publica(os.getenv("URL_BASE_TUWEB", ""))
@@ -1392,9 +1380,9 @@ def api_admin_eliminar_usuario():
             conexion.close()
 
 
-def _producto_publico(registro):
+def _producto_publico(registro, incluir_stock=False):
     tiene_imagen = bool(registro["tiene_imagen"])
-    return {
+    producto = {
         "id": registro["id_producto"],
         "nombre": registro["nombre"],
         "categoria": registro["categoria"] or "",
@@ -1409,31 +1397,40 @@ def _producto_publico(registro):
             else ""
         ),
     }
+    if incluir_stock:
+        producto["stock"] = int(registro["stock"])
+    return producto
 
 
-def _obtener_productos(solo_disponibles):
+def _obtener_productos(solo_disponibles, incluir_stock=False):
     conexion = obtener_conexion()
     cursor = None
     try:
         cursor = conexion.cursor(dictionary=True)
         consulta = """
-            SELECT id_producto, nombre, categoria, precio, descripcion, disponible,
-                   en_vitrina,
-                   (imagen IS NOT NULL AND tipo_imagen IS NOT NULL) AS tiene_imagen
-            FROM PRODUCTO
+            SELECT p.id_producto, p.nombre, p.categoria, p.precio, p.descripcion,
+                   p.disponible, p.en_vitrina,
+                   COALESCE(i.stock, CASE WHEN p.disponible = TRUE THEN 1 ELSE 0 END) AS stock,
+                   (p.imagen IS NOT NULL AND p.tipo_imagen IS NOT NULL) AS tiene_imagen
+            FROM PRODUCTO p
+            LEFT JOIN INVENTARIO i ON i.id_pastel = p.id_producto
         """
         if solo_disponibles:
             consulta += """
-                WHERE disponible = TRUE
-                  AND categoria IS NOT NULL
-                  AND imagen IS NOT NULL
-                  AND tipo_imagen IS NOT NULL
+                WHERE p.disponible = TRUE
+                  AND COALESCE(i.stock, 1) > 0
+                  AND p.categoria IS NOT NULL
+                  AND p.imagen IS NOT NULL
+                  AND p.tipo_imagen IS NOT NULL
             """
             if request.args.get("vitrina") == "1":
-                consulta += " AND en_vitrina = TRUE"
-        consulta += " ORDER BY fecha_creacion DESC, id_producto DESC"
+                consulta += " AND p.en_vitrina = TRUE"
+        consulta += " ORDER BY p.fecha_creacion DESC, p.id_producto DESC"
         cursor.execute(consulta)
-        return [_producto_publico(registro) for registro in cursor.fetchall()]
+        return [
+            _producto_publico(registro, incluir_stock=incluir_stock)
+            for registro in cursor.fetchall()
+        ]
     finally:
         if cursor:
             cursor.close()
@@ -1457,6 +1454,7 @@ def _validar_producto_formulario():
     precio_texto = request.form.get("precio", "").strip()
     disponible_texto = request.form.get("disponible", "true")
     en_vitrina_texto = request.form.get("en_vitrina", "false")
+    stock_texto = request.form.get("stock", "").strip()
 
     if not nombre or len(nombre) > 80:
         raise ValueError("El nombre es obligatorio y admite hasta 80 caracteres.")
@@ -1468,6 +1466,11 @@ def _validar_producto_formulario():
         raise ValueError("Selecciona una disponibilidad válida.")
     if en_vitrina_texto not in {"true", "false"}:
         raise ValueError("Selecciona una opción válida para la vitrina.")
+    if not re.fullmatch(r"[0-9]{1,10}", stock_texto):
+        raise ValueError("La cantidad disponible debe ser un número entero igual o mayor que cero.")
+    stock = int(stock_texto)
+    if stock > 2_147_483_647:
+        raise ValueError("La cantidad disponible es demasiado grande.")
 
     try:
         precio = Decimal(precio_texto)
@@ -1498,9 +1501,28 @@ def _validar_producto_formulario():
         "descripcion": descripcion,
         "disponible": disponible_texto == "true",
         "en_vitrina": en_vitrina_texto == "true",
+        "stock": stock,
         "imagen": contenido_imagen,
         "tipo_imagen": tipo_imagen,
     }
+
+
+def _guardar_stock_producto(cursor, producto_id, stock):
+    cursor.execute(
+        "SELECT id_inventario FROM INVENTARIO WHERE id_pastel = %s",
+        (producto_id,),
+    )
+    inventario = cursor.fetchone()
+    if inventario:
+        cursor.execute(
+            "UPDATE INVENTARIO SET stock = %s WHERE id_pastel = %s",
+            (stock, producto_id),
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO INVENTARIO (id_pastel, stock) VALUES (%s, %s)",
+            (producto_id, stock),
+        )
 
 
 @app.route("/api/productos")
@@ -1546,7 +1568,7 @@ def imagen_producto(producto_id):
 def api_admin_productos():
     if request.method == "GET":
         try:
-            return jsonify(_obtener_productos(solo_disponibles=False))
+            return jsonify(_obtener_productos(solo_disponibles=False, incluir_stock=True))
         except mysql.connector.Error as error:
             return _error_base_datos(error, "No se pudo consultar los productos de administración.")
         except Exception:
@@ -1584,6 +1606,7 @@ def api_admin_productos():
                 session.get("id_admin"),
             ),
         )
+        _guardar_stock_producto(cursor, cursor.lastrowid, producto["stock"])
         conexion.commit()
         return jsonify({"id": cursor.lastrowid, "mensaje": "Producto agregado."}), 201
     except mysql.connector.Error as error:
@@ -1620,14 +1643,6 @@ def api_admin_producto(producto_id):
 
         if request.method == "DELETE":
             cursor.execute(
-                "SELECT id_detalle FROM DETALLE_RESERVA WHERE id_pastel = %s LIMIT 1",
-                (producto_id,),
-            )
-            if cursor.fetchone():
-                return jsonify({
-                    "error": "No se puede eliminar un producto con reservas registradas. Márcalo como agotado para conservar el historial."
-                }), 409
-            cursor.execute(
                 "DELETE FROM PRODUCTO WHERE id_producto = %s",
                 (producto_id,),
             )
@@ -1659,11 +1674,24 @@ def api_admin_producto(producto_id):
                 producto_id,
             ),
         )
+        _guardar_stock_producto(cursor, producto_id, producto["stock"])
         conexion.commit()
         return jsonify({"mensaje": "Producto actualizado."})
     except mysql.connector.Error as error:
         if conexion:
             conexion.rollback()
+        if request.method == "DELETE" and (
+            error.errno == 1451
+            or "FOREIGN KEY constraint failed" in str(error)
+        ):
+            app.logger.warning(
+                "La base de datos aún tiene una referencia de reserva al producto %s; "
+                "debe aplicarse la migración de DETALLE_RESERVA.",
+                producto_id,
+            )
+            return jsonify({
+                "error": "La base de datos todavía tiene una referencia al producto. Ejecuta python inicializar_bd.py contra esta misma base de datos y vuelve a intentar."
+            }), 409
         return _error_base_datos(
             error,
             f"No se pudo completar la operación del producto {producto_id}.",
@@ -1694,6 +1722,11 @@ def reservar_producto(producto_id):
                 SELECT id_producto
                 FROM PRODUCTO
                 WHERE id_producto = %s AND disponible = TRUE
+                  AND COALESCE(
+                      (SELECT stock FROM INVENTARIO
+                       WHERE id_pastel = PRODUCTO.id_producto),
+                      1
+                  ) > 0
                 """,
                 (producto_id,),
             )
@@ -1735,11 +1768,9 @@ def reservar_producto(producto_id):
         flash("Completa una cantidad, fecha y hora válidas.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
-    if not nombre or len(nombre) > 100 or not re.fullmatch(r"[0-9]{4}-?[0-9]{4}", telefono):
-        flash("Ingresa tu nombre y un teléfono válido de 8 dígitos.", "error")
+    if not nombre or len(nombre) > 100 or not telefono or len(telefono) > 30:
+        flash("Ingresa tu nombre y teléfono para identificar la reserva.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
-    telefono = telefono.replace("-", "")
-    telefono = f"{telefono[:4]}-{telefono[4:]}"
     if cantidad < 1 or cantidad > 30:
         flash("La cantidad debe estar entre 1 y 30.", "error")
         return redirect(url_for("reservar_producto", producto_id=producto_id))
@@ -1751,16 +1782,8 @@ def reservar_producto(producto_id):
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     fecha_retiro = datetime.combine(fecha, hora)
-    if fecha < date.today() + timedelta(days=5):
+    if fecha_retiro < datetime.now() + timedelta(days=5):
         flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
-        return redirect(url_for("reservar_producto", producto_id=producto_id))
-    if not _hora_retiro_dentro_horario(fecha, hora):
-        flash(
-            "Selecciona una hora disponible: lunes de 2:00 p. m. a 5:00 p. m. "
-            "o martes a sábado de 10:00 a. m. a 5:00 p. m. "
-            "TWINS Bakery cierra los domingos.",
-            "error",
-        )
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     conexion = None
@@ -1774,6 +1797,11 @@ def reservar_producto(producto_id):
             SELECT id_producto, nombre, categoria, precio
             FROM PRODUCTO
             WHERE id_producto = %s AND disponible = TRUE
+              AND COALESCE(
+                  (SELECT stock FROM INVENTARIO
+                   WHERE id_pastel = PRODUCTO.id_producto),
+                  1
+              ) > 0
             FOR UPDATE
             """,
             (producto_id,),

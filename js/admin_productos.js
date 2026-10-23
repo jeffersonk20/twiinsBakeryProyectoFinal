@@ -33,6 +33,7 @@
         formData.append("categoria", producto.categoria);
         formData.append("precio", String(producto.precio));
         formData.append("descripcion", producto.descripcion);
+        formData.append("stock", String(producto.stock));
         formData.append("disponible", String(producto.disponible));
         formData.append("en_vitrina", String(producto.en_vitrina));
         if (imageFile) formData.append("imagen", imageFile);
@@ -89,8 +90,9 @@
             <td><div class="table-product">${product.tiene_imagen ? `<img src="${window.ProductStore.escapeHtml(product.imagen)}" alt="">` : '<span class="table-image-placeholder" aria-hidden="true">🍰</span>'}<strong>${window.ProductStore.escapeHtml(product.nombre)}</strong></div></td>
             <td>${window.ProductStore.escapeHtml(product.categoria || "Sin categoría")}</td>
             <td>${window.ProductStore.formatPrice(product.precio)}</td>
+            <td>${product.stock}</td>
             <td>${product.en_vitrina ? '<span class="status available">Sí</span>' : '<span class="status unavailable">No</span>'}</td>
-            <td><span class="status ${product.disponible && product.categoria && product.tiene_imagen ? "available" : "unavailable"}">${product.disponible && product.categoria && product.tiene_imagen ? "Activo" : "Completar"}</span></td>
+            <td><span class="status ${product.disponible && product.stock > 0 && product.categoria && product.tiene_imagen ? "available" : "unavailable"}">${product.stock === 0 || !product.disponible ? "Agotado" : product.categoria && product.tiene_imagen ? "Activo" : "Completar"}</span></td>
             <td><div class="row-actions"><button type="button" data-edit="${product.id}">Editar</button><button class="delete-action" type="button" data-delete="${product.id}">Eliminar</button></div></td>
         </tr>`).join("");
     }
@@ -131,6 +133,7 @@
         form.elements.categoria.value = product.categoria || "";
         form.elements.precio.value = product.precio;
         form.elements.descripcion.value = product.descripcion;
+        form.elements.stock.value = product.stock;
         form.elements.disponible.value = String(product.disponible);
         form.elements.en_vitrina.checked = Boolean(product.en_vitrina);
         fileInput.value = "";
@@ -183,6 +186,7 @@
             categoria: form.elements.categoria.value,
             precio: Number(form.elements.precio.value),
             descripcion: form.elements.descripcion.value.trim(),
+            stock: Number(form.elements.stock.value),
             disponible: form.elements.disponible.value === "true",
             en_vitrina: form.elements.en_vitrina.checked
         };
@@ -193,7 +197,12 @@
             const listLoaded = await loadProducts();
             resetForm();
             if (listLoaded) {
-                showMessage(producto.id ? "Producto actualizado y visible en la tienda." : "Producto agregado y visible en la tienda.");
+                const action = producto.id ? "actualizado" : "agregado";
+                showMessage(
+                    producto.stock > 0 && producto.disponible
+                        ? `Producto ${action}; cantidad actualizada y visible en la tienda.`
+                        : `Producto ${action}; agotado y oculto de la tienda.`
+                );
             } else {
                 showMessage("El producto se guardó, pero no se pudo actualizar la lista. Recarga la página.", true);
             }
@@ -213,7 +222,7 @@
         const deleteButton = event.target.closest("[data-delete]");
         if (!deleteButton) return;
         const product = products.find((item) => String(item.id) === deleteButton.dataset.delete);
-        if (!product || !window.confirm(`¿Eliminar "${product.nombre}" del catálogo?`)) return;
+        if (!product || !window.confirm(`¿Eliminar "${product.nombre}" del catálogo? El historial de reservas conservará los datos del producto.`)) return;
         deleteButton.disabled = true;
         try {
             await deleteProduct(product.id);

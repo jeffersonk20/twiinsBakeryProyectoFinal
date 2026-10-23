@@ -17,12 +17,15 @@ Los callbacks de pago usan la dirección pública de la tienda.
    Render marca como secretas (`sync: false`).
 3. En ambos servicios configura las credenciales de la misma base de datos
    MySQL remota. Render necesita poder conectarse a esa base desde fuera.
-4. En el servicio `twiins-bakery-admin`, define `ADMIN_SETUP_TOKEN` con un
+4. Ejecuta `python inicializar_bd.py` contra esa base para crear o actualizar
+   el esquema (incluyendo inventario y eliminación de productos con reservas).
+   Vuelve a ejecutarlo cuando despliegues cambios de esquema.
+5. En el servicio `twiins-bakery-admin`, define `ADMIN_SETUP_TOKEN` con un
    valor aleatorio secreto de al menos 32 caracteres.
-5. En el servicio `twiins-bakery-clientes`, define las credenciales Wompi.
-6. Espera a que ambos servicios terminen su primer despliegue. Render asignará
+6. En el servicio `twiins-bakery-clientes`, define las credenciales Wompi.
+7. Espera a que ambos servicios terminen su primer despliegue. Render asignará
    a cada servicio una URL distinta con el dominio `onrender.com`.
-7. Abre la URL del servicio de administración para crear la cuenta inicial.
+8. Abre la URL del servicio de administración para crear la cuenta inicial.
 
 En modo local la aplicación conserva el comportamiento combinado. En Render,
 las rutas de administración solo responden en el servicio administrativo y

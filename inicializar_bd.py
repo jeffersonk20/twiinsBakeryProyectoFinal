@@ -4,6 +4,111 @@ from werkzeug.security import generate_password_hash
 from conexion import obtener_conexion, SQLiteConnectionWrapper
 
 
+def _migrar_detalle_producto_sqlite(conexion, cursor):
+    cursor.execute("PRAGMA table_info(DETALLE_RESERVA)")
+    columna_producto = next(
+        (columna for columna in cursor.fetchall() if columna[1] == "id_pastel"),
+        None,
+    )
+    cursor.execute("PRAGMA foreign_key_list(DETALLE_RESERVA)")
+    referencia_producto = next(
+        (
+            referencia
+            for referencia in cursor.fetchall()
+            if referencia[3] == "id_pastel" and referencia[2] == "PRODUCTO"
+        ),
+        None,
+    )
+    if (
+        columna_producto
+        and columna_producto[3] == 0
+        and referencia_producto
+        and referencia_producto[6].upper() == "SET NULL"
+    ):
+        return
+
+    conexion.commit()
+    cursor.execute("PRAGMA foreign_keys = OFF")
+    try:
+        cursor.execute("DROP TABLE IF EXISTS DETALLE_RESERVA_NUEVA")
+        cursor.execute("""
+        CREATE TABLE DETALLE_RESERVA_NUEVA (
+            id_detalle INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_reserva INT NOT NULL,
+            id_pastel INT NULL,
+            nombre_producto TEXT NOT NULL,
+            precio_unitario NUMERIC NOT NULL,
+            cantidad INT NOT NULL,
+            FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
+            FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
+        );
+        """)
+        cursor.execute("""
+        INSERT INTO DETALLE_RESERVA_NUEVA
+            (id_detalle, id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
+        SELECT id_detalle, id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad
+        FROM DETALLE_RESERVA
+        """)
+        cursor.execute("DROP TABLE DETALLE_RESERVA")
+        cursor.execute("ALTER TABLE DETALLE_RESERVA_NUEVA RENAME TO DETALLE_RESERVA")
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        cursor.execute("PRAGMA foreign_keys = ON")
+
+
+def _migrar_detalle_producto_mysql(cursor):
+    cursor.execute(
+        """
+        SELECT rc.CONSTRAINT_NAME, rc.DELETE_RULE
+        FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+          ON kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+         AND kcu.TABLE_NAME = rc.TABLE_NAME
+         AND kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+        WHERE rc.CONSTRAINT_SCHEMA = DATABASE()
+          AND rc.TABLE_NAME = 'DETALLE_RESERVA'
+          AND kcu.COLUMN_NAME = 'id_pastel'
+          AND kcu.REFERENCED_TABLE_NAME = 'PRODUCTO'
+          AND kcu.REFERENCED_COLUMN_NAME = 'id_producto'
+        """
+    )
+    referencia_producto = cursor.fetchone()
+    cursor.execute(
+        """
+        SELECT IS_NULLABLE
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'DETALLE_RESERVA'
+          AND COLUMN_NAME = 'id_pastel'
+        """
+    )
+    columna_producto = cursor.fetchone()
+    if (
+        referencia_producto
+        and referencia_producto[1].upper() == "SET NULL"
+        and columna_producto
+        and columna_producto[0].upper() == "YES"
+    ):
+        return
+
+    if referencia_producto:
+        nombre_restriccion = referencia_producto[0].replace("`", "``")
+        cursor.execute(
+            f"ALTER TABLE DETALLE_RESERVA DROP FOREIGN KEY `{nombre_restriccion}`"
+        )
+    cursor.execute(
+        """
+        ALTER TABLE DETALLE_RESERVA
+        MODIFY id_pastel INT NULL,
+        ADD CONSTRAINT fk_detalle_producto
+            FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
+        """
+    )
+
+
 def _inicializar_sqlite(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis nativa de SQLite."""
     print("Configurando esquema para SQLite...")
@@ -78,14 +183,15 @@ def _inicializar_sqlite(conexion, cursor):
     CREATE TABLE IF NOT EXISTS DETALLE_RESERVA (
         id_detalle INTEGER PRIMARY KEY AUTOINCREMENT,
         id_reserva INT NOT NULL,
-        id_pastel INT NOT NULL,
+        id_pastel INT NULL,
         nombre_producto TEXT NOT NULL,
         precio_unitario NUMERIC NOT NULL,
         cantidad INT NOT NULL,
         FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
-        FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE RESTRICT
+        FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
     );
     """)
+    _migrar_detalle_producto_sqlite(conexion, cursor)
 
     # 6. PAGO
     cursor.execute("""
@@ -305,14 +411,15 @@ def _inicializar_mysql(conexion, cursor):
     CREATE TABLE IF NOT EXISTS DETALLE_RESERVA (
         id_detalle INT AUTO_INCREMENT PRIMARY KEY,
         id_reserva INT NOT NULL,
-        id_pastel INT NOT NULL,
+        id_pastel INT NULL,
         nombre_producto VARCHAR(120) NOT NULL,
         precio_unitario DECIMAL(10, 2) NOT NULL,
         cantidad INT NOT NULL,
         CONSTRAINT fk_detalle_reserva FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
-        CONSTRAINT fk_detalle_producto FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE RESTRICT
+        CONSTRAINT fk_detalle_producto FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
     ) ENGINE=InnoDB;
     """)
+    _migrar_detalle_producto_mysql(cursor)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS PAGO (

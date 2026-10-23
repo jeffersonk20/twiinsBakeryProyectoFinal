@@ -39,6 +39,7 @@ from servicios_correo import (
     enviar_correo_reserva_lista,
     enviar_correo_evento_aceptado,
     enviar_correo_evento_rechazado,
+    enviar_correo_reserva_rechazada,
 )
 
 load_dotenv()
@@ -89,8 +90,11 @@ if not app.secret_key:
 # ==============================================================================
 # INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
 # ==============================================================================
-from ia_asistente import ia_bp
-app.register_blueprint(ia_bp)
+try:
+    from ia_asistente import ia_bp
+    app.register_blueprint(ia_bp)
+except Exception as err:
+    app.logger.warning("No se pudo cargar el módulo ia_asistente: %s", err)
 
 app.config["MAX_CONTENT_LENGTH"] = int(1.2 * 1024 * 1024) + 65536
 
@@ -381,6 +385,52 @@ def _notificar_reserva_lista(reserva_id):
         return False
     except Exception as err:
         app.logger.warning("No se pudo notificar la reserva lista %s: %s", reserva_id, err)
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+def _notificar_reserva_rechazada(reserva_id, motivo=None):
+    """Consulta los datos de la reserva y notifica al cliente que fue rechazada o cancelada."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT r.codigo, r.nombre_cliente,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo,
+                   r.total, r.fecha_retiro,
+                   d.nombre_producto, d.cantidad
+            FROM RESERVA r
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+            WHERE r.id_reserva = %s
+            ORDER BY d.id_detalle ASC
+            LIMIT 1
+            """,
+            (reserva_id,),
+        )
+        datos = cursor.fetchone()
+        if datos and datos.get("correo"):
+            enviar_correo_reserva_rechazada(
+                destinatario=datos["correo"],
+                nombre=datos["nombre_cliente"],
+                codigo=datos["codigo"],
+                nombre_producto=datos["nombre_producto"],
+                cantidad=datos["cantidad"],
+                total=datos["total"],
+                fecha_retiro=datos["fecha_retiro"],
+                motivo=motivo,
+            )
+            return True
+        return False
+    except Exception as err:
+        app.logger.warning("No se pudo notificar la reserva rechazada %s: %s", reserva_id, err)
         return False
     finally:
         if cursor:
@@ -2304,21 +2354,20 @@ def api_admin_reserva(reserva_id):
             conexion.start_transaction()
             cursor = conexion.cursor(dictionary=True)
             cursor.execute(
-                "SELECT monto_pagado FROM RESERVA WHERE id_reserva = %s FOR UPDATE",
+                "SELECT id_reserva, codigo FROM RESERVA WHERE id_reserva = %s FOR UPDATE",
                 (reserva_id,),
             )
             reserva = cursor.fetchone()
             if not reserva:
                 conexion.rollback()
                 return jsonify({"error": "La reserva ya no existe."}), 404
-            if Decimal(reserva["monto_pagado"]) > 0:
-                conexion.rollback()
-                return jsonify({
-                    "error": "No se puede eliminar una reserva con pagos registrados. Cámbiala a cancelada para conservar el historial; los pagos no son reembolsables."
-                }), 409
+
+            # Eliminar registros relacionados para garantizar integridad referencial
+            cursor.execute("DELETE FROM PAGO WHERE id_reserva = %s", (reserva_id,))
+            cursor.execute("DELETE FROM DETALLE_RESERVA WHERE id_reserva = %s", (reserva_id,))
             cursor.execute("DELETE FROM RESERVA WHERE id_reserva = %s", (reserva_id,))
             conexion.commit()
-            return jsonify({"mensaje": "Reserva eliminada."})
+            return jsonify({"mensaje": f"Reserva {reserva['codigo']} eliminada exitosamente."})
         except mysql.connector.Error as error:
             if conexion:
                 conexion.rollback()
@@ -2362,7 +2411,7 @@ def api_admin_reserva(reserva_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT r.id_reserva, r.estado, r.monto_pagado, r.anticipo_requerido,
+            SELECT r.id_reserva, r.codigo, r.estado, r.monto_pagado, r.anticipo_requerido,
                    r.fecha_retiro, d.id_detalle, d.precio_unitario, d.cantidad
             FROM RESERVA r
             JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
@@ -2376,16 +2425,7 @@ def api_admin_reserva(reserva_id):
             conexion.rollback()
             return jsonify({"error": "La reserva ya no existe."}), 404
         estado = datos.get("estado", actual["estado"])
-        if actual["estado"] == "CANCELADA" and estado != "CANCELADA":
-            conexion.rollback()
-            return jsonify({"error": "Una reserva cancelada no se puede reactivar."}), 409
-        pago_registrado = Decimal(actual["monto_pagado"]) >= Decimal(actual["anticipo_requerido"])
-        if estado == "PENDIENTE_PAGO" and pago_registrado:
-            conexion.rollback()
-            return jsonify({"error": "No se puede devolver a pendiente una reserva cuyo anticipo ya fue pagado."}), 409
-        if estado in {"CONFIRMADA", "EN_PREPARACION", "LISTA", "ENTREGADA"} and not pago_registrado:
-            conexion.rollback()
-            return jsonify({"error": "No se puede avanzar la reserva hasta registrar el pago del anticipo del 50%."}), 409
+        pago_registrado = Decimal(str(actual["monto_pagado"] or 0)) >= Decimal(str(actual["anticipo_requerido"] or 0))
 
         asignaciones = []
         valores = []
@@ -2393,25 +2433,33 @@ def api_admin_reserva(reserva_id):
             if campo in datos:
                 asignaciones.append(f"{campo} = %s")
                 valores.append(str(datos[campo]).strip().lower() if campo == "correo" else str(datos[campo]).strip())
+
         if fecha_retiro:
-            fecha_actual = actual["fecha_retiro"].replace(second=0, microsecond=0)
-            if (
-                fecha_retiro != fecha_actual
-                and fecha_retiro < datetime.now() + timedelta(days=5)
-            ):
-                conexion.rollback()
-                return jsonify({"error": "Las reservas deben programarse con al menos 5 días de anticipación."}), 400
             asignaciones.append("fecha_retiro = %s")
             valores.append(fecha_retiro)
+
         if "estado" in datos:
             asignaciones.append("estado = %s")
             valores.append(estado)
 
+            # Si el administrador avanza la reserva a Confirmada/Preparación/Lista y faltaba registrar el anticipo,
+            # se actualiza el anticipo como registrado automáticamente.
+            if estado in {"CONFIRMADA", "EN_PREPARACION", "LISTA", "ENTREGADA"} and not pago_registrado:
+                cursor.execute(
+                    """
+                    UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW()
+                    WHERE id_reserva = %s AND estado = 'PENDIENTE'
+                    """,
+                    (reserva_id,),
+                )
+                asignaciones.append("monto_pagado = %s")
+                valores.append(actual["anticipo_requerido"])
+
         if cantidad is not None and cantidad != actual["cantidad"]:
-            if Decimal(actual["monto_pagado"]) > 0:
+            if Decimal(str(actual["monto_pagado"] or 0)) > 0:
                 conexion.rollback()
                 return jsonify({"error": "No se puede cambiar la cantidad después de registrar un pago."}), 409
-            nuevo_total = (Decimal(actual["precio_unitario"]) * cantidad).quantize(Decimal("0.01"))
+            nuevo_total = (Decimal(str(actual["precio_unitario"])) * cantidad).quantize(Decimal("0.01"))
             nuevo_anticipo = (nuevo_total / 2).quantize(
                 Decimal("0.01"),
                 rounding=ROUND_HALF_UP,
@@ -2429,6 +2477,7 @@ def api_admin_reserva(reserva_id):
             )
             asignaciones.extend(["total = %s", "anticipo_requerido = %s"])
             valores.extend([nuevo_total, nuevo_anticipo])
+
         if asignaciones:
             valores.append(reserva_id)
             cursor.execute(
@@ -2436,11 +2485,16 @@ def api_admin_reserva(reserva_id):
                 tuple(valores),
             )
         conexion.commit()
+
+        # Notificaciones por correo según el cambio de estado
         if "estado" in datos and estado == "CONFIRMADA" and actual["estado"] != "CONFIRMADA":
             _notificar_reserva_confirmada(reserva_id)
-        if "estado" in datos and estado == "LISTA" and actual["estado"] != "LISTA":
+        elif "estado" in datos and estado == "LISTA" and actual["estado"] != "LISTA":
             _notificar_reserva_lista(reserva_id)
-        return jsonify({"mensaje": "Reserva actualizada."})
+        elif "estado" in datos and estado == "CANCELADA" and actual["estado"] != "CANCELADA":
+            _notificar_reserva_rechazada(reserva_id, motivo="Reserva cancelada desde la edición del administrador.")
+
+        return jsonify({"mensaje": "Reserva actualizada exitosamente."})
     except mysql.connector.Error as error:
         if conexion:
             conexion.rollback()
@@ -2453,8 +2507,10 @@ def api_admin_reserva(reserva_id):
 
 
 @app.route("/api/admin/reservas/<int:reserva_id>/marcar-pago", methods=["POST"])
+@app.route("/api/admin/reservas/<int:reserva_id>/confirmar", methods=["POST"])
 @administrador_requerido
 def api_admin_marcar_pago(reserva_id):
+    """Confirma manualmente la reserva tras recibir el anticipo en tienda y notifica al cliente."""
     conexion = None
     cursor = None
     try:
@@ -2463,9 +2519,10 @@ def api_admin_marcar_pago(reserva_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT p.id_pago, p.monto, p.estado AS pago_estado, p.metodo_pago,
-                   r.monto_pagado, r.anticipo_requerido, r.estado
-            FROM PAGO p JOIN RESERVA r ON r.id_reserva = p.id_reserva
+            SELECT r.id_reserva, r.codigo, r.monto_pagado, r.anticipo_requerido, r.estado,
+                   p.id_pago, p.monto, p.estado AS pago_estado, p.metodo_pago
+            FROM RESERVA r
+            LEFT JOIN PAGO p ON p.id_reserva = r.id_reserva
             WHERE r.id_reserva = %s
             ORDER BY p.id_pago DESC
             LIMIT 1
@@ -2473,43 +2530,115 @@ def api_admin_marcar_pago(reserva_id):
             """,
             (reserva_id,),
         )
-        pago = cursor.fetchone()
-        if not pago:
+        reserva = cursor.fetchone()
+        if not reserva:
             conexion.rollback()
-            return jsonify({"error": "La reserva no existe o no tiene un pago pendiente."}), 404
-        if pago["metodo_pago"] != "EFECTIVO_TIENDA":
+            return jsonify({"error": "La reserva no existe."}), 404
+        if reserva["estado"] == "CANCELADA":
             conexion.rollback()
-            return jsonify({"error": "Solo se puede registrar aquí el anticipo pagado en la tienda."}), 409
-        if pago["pago_estado"] != "PENDIENTE":
-            conexion.rollback()
-            return jsonify({"error": "El pago ya fue registrado."}), 409
-        if pago["estado"] == "CANCELADA":
-            conexion.rollback()
-            return jsonify({"error": "No se puede registrar un anticipo para una reserva cancelada."}), 409
-        cursor.execute(
-            "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW() WHERE id_pago = %s",
-            (pago["id_pago"],),
-        )
+            return jsonify({"error": "No se puede confirmar una reserva cancelada."}), 409
+
+        anticipo = Decimal(str(reserva["anticipo_requerido"] or 0))
+
+        # Actualiza o crea el registro de pago del anticipo en efectivo
+        if reserva.get("id_pago"):
+            cursor.execute(
+                """
+                UPDATE PAGO
+                SET estado = 'PAGADO',
+                    metodo_pago = CASE WHEN metodo_pago = 'WOMPI' THEN 'EFECTIVO_TIENDA' ELSE metodo_pago END,
+                    fecha_pago = NOW()
+                WHERE id_pago = %s
+                """,
+                (reserva["id_pago"],),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO PAGO (id_reserva, metodo_pago, monto, estado, referencia, fecha_pago)
+                VALUES (%s, 'EFECTIVO_TIENDA', %s, 'PAGADO', %s, NOW())
+                """,
+                (reserva_id, anticipo, f"CONF-MANUAL-{reserva['codigo']}"),
+            )
+
         cursor.execute(
             """
             UPDATE RESERVA
-            SET monto_pagado = monto_pagado + %s,
-                estado = CASE
-                    WHEN monto_pagado + %s >= anticipo_requerido
-                         AND estado = 'PENDIENTE_PAGO' THEN 'CONFIRMADA'
-                    ELSE estado
-                END
+            SET monto_pagado = CASE WHEN monto_pagado < anticipo_requerido THEN anticipo_requerido ELSE monto_pagado END,
+                estado = 'CONFIRMADA'
             WHERE id_reserva = %s
             """,
-            (pago["monto"], pago["monto"], reserva_id),
+            (reserva_id,),
         )
         conexion.commit()
+
+        # Enviar correo electrónico de confirmación al cliente
         _notificar_reserva_confirmada(reserva_id)
-        return jsonify({"mensaje": "Anticipo de efectivo registrado. La reserva fue confirmada."})
+
+        return jsonify({
+            "mensaje": f"Anticipo registrado y reserva {reserva['codigo']} confirmada exitosamente. Se ha enviado el correo de confirmación al cliente."
+        })
     except mysql.connector.Error as error:
         if conexion:
             conexion.rollback()
-        return _error_base_datos(error, "No se pudo registrar el anticipo en efectivo.")
+        return _error_base_datos(error, "No se pudo registrar el anticipo y confirmar la reserva.")
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/rechazar", methods=["POST"])
+@administrador_requerido
+def api_admin_rechazar_reserva(reserva_id):
+    """Rechaza / cancela la reserva y notifica por correo electrónico al cliente."""
+    datos = request.get_json(silent=True) or {}
+    motivo = str(datos.get("motivo", "")).strip() or None
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_reserva, codigo, estado, nombre_cliente
+            FROM RESERVA
+            WHERE id_reserva = %s
+            FOR UPDATE
+            """,
+            (reserva_id,),
+        )
+        reserva = cursor.fetchone()
+        if not reserva:
+            conexion.rollback()
+            return jsonify({"error": "La reserva no existe."}), 404
+        if reserva["estado"] == "CANCELADA":
+            conexion.rollback()
+            return jsonify({"error": "La reserva ya ha sido rechazada o cancelada anteriormente."}), 409
+
+        cursor.execute(
+            "UPDATE RESERVA SET estado = 'CANCELADA' WHERE id_reserva = %s",
+            (reserva_id,),
+        )
+        cursor.execute(
+            "UPDATE PAGO SET estado = 'CANCELADO' WHERE id_reserva = %s AND estado = 'PENDIENTE'",
+            (reserva_id,),
+        )
+        conexion.commit()
+
+        # Notificar por correo al cliente
+        _notificar_reserva_rechazada(reserva_id, motivo=motivo)
+
+        return jsonify({
+            "mensaje": f"Reserva {reserva['codigo']} rechazada exitosamente. Se ha enviado una notificación por correo al cliente."
+        })
+    except mysql.connector.Error as error:
+        if conexion:
+            conexion.rollback()
+        return _error_base_datos(error, "No se pudo rechazar la reserva.")
     finally:
         if cursor:
             cursor.close()

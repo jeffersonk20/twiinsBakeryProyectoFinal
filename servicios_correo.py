@@ -685,6 +685,115 @@ El equipo de TWINS Bakery 💗
 
 
 # ==============================================================================
+# 5b. NOTIFICACIÓN DE RESERVA RECHAZADA / CANCELADA POR ADMINISTRACIÓN
+# ==============================================================================
+
+def enviar_correo_reserva_rechazada(
+    destinatario,
+    nombre,
+    codigo,
+    nombre_producto,
+    cantidad,
+    total,
+    fecha_retiro,
+    motivo=None,
+):
+    """Envía la notificación al cliente indicando que su reserva fue cancelada o rechazada por la administración."""
+    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    asunto = f"Actualización de tu reserva [Código: {codigo}] - TWINS Bakery"
+
+    if isinstance(fecha_retiro, datetime):
+        fecha_retiro_str = fecha_retiro.strftime("%d/%m/%Y a las %I:%M %p")
+    else:
+        fecha_retiro_str = str(fecha_retiro)
+
+    total_f = float(total) if total is not None else 0.0
+    motivo_texto = motivo.strip() if motivo else "Disponibilidad limitada en agenda para la fecha seleccionada o anticipo no recibido a tiempo."
+
+    contenido_html = f"""
+      <div style="text-align:center; margin-bottom:20px;">
+        <span style="display:inline-block; background-color:#fed7d7; color:#9b2c2c; font-size:13px; font-weight:800; padding:6px 16px; border-radius:50px; text-transform:uppercase; letter-spacing:1px;">
+          Reserva Cancelada / No Aceptada
+        </span>
+      </div>
+
+      <h2 style="color:#9b2c2c; margin-top:0; font-size:22px; font-weight:800; text-align:center;">
+        Hola, {nombre_seguro}
+      </h2>
+
+      <p style="font-size:15px; color:#4a5568; text-align:center;">
+        Te informamos que tu reserva con código <strong>{codigo}</strong> para 
+        <strong>{nombre_producto}</strong> no ha podido ser procesada o ha sido cancelada por la administración.
+      </p>
+
+      <div style="background-color:#fff5f5; border:1px solid #feb2b2; border-radius:12px; padding:20px; margin:25px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#2d3748;">
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🔖 Código de reserva:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:800; color:#9b2c2c;">{codigo}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🍰 Producto:</td>
+            <td style="padding:6px 0; text-align:right;">{nombre_producto}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">📦 Cantidad:</td>
+            <td style="padding:6px 0; text-align:right;">{cantidad} unidad(es)</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💵 Total:</td>
+            <td style="padding:6px 0; text-align:right;">${total_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">📅 Fecha programada:</td>
+            <td style="padding:6px 0; text-align:right;">{fecha_retiro_str}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#fffaf0; border-left:4px solid #dd6b20; border-radius:8px; padding:15px; margin:22px 0;">
+        <p style="margin:0; font-size:14px; color:#7b341e;">
+          📌 <strong>Motivo o nota informativa:</strong><br>
+          {motivo_texto}
+        </p>
+      </div>
+
+      <p style="font-size:14px; color:#718096;">
+        Si deseas programar una nueva reserva para otra fecha o producto, puedes hacerlo directamente en nuestro catálogo o comunicarte con nosotros por el chat de la tienda.
+      </p>
+
+      <p style="margin:25px 0 0; font-size:15px; color:#4a5568;">
+        Agradecemos tu interés y comprensión.<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""Actualización de tu reserva en TWINS Bakery
+
+Hola {nombre_seguro},
+
+Te informamos que tu reserva con código {codigo} ({nombre_producto}) no ha podido ser procesada o ha sido cancelada por la administración.
+
+Detalles de la reserva:
+- Código: {codigo}
+- Producto: {nombre_producto}
+- Cantidad: {cantidad} unidad(es)
+- Total: ${total_f:.2f} USD
+- Fecha programada: {fecha_retiro_str}
+
+Motivo: {motivo_texto}
+
+Puedes coordinar una nueva fecha o solicitar información mediante el chat en nuestra plataforma.
+
+Atentamente,
+El equipo de TWINS Bakery 💗
+"""
+
+    html_completo = _plantilla_base_html(f"Reserva {codigo} - Cancelada", "Actualización de Reserva en TWINS Bakery", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
 # 6. NOTIFICACIÓN DE SOLICITUD DE EVENTO ACEPTADA
 # ==============================================================================
 

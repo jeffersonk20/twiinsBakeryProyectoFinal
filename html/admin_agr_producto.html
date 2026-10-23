@@ -27,11 +27,11 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit">Cerrar sesión</button>
                 </form>
-                <a href="{{ client_catalog_url }}">Volver a la tienda</a>
+                <a href="{{ url_for('admin_productos') }}">Ver productos</a>
             </div>
         </aside>
         <main class="admin-main">
-            <header class="admin-topbar"><div><span class="eyebrow">TWINS Bakery · Panel administrativo</span><h1>Productos</h1></div><a href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a></header>
+            <header class="admin-topbar"><div><span class="eyebrow">TWINS Bakery · Panel administrativo</span><h1>Productos</h1></div><a href="{{ url_for('admin_productos') }}">Ver catálogo ↗</a></header>
             <div class="admin-columns">
                 <section class="editor-panel">
                     <div class="panel-heading"><div><p class="eyebrow">Inventario de la tienda</p><h2 data-form-heading>Nuevo producto</h2></div><button class="reset-button" type="button" data-reset-form>Limpiar formulario</button></div>

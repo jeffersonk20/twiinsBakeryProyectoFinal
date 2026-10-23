@@ -11,6 +11,8 @@
     const loading = app.querySelector("[data-loading]");
     const dialog = document.querySelector("[data-edit-dialog]");
     const editForm = document.querySelector("[data-edit-form]");
+    const rejectDialog = document.querySelector("[data-reject-dialog]");
+    const rejectForm = document.querySelector("[data-reject-form]");
     let reservations = [];
 
     const statusNames = {
@@ -97,10 +99,10 @@
 
         body.innerHTML = filtered.map((reservation) => {
             const stateClass = statusClasses[reservation.estado] || "";
-            const paymentPending = reservation.pago_estado === "PENDIENTE";
-            const cashPending = paymentPending
-                && reservation.metodo_pago === "EFECTIVO_TIENDA"
-                && reservation.estado !== "CANCELADA";
+            const paymentPending = reservation.pago_estado === "PENDIENTE"
+                || Number(reservation.monto_pagado || 0) < Number(reservation.anticipo_requerido || 0);
+            const canConfirm = reservation.estado === "PENDIENTE_PAGO" && reservation.estado !== "CANCELADA";
+            const canReject = !["CANCELADA", "ENTREGADA"].includes(reservation.estado);
             const canMarkReady = ["CONFIRMADA", "EN_PREPARACION"].includes(reservation.estado);
             const isReady = reservation.estado === "LISTA";
             const paidLabel = paymentPending ? "Pendiente" : "Anticipo pagado";
@@ -114,10 +116,11 @@
                 <td><span class="payment-state ${paymentClass}">${paidLabel}</span><span class="muted-cell">${escapeHtml(paymentName(reservation.metodo_pago))}</span></td>
                 <td><div class="row-actions">
                     <button type="button" data-edit="${reservation.id}">Editar</button>
+                    ${canConfirm ? `<button type="button" class="confirm-action" data-confirm="${reservation.id}" title="Confirmar reserva tras recibir el anticipo en tienda y avisar al cliente">✓ Confirmar reserva</button>` : ""}
                     ${canMarkReady ? `<button type="button" class="ready-action" data-ready="${reservation.id}" title="Avisar al cliente que su pedido ya está listo para retirar">🔔 Avisar lista</button>` : ""}
                     ${isReady ? `<button type="button" class="ready-again-action" data-ready="${reservation.id}" title="Reenviar aviso por correo al cliente">✉️ Reenviar aviso</button>` : ""}
-                    ${cashPending ? `<button type="button" data-pay="${reservation.id}">Registrar efectivo</button>` : ""}
-                    <button type="button" class="delete-action" data-delete="${reservation.id}">Eliminar</button>
+                    ${canReject ? `<button type="button" class="reject-action" data-reject="${reservation.id}" title="Rechazar esta reserva y notificar por correo al cliente">✕ Rechazar</button>` : ""}
+                    <button type="button" class="delete-action" data-delete="${reservation.id}" title="Eliminar reserva del sistema">Eliminar</button>
                 </div></td>
             </tr>`;
         }).join("");
@@ -145,21 +148,11 @@
 
     function openEdit(reservation) {
         const date = new Date(String(reservation.fecha_retiro).replace(" ", "T"));
-        const minimumPickup = new Date();
-        minimumPickup.setDate(minimumPickup.getDate() + 5);
-        const minimumPickupDate = [
-            minimumPickup.getFullYear(),
-            String(minimumPickup.getMonth() + 1).padStart(2, "0"),
-            String(minimumPickup.getDate()).padStart(2, "0")
-        ].join("-");
         const localDate = [
             date.getFullYear(),
             String(date.getMonth() + 1).padStart(2, "0"),
             String(date.getDate()).padStart(2, "0")
         ].join("-");
-        editForm.elements.fecha.min = localDate < minimumPickupDate
-            ? localDate
-            : minimumPickupDate;
         const localTime = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
         editForm.elements.id.value = reservation.id;
         editForm.elements.nombre_cliente.value = reservation.cliente;
@@ -169,7 +162,7 @@
         editForm.elements.fecha.value = localDate;
         editForm.elements.hora.value = localTime;
         editForm.elements.estado.value = reservation.estado;
-        editForm.elements.estado.disabled = reservation.estado === "CANCELADA";
+        editForm.elements.estado.disabled = false;
         document.querySelector("[data-edit-code]").textContent = reservation.codigo;
         dialog.showModal();
     }
@@ -185,6 +178,72 @@
             if (reservation) openEdit(reservation);
             return;
         }
+
+        const confirmId = button.dataset.confirm || button.dataset.pay;
+        if (confirmId) {
+            const reservation = reservations.find((item) => item.id === Number(confirmId));
+            const codigo = reservation ? reservation.codigo : "";
+            const cliente = reservation ? reservation.cliente : "el cliente";
+            const correo = reservation ? reservation.correo : "";
+            const msgConfirm = correo
+                ? `¿Confirmar la recepción del anticipo para la reserva ${codigo} de ${cliente}?\n\nSe marcará como Confirmada y se enviará un correo a su Gmail (${correo}).`
+                : `¿Confirmar la recepción del anticipo para la reserva ${codigo}?`;
+
+            if (!window.confirm(msgConfirm)) return;
+
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.textContent = "Confirmando…";
+
+            try {
+                const result = await readResponse(await fetch(`/api/admin/reservas/${confirmId}/confirmar`, {
+                    method: "POST",
+                    headers: { "X-CSRF-Token": csrfToken }
+                }));
+                showMessage(result.mensaje || "Anticipo registrado y reserva confirmada.");
+                await loadReservations();
+            } catch (error) {
+                showMessage(error.message, true);
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+            return;
+        }
+
+        if (button.dataset.reject) {
+            const reservation = reservations.find((item) => item.id === Number(button.dataset.reject));
+            if (!reservation) return;
+
+            if (rejectDialog && rejectForm) {
+                rejectForm.elements.reserva_id.value = reservation.id;
+                const codeSpan = document.querySelector("[data-reject-code]");
+                if (codeSpan) codeSpan.textContent = reservation.codigo;
+                rejectForm.elements.motivo.value = "";
+                rejectDialog.showModal();
+            } else {
+                const motivo = window.prompt(
+                    `¿Deseas rechazar la reserva ${reservation.codigo} de ${reservation.cliente}?\n\nPuedes ingresar un motivo que se notificará por correo:`,
+                    "Disponibilidad limitada en agenda para la fecha o anticipo no recibido a tiempo."
+                );
+                if (motivo === null) return;
+                try {
+                    const result = await readResponse(await fetch(`/api/admin/reservas/${reservation.id}/rechazar`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-Token": csrfToken
+                        },
+                        body: JSON.stringify({ motivo })
+                    }));
+                    showMessage(result.mensaje || "Reserva rechazada y cliente notificado.");
+                    await loadReservations();
+                } catch (error) {
+                    showMessage(error.message, true);
+                }
+            }
+            return;
+        }
+
         if (button.dataset.ready) {
             const reservation = reservations.find((item) => item.id === Number(button.dataset.ready));
             const codigo = reservation ? reservation.codigo : "";
@@ -214,32 +273,22 @@
             }
             return;
         }
+
         if (button.dataset.delete) {
-            if (!window.confirm("¿Eliminar esta reserva y su registro de pago? Esta acción no se puede deshacer.")) return;
+            const reservation = reservations.find((item) => item.id === Number(button.dataset.delete));
+            const codigo = reservation ? reservation.codigo : "";
+            if (!window.confirm(`¿Eliminar la reserva ${codigo} y todos sus registros asociados? Esta acción no se puede deshacer.`)) return;
             try {
-                await readResponse(await fetch(`/api/admin/reservas/${button.dataset.delete}`, {
+                const result = await readResponse(await fetch(`/api/admin/reservas/${button.dataset.delete}`, {
                     method: "DELETE",
                     headers: { "X-CSRF-Token": csrfToken }
                 }));
-                showMessage("La reserva fue eliminada.");
+                showMessage(result.mensaje || "La reserva fue eliminada.");
                 await loadReservations();
             } catch (error) {
                 showMessage(error.message, true);
             }
             return;
-        }
-        if (button.dataset.pay) {
-            if (!window.confirm("Confirma que el cliente ya pagó el anticipo en efectivo en la tienda.")) return;
-            try {
-                await readResponse(await fetch(`/api/admin/reservas/${button.dataset.pay}/marcar-pago`, {
-                    method: "POST",
-                    headers: { "X-CSRF-Token": csrfToken }
-                }));
-                showMessage("Anticipo registrado y reserva confirmada.");
-                await loadReservations();
-            } catch (error) {
-                showMessage(error.message, true);
-            }
         }
     });
 
@@ -266,12 +315,51 @@
                 body: JSON.stringify(updates)
             }));
             dialog.close();
-            showMessage("La reserva fue actualizada.");
+            showMessage("La reserva fue actualizada exitosamente.");
             await loadReservations();
         } catch (error) {
             showMessage(error.message, true);
         }
     });
+
+    if (rejectForm) {
+        rejectForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const reservaId = rejectForm.elements.reserva_id.value;
+            const motivo = rejectForm.elements.motivo.value.trim();
+            const submitBtn = rejectForm.querySelector("button[type='submit']");
+            const originalText = submitBtn ? submitBtn.textContent : "";
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Procesando…";
+            }
+            try {
+                const result = await readResponse(await fetch(`/api/admin/reservas/${reservaId}/rechazar`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfToken
+                    },
+                    body: JSON.stringify({ motivo })
+                }));
+                if (rejectDialog) rejectDialog.close();
+                showMessage(result.mensaje || "Reserva rechazada y notificación enviada al cliente.");
+                await loadReservations();
+            } catch (error) {
+                showMessage(error.message, true);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            }
+        });
+    }
+
+    const cancelReject = document.querySelector("[data-cancel-reject]");
+    if (cancelReject && rejectDialog) {
+        cancelReject.addEventListener("click", () => rejectDialog.close());
+    }
 
     loadReservations();
 })();

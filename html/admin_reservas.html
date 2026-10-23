@@ -36,7 +36,7 @@
                 <div><p class="eyebrow">TWINS Bakery · Panel administrativo</p><h1>Reservas registradas</h1></div>
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <a class="catalog-link primary" href="{{ url_for('admin_nueva_reserva') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">＋ Nueva reserva</a>
-                    <a class="catalog-link" href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+                    <a class="catalog-link" href="{{ url_for('admin_productos') }}">Ver catálogo ↗</a>
                 </div>
             </header>
             {% with mensajes = get_flashed_messages(with_categories=true) %}
@@ -111,6 +111,32 @@
             </form>
         </div>
     </dialog>
+
+    <!-- DIALOG PARA RECHAZAR RESERVA CON MOTIVO OPCIONAL -->
+    <dialog class="edit-dialog" data-reject-dialog>
+        <form method="dialog" class="dialog-close-row">
+            <button class="icon-close" aria-label="Cerrar">×</button>
+        </form>
+        <div class="dialog-content">
+            <p class="eyebrow">Gestión de reservas</p>
+            <h2>Rechazar reserva <span data-reject-code></span></h2>
+            <p class="dialog-help" style="margin-bottom: 14px;">
+                Al rechazar la reserva, se marcará como cancelada y se enviará automáticamente un correo electrónico al cliente explicando el motivo de forma cortés.
+            </p>
+            <form data-reject-form>
+                <input type="hidden" name="reserva_id" id="reject-reserva-id">
+                <div class="field">
+                    <label for="reject-motivo">Motivo o mensaje para el cliente (opcional):</label>
+                    <textarea id="reject-motivo" name="motivo" rows="3" style="width: 100%; min-height: 75px; padding: 8px 10px; border: 1px solid #eee6e1; border-radius: 7px; outline: 0; font-family: inherit; font-size: 10px; resize: vertical;" placeholder="Ej: No disponemos de cupo para esa fecha o el anticipo no fue completado a tiempo..."></textarea>
+                </div>
+                <div class="dialog-actions">
+                    <button type="button" class="button-secondary" data-cancel-reject>Cancelar</button>
+                    <button type="submit" class="button-primary" style="background: #e53e3e; border-color: #e53e3e;">Confirmar rechazo y notificar</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
     <script src="{{ url_for('static_files', filename='js/admin_reservas.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
 </body>

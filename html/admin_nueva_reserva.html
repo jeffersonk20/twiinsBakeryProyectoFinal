@@ -39,7 +39,7 @@
                 </div>
                 <div class="topbar-actions">
                     <a class="catalog-link" href="{{ url_for('admin_reservas') }}">← Volver a Reservas</a>
-                    <a class="catalog-link" href="{{ client_catalog_url }}" target="_blank" rel="noopener">Ver catálogo ↗</a>
+                    <a class="catalog-link" href="{{ url_for('admin_productos') }}">Ver catálogo ↗</a>
                 </div>
             </header>
 
@@ -102,11 +102,13 @@
                         <div class="form-row">
                             <div class="field">
                                 <label for="input-hora">Hora para recoger</label>
-                                <input id="input-hora" name="hora" type="text" value="3:00 PM" placeholder="Ej. 3:00 PM" required data-time-input>
+                                <select id="input-hora" name="hora" required data-time-select>
+                                    <!-- Opciones generadas dinámicamente según el día seleccionado -->
+                                </select>
                             </div>
                             <div class="field">
                                 <label for="input-telefono">Teléfono del cliente</label>
-                                <input id="input-telefono" name="telefono" type="tel" placeholder="Tu teléfono de contacto" maxlength="30" required>
+                                <input id="input-telefono" name="telefono" type="tel" placeholder="0000-0000" maxlength="9" pattern="\d{4}-\d{4}" inputmode="numeric" required data-phone-input>
                             </div>
                         </div>
 
@@ -117,7 +119,8 @@
 
                         <div class="field">
                             <label for="input-correo">Correo electrónico <span class="field-hint">(opcional · para avisar cuando esté lista)</span></label>
-                            <input id="input-correo" name="correo" type="email" placeholder="cliente@ejemplo.com (opcional)" maxlength="150" data-email-input>
+                            <input id="input-correo" name="correo" type="email" placeholder="cliente@ejemplo.com (opcional)" maxlength="150" data-email-input
+                                pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}">
                         </div>
 
                         <!-- Resumen de montos calculado en tiempo real -->

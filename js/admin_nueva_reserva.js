@@ -13,11 +13,93 @@
     const countBadge = page.querySelector("[data-product-count]");
     const summaryTotal = page.querySelector("#summary-total");
     const summaryDeposit = page.querySelector("#summary-deposit");
+    const timeSelect = page.querySelector("[data-time-select]");
+    const dateInput = page.querySelector("[data-date-input]");
+    const phoneInput = page.querySelector("[data-phone-input]");
 
     let selectedPrice = 0;
     let selectedProductId = hiddenProductId ? hiddenProductId.value : "";
     let activeCategory = "";
     let searchQuery = "";
+
+    // ── Horario del negocio ──────────────────────────────────────────
+    // Lunes: 2:00 PM – 6:00 PM  |  Martes–Sábado: 10:00 AM – 6:00 PM
+    // Domingo: cerrado
+    function getAvailableHours(dayOfWeek) {
+        // dayOfWeek: 0=Domingo, 1=Lunes, 2=Martes … 6=Sábado
+        if (dayOfWeek === 0) return [];   // Domingo cerrado
+        if (dayOfWeek === 1) {
+            // Lunes 2:00 PM – 6:00 PM (en intervalos de 30 min)
+            return ["2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM",
+                    "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM"];
+        }
+        // Martes–Sábado 10:00 AM – 6:00 PM
+        return [
+            "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+            "12:00 PM", "12:30 PM",  "1:00 PM",  "1:30 PM",
+             "2:00 PM",  "2:30 PM",  "3:00 PM",  "3:30 PM",
+             "4:00 PM",  "4:30 PM",  "5:00 PM",  "5:30 PM",  "6:00 PM"
+        ];
+    }
+
+    function populateTimeSelect(dateStr) {
+        if (!timeSelect) return;
+        timeSelect.innerHTML = "";
+
+        if (!dateStr) {
+            timeSelect.innerHTML = '<option value="" disabled selected>Selecciona primero una fecha</option>';
+            return;
+        }
+
+        // Parsear la fecha sin problemas de zona horaria
+        const [y, m, d] = dateStr.split("-").map(Number);
+        const dow = new Date(y, m - 1, d).getDay(); // 0=Dom … 6=Sáb
+
+        const hours = getAvailableHours(dow);
+
+        if (hours.length === 0) {
+            timeSelect.innerHTML = '<option value="" disabled selected>Domingo – local cerrado</option>';
+            return;
+        }
+
+        // Hora predeterminada: 3:00 PM si está disponible, si no la primera
+        const defaultHour = hours.includes("3:00 PM") ? "3:00 PM" : hours[0];
+
+        hours.forEach((h) => {
+            const opt = document.createElement("option");
+            opt.value = h;
+            opt.textContent = h;
+            if (h === defaultHour) opt.selected = true;
+            timeSelect.appendChild(opt);
+        });
+    }
+
+    // Inicializar horas con la fecha ya cargada en el input
+    if (dateInput) {
+        populateTimeSelect(dateInput.value);
+        dateInput.addEventListener("change", () => populateTimeSelect(dateInput.value));
+    }
+
+    // ── Teléfono: solo dígitos + guión automático al 4to dígito ────────
+    if (phoneInput) {
+        phoneInput.addEventListener("input", (e) => {
+            let raw = e.target.value.replace(/\D/g, ""); // quitar todo lo que no sea dígito
+            if (raw.length > 8) raw = raw.slice(0, 8);   // máx 8 dígitos
+
+            if (raw.length > 4) {
+                e.target.value = raw.slice(0, 4) + "-" + raw.slice(4);
+            } else {
+                e.target.value = raw;
+            }
+        });
+
+        // Evitar pegar caracteres no numéricos
+        phoneInput.addEventListener("keydown", (e) => {
+            const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
+            if (allowed.includes(e.key)) return;
+            if (!/^\d$/.test(e.key)) e.preventDefault();
+        });
+    }
 
     function fmt(val) {
         return new Intl.NumberFormat("es-US", { style: "currency", currency: "USD" }).format(Number(val));
@@ -128,7 +210,7 @@
                 return;
             }
 
-            const dateInput = form.querySelector("[data-date-input]");
+            // Validar fecha mínima (usa la variable del scope superior)
             if (dateInput && dateInput.value) {
                 const chosen = new Date(dateInput.value + "T00:00:00");
                 const minDate = new Date();
@@ -142,13 +224,37 @@
                 }
             }
 
+            // Validar hora disponible (el select no tendrá valor si es domingo)
+            if (timeSelect && !timeSelect.value) {
+                e.preventDefault();
+                alert("El local está cerrado el día seleccionado. Por favor elige otra fecha.");
+                dateInput && dateInput.focus();
+                return;
+            }
+
+            // Validar correo electrónico
             const emailInput = form.querySelector("[data-email-input]");
             const emailVal = emailInput ? emailInput.value.trim() : "";
-            if (emailVal && !emailVal.includes("@")) {
-                e.preventDefault();
-                alert("Si ingresas un correo electrónico, debe tener un formato válido (o déjalo vacío).");
-                emailInput.focus();
-                return;
+            if (emailVal) {
+                // Regex que exige: texto@dominio.extension (extension mín 2 caracteres)
+                const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+                if (!emailRegex.test(emailVal)) {
+                    e.preventDefault();
+                    alert("El correo electrónico no es válido. Usa un formato como nombre@gmail.com o nombre@hotmail.com");
+                    emailInput.focus();
+                    return;
+                }
+            }
+
+            // Validar teléfono: debe tener el formato 0000-0000
+            if (phoneInput) {
+                const phoneVal = phoneInput.value.trim();
+                if (!/^\d{4}-\d{4}$/.test(phoneVal)) {
+                    e.preventDefault();
+                    alert("El teléfono debe tener el formato 0000-0000 (8 dígitos).");
+                    phoneInput.focus();
+                    return;
+                }
             }
         });
     }

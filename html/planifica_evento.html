@@ -50,7 +50,7 @@
 
             <div class="field">
                 <label for="num_invitados">Numero de invitados</label>
-                <input type="number" id="num_invitados" name="num_invitados" placeholder="50" min="1" max="5000" required>
+                <input type="text" id="num_invitados" name="num_invitados" placeholder="50" inputmode="numeric" minlength="1" maxlength="4" pattern="[0-9]{1,4}" required onkeydown="if(event.key.length === 1 && !/^[0-9]$/.test(event.key)) event.preventDefault();" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 4);">
             </div>
 
             <div class="field">

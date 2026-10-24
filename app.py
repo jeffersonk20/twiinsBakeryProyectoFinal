@@ -91,6 +91,7 @@ if not app.secret_key:
 # INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
 # ==============================================================================
 try:
+    # pyrefly: ignore[missing-import]
     from ia_asistente import ia_bp
     app.register_blueprint(ia_bp)
 except Exception as err:

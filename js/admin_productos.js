@@ -194,18 +194,14 @@
         saveButton.disabled = true;
         try {
             await saveProduct(producto, imageFile);
-            const listLoaded = await loadProducts();
-            resetForm();
-            if (listLoaded) {
-                const action = producto.id ? "actualizado" : "agregado";
-                showMessage(
-                    producto.stock > 0 && producto.disponible
-                        ? `Producto ${action}; cantidad actualizada y visible en la tienda.`
-                        : `Producto ${action}; agotado y oculto de la tienda.`
-                );
-            } else {
-                showMessage("El producto se guardó, pero no se pudo actualizar la lista. Recarga la página.", true);
-            }
+            sessionStorage.setItem(
+                "admin_producto_msg",
+                producto.id
+                    ? "¡Producto e imagen actualizados con éxito!"
+                    : "¡Producto agregado con éxito!"
+            );
+            window.location.reload();
+            return;
         } catch (error) {
             showMessage(`No se pudo guardar el producto: ${error.message}`, true);
         } finally {
@@ -243,4 +239,10 @@
 
     resetForm();
     loadProducts();
+
+    const savedMsg = sessionStorage.getItem("admin_producto_msg");
+    if (savedMsg) {
+        showMessage(savedMsg);
+        sessionStorage.removeItem("admin_producto_msg");
+    }
 })();

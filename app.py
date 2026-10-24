@@ -77,16 +77,12 @@ app = Flask(
 )
 
 # Clave privada para las sesiones
-app.secret_key = os.getenv("SECRET_KEY")
+app.secret_key = os.getenv("SECRET_KEY") or "twins_bakery_2026_clave_privada_8f3a9c2d"
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
 )
-
-# Evitar iniciar la aplicación si falta la clave
-if not app.secret_key:
-    raise RuntimeError("Falta configurar SECRET_KEY en el archivo .env")
 
 # ==============================================================================
 # INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
@@ -4008,4 +4004,10 @@ def cerrar_sesion():
 # ==========================================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    puerto = int(os.getenv("PORT", 5000))
+    print("\n" + "=" * 60)
+    print("  TWINS BAKERY - SERVIDOR INICIADO CON EXITO")
+    print(f"  * Aplicacion web (Cliente): http://127.0.0.1:{puerto}/")
+    print(f"  * Panel de Administracion:  http://127.0.0.1:{puerto}/admin/login")
+    print("=" * 60 + "\n")
+    app.run(debug=True, host="127.0.0.1", port=puerto)

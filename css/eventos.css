@@ -2,6 +2,18 @@
    EVENTOS - CSS
    ======================================== */
 
+/* ── Navbar estándar compartido (catalog-header) ── */
+.catalog-header { min-height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 0 5.5%; border-bottom: 1px solid #f1e8e5; background: #fff; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--pink); font-size: 15px; font-weight: 800; letter-spacing: .06em; text-decoration: none; }
+.brand img { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; }
+.brand span { display: inline-flex; flex-direction: column; }
+.brand small { display: block; color: var(--teal); font-size: 9px; letter-spacing: .16em; font-weight: 400; }
+.desktop-nav { display: flex; gap: 36px; color: #52666b; font-size: 13px; }
+.desktop-nav a { color: #52666b; text-decoration: none; transition: color .15s ease; }
+.desktop-nav a:hover, .desktop-nav a.active { color: var(--pink); }
+.account-link { padding: 10px 17px; border: 1px solid #f4a1b8; border-radius: 999px; color: var(--pink); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.account-link:hover { background: #fff0f5; }
+
 /* ---- Pagina principal de eventos ---- */
 .eventos-page {
     width: min(680px, calc(100% - 32px));

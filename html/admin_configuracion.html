@@ -35,9 +35,14 @@
             <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
             <section class="account-panel">
                 <h2>Cuenta única de administración</h2>
-                <p>El sistema permite un solo usuario administrador. Puedes eliminarlo cuando necesites cerrar el acceso; para crear otra cuenta se requerirá nuevamente el código de configuración inicial.</p>
+                <p>Administra tu sesión de administrador. Puedes cerrar sesión en cualquier momento desde aquí o desde el menú lateral.</p>
                 <div class="account-detail">Correo de acceso<strong>{{ admin_email }}</strong></div>
-                <button type="button" class="delete-account" data-open-delete>Eliminar usuario administrador</button>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" style="margin-top:8px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="delete-account" id="btnCerrarSesionConf" style="border-color:#f4a1b8;color:var(--pink-dark);">
+                        Cerrar sesión
+                    </button>
+                </form>
             </section>
         </main>
     </div>

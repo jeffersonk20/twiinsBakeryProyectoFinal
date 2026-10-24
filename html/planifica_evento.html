@@ -11,17 +11,98 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Overlay de confirmación de solicitud ── */
+        .solicitud-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(18, 63, 73, 0.72);
+            backdrop-filter: blur(6px);
+            opacity: 0; pointer-events: none;
+            transition: opacity .35s ease;
+        }
+        .solicitud-overlay.visible { opacity: 1; pointer-events: all; }
+        .solicitud-card {
+            display: flex; flex-direction: column; align-items: center; gap: 18px;
+            padding: 44px 40px 38px;
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 32px 80px rgba(11,37,44,.35);
+            text-align: center;
+            max-width: 320px; width: calc(100% - 32px);
+            transform: translateY(24px) scale(.95);
+            transition: transform .4s cubic-bezier(.34,1.56,.64,1);
+        }
+        .solicitud-overlay.visible .solicitud-card { transform: translateY(0) scale(1); }
+        .check-circle {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f23271, #d91f5b);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 8px 24px rgba(242,50,113,.45);
+            animation: bounceIn .5s .1s both;
+        }
+        .check-circle svg { width: 36px; height: 36px; color: #fff; }
+        @keyframes bounceIn {
+            0%   { transform: scale(0); opacity: 0; }
+            60%  { transform: scale(1.15); }
+            80%  { transform: scale(.95); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .solicitud-card h2 {
+            margin: 0; font-size: 20px; color: #153e49; letter-spacing: -.03em;
+        }
+        .solicitud-card p {
+            margin: 0; font-size: 13px; color: #718187; line-height: 1.6;
+        }
+        /* Spinner de carga */
+        .sol-spinner {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-radius: 999px;
+            background: #fff8ef; color: #718187; font-size: 12px; font-weight: 500;
+        }
+        .sol-spinner-ring {
+            width: 18px; height: 18px; border-radius: 50%;
+            border: 2px solid #f4d5dd;
+            border-top-color: #f23271;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-    <header class="customer-header">
-        <a class="customer-brand" href="{{ url_for('inicio') }}">TWINS <span>BAKERY</span></a>
-        <nav aria-label="Navegacion de cliente">
-            <a href="{{ url_for('catalogo') }}">Catalogo</a>
+    <!-- ── Overlay animado de confirmación ── -->
+    <div class="solicitud-overlay" id="solicitudOverlay" role="dialog" aria-modal="true" aria-label="Solicitud enviada">
+        <div class="solicitud-card">
+            <div class="check-circle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+            </div>
+            <h2>¡Solicitud enviada!</h2>
+            <p>Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo muy pronto.</p>
+            <div class="sol-spinner">
+                <div class="sol-spinner-ring"></div>
+                Redirigiendo a Eventos…
+            </div>
+        </div>
+    </div>
+
+    <header class="catalog-header">
+        <a class="brand" href="{{ url_for('inicio') }}">
+            <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWINS Bakery">
+            <span>TWINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            <a href="{{ url_for('inicio') }}">Inicio</a>
+            <a href="{{ url_for('catalogo') }}">Catálogo</a>
             <a href="{{ url_for('vitrina') }}">Vitrina</a>
             <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
             <a class="active" href="{{ url_for('eventos') }}">Eventos</a>
-            <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesion</a>
+            <a href="{{ url_for('chat_general') }}">Chat</a>
+            <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
         </nav>
+        <a class="account-link" href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
     </header>
 
     <main class="planifica-page">
@@ -88,5 +169,34 @@
         <a href="{{ url_for('cerrar_sesion') }}"><span aria-hidden="true">&#9675;</span>Salir</a>
     </nav>
     <script src="{{ url_for('static_files', filename='js/eventos.js') }}" defer></script>
+    <script>
+    (() => {
+        const form = document.getElementById('formPlanifica');
+        const overlay = document.getElementById('solicitudOverlay');
+        if (!form || !overlay) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!form.reportValidity()) return;
+
+            const btn = document.getElementById('btnEnviarSolicitud');
+            btn.disabled = true;
+
+            // Enviar el formulario en background via fetch
+            try {
+                const fd = new FormData(form);
+                await fetch(form.action, { method: 'POST', body: fd });
+            } catch (_) { /* ignorar errores de red; la redirección procede igual */ }
+
+            // Mostrar overlay animado
+            overlay.classList.add('visible');
+
+            // Redirigir a eventos tras 2.5 segundos
+            setTimeout(() => {
+                window.location.href = "{{ url_for('eventos') }}";
+            }, 2500);
+        });
+    })();
+    </script>
 </body>
 </html>

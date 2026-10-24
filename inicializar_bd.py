@@ -120,9 +120,14 @@ def _inicializar_sqlite(conexion, cursor):
         nombre TEXT NOT NULL,
         correo TEXT NOT NULL UNIQUE,
         contrasena TEXT NOT NULL,
-        fecha_registro DATE DEFAULT (CURRENT_DATE)
+        fecha_registro DATE DEFAULT (CURRENT_DATE),
+        correo_verificado BOOLEAN NOT NULL DEFAULT 1
     );
     """)
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN correo_verificado BOOLEAN NOT NULL DEFAULT 1;")
+    except Exception:
+        pass
 
     # 2. ADMINISTRADOR
     cursor.execute("""
@@ -341,6 +346,21 @@ def _inicializar_sqlite(conexion, cursor):
     # Unicidad 1:1 en chat general cliente-administrador
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_cliente_unico ON CHAT (id_cliente);")
 
+    # 16. CODIGO_VERIFICACION
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CODIGO_VERIFICACION (
+        id_codigo INTEGER PRIMARY KEY AUTOINCREMENT,
+        correo TEXT NOT NULL,
+        codigo TEXT NOT NULL,
+        tipo TEXT NOT NULL DEFAULT 'REGISTRO',
+        intentos INTEGER NOT NULL DEFAULT 0,
+        usado BOOLEAN NOT NULL DEFAULT 0,
+        expira_en TIMESTAMP NOT NULL,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_codigo_correo ON CODIGO_VERIFICACION (correo, usado);")
+
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
@@ -352,9 +372,14 @@ def _inicializar_mysql(conexion, cursor):
         nombre VARCHAR(100) NOT NULL,
         correo VARCHAR(150) NOT NULL UNIQUE,
         contrasena VARCHAR(255) NOT NULL,
-        fecha_registro DATE DEFAULT (CURRENT_DATE)
+        fecha_registro DATE DEFAULT (CURRENT_DATE),
+        correo_verificado BOOLEAN NOT NULL DEFAULT TRUE
     ) ENGINE=InnoDB;
     """)
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN correo_verificado BOOLEAN NOT NULL DEFAULT TRUE;")
+    except Exception:
+        pass
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS ADMINISTRADOR (
@@ -562,6 +587,21 @@ def _inicializar_mysql(conexion, cursor):
         cursor.execute("CREATE UNIQUE INDEX idx_chat_cliente_unico ON CHAT (id_cliente);")
     except Exception:
         pass
+
+    # 16. CODIGO_VERIFICACION
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CODIGO_VERIFICACION (
+        id_codigo INT AUTO_INCREMENT PRIMARY KEY,
+        correo VARCHAR(150) NOT NULL,
+        codigo VARCHAR(10) NOT NULL,
+        tipo VARCHAR(30) NOT NULL DEFAULT 'REGISTRO',
+        intentos INT NOT NULL DEFAULT 0,
+        usado BOOLEAN NOT NULL DEFAULT FALSE,
+        expira_en DATETIME NOT NULL,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_codigo_correo (correo, usado)
+    ) ENGINE=InnoDB;
+    """)
 
 
 def _sembrar_datos_iniciales(cursor):

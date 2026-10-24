@@ -40,6 +40,7 @@ from servicios_correo import (
     enviar_correo_evento_aceptado,
     enviar_correo_evento_rechazado,
     enviar_correo_reserva_rechazada,
+    enviar_correo_codigo_verificacion,
 )
 
 load_dotenv()
@@ -165,6 +166,131 @@ try:
     _asegurar_columna_correo_reserva()
 except Exception:
     pass
+
+
+def _asegurar_tabla_verificacion_correo():
+    """Garantiza la columna correo_verificado en CLIENTE y la tabla CODIGO_VERIFICACION."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        # Verificar columna correo_verificado en SQLite
+        try:
+            cursor.execute("PRAGMA table_info(CLIENTE)")
+            cols_cliente = [c[1] for c in cursor.fetchall()]
+            if cols_cliente and "correo_verificado" not in cols_cliente:
+                cursor.execute("ALTER TABLE CLIENTE ADD COLUMN correo_verificado BOOLEAN NOT NULL DEFAULT 1")
+                if hasattr(conexion, "commit"):
+                    conexion.commit()
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS CODIGO_VERIFICACION (
+                id_codigo INTEGER PRIMARY KEY AUTOINCREMENT,
+                correo TEXT NOT NULL,
+                codigo TEXT NOT NULL,
+                tipo TEXT NOT NULL DEFAULT 'REGISTRO',
+                intentos INTEGER NOT NULL DEFAULT 0,
+                usado BOOLEAN NOT NULL DEFAULT 0,
+                expira_en TIMESTAMP NOT NULL,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_codigo_correo ON CODIGO_VERIFICACION (correo, usado);")
+            if hasattr(conexion, "commit"):
+                conexion.commit()
+        except Exception:
+            # Fallback para MySQL
+            try:
+                cursor.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLIENTE' AND COLUMN_NAME = 'correo_verificado'
+                    """
+                )
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE CLIENTE ADD COLUMN correo_verificado BOOLEAN NOT NULL DEFAULT TRUE")
+                    if hasattr(conexion, "commit"):
+                        conexion.commit()
+
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS CODIGO_VERIFICACION (
+                    id_codigo INT AUTO_INCREMENT PRIMARY KEY,
+                    correo VARCHAR(150) NOT NULL,
+                    codigo VARCHAR(10) NOT NULL,
+                    tipo VARCHAR(30) NOT NULL DEFAULT 'REGISTRO',
+                    intentos INT NOT NULL DEFAULT 0,
+                    usado BOOLEAN NOT NULL DEFAULT FALSE,
+                    expira_en DATETIME NOT NULL,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_codigo_correo (correo, usado)
+                ) ENGINE=InnoDB;
+                """)
+                if hasattr(conexion, "commit"):
+                    conexion.commit()
+            except Exception as e_mysql:
+                app.logger.warning("No se pudo verificar CODIGO_VERIFICACION en MySQL: %s", e_mysql)
+    except Exception as err:
+        app.logger.warning("No se pudo verificar CODIGO_VERIFICACION: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+try:
+    _asegurar_tabla_verificacion_correo()
+except Exception:
+    pass
+
+
+# Dominios de correo autorizados para evitar correos ficticios
+DOMINIOS_CORREO_PERMITIDOS = {
+    "gmail.com",
+    "googlemail.com",
+    "hotmail.com",
+    "outlook.com",
+    "live.com",
+    "msn.com",
+    "yahoo.com",
+    "yahoo.es",
+    "ymail.com",
+    "icloud.com",
+}
+
+
+def es_correo_valido(correo: str) -> tuple[bool, str]:
+    """Valida formato y dominio permitido del correo para clientes."""
+    if not correo or "@" not in correo:
+        return False, "Ingresa un correo electrónico válido."
+
+    correo_limpio = correo.strip().lower()
+    partes = correo_limpio.split("@")
+    if len(partes) != 2:
+        return False, "Formato de correo electrónico inválido."
+
+    usuario, dominio = partes[0].strip(), partes[1].strip()
+
+    if not usuario or len(usuario) < 3:
+        return False, "El nombre de usuario del correo debe tener al menos 3 caracteres."
+
+    if not re.match(r"^[a-zA-Z0-9_.+-]+$", usuario):
+        return False, "El correo contiene caracteres no permitidos."
+
+    if usuario.startswith(".") or usuario.endswith(".") or ".." in usuario:
+        return False, "El formato del correo es inválido."
+
+    if dominio not in DOMINIOS_CORREO_PERMITIDOS:
+        return False, (
+            "Para evitar correos inventados, solo se permiten proveedores autorizados "
+            "como Google (@gmail.com), Microsoft (@hotmail.com, @outlook.com), "
+            "Yahoo (@yahoo.com) o Apple (@icloud.com)."
+        )
+
+    return True, ""
+
 
 
 @app.before_request
@@ -3379,9 +3505,9 @@ def registrar_cliente():
     contrasena = request.form.get("contrasena", "")
     confirmar = request.form.get("confirmar_contrasena", "")
 
-    # Validar campos
+    # Validar campos básicos
     if not nombre or not correo or not contrasena:
-        flash("Completa todos los campos.", "error")
+        flash("Completa todos los campos obligatorios.", "error")
         return redirect(url_for("registro"))
 
     if len(nombre) > 100 or len(correo) > 150:
@@ -3396,6 +3522,306 @@ def registrar_cliente():
         flash("Las contraseñas no coinciden.", "error")
         return redirect(url_for("registro"))
 
+    # Validar estructura y dominios reales autorizados (Google, Microsoft, Yahoo, Apple)
+    valido, mensaje_val = es_correo_valido(correo)
+    if not valido:
+        flash(mensaje_val, "error")
+        return redirect(url_for("registro"))
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # Comprobar si el correo ya existe
+        cursor.execute(
+            "SELECT id_cliente, correo_verificado FROM CLIENTE WHERE correo = %s",
+            (correo,)
+        )
+        cliente_existente = cursor.fetchone()
+
+        if cliente_existente:
+            # Comprobar si ya está verificado
+            esta_verificado = cliente_existente.get("correo_verificado") in (1, True, "1")
+            if esta_verificado:
+                flash(
+                    "Este correo ya está registrado y verificado. Inicia sesión con tu cuenta.",
+                    "error"
+                )
+                return redirect(url_for("login"))
+            else:
+                # Actualizar contraseña y nombre si estaba pendiente de verificación
+                contrasena_hash = generate_password_hash(contrasena)
+                cursor.execute(
+                    "UPDATE CLIENTE SET nombre = %s, contrasena = %s WHERE correo = %s",
+                    (nombre, contrasena_hash, correo)
+                )
+        else:
+            # Encriptar la contraseña mediante hash y guardar con correo_verificado = 0
+            contrasena_hash = generate_password_hash(contrasena)
+            consulta = """
+                INSERT INTO CLIENTE
+                (nombre, correo, contrasena, correo_verificado)
+                VALUES (%s, %s, %s, 0)
+            """
+            cursor.execute(
+                consulta,
+                (nombre, correo, contrasena_hash)
+            )
+
+        # Generar código OTP seguro de 6 dígitos
+        codigo_otp = f"{secrets.randbelow(900000) + 100000}"
+        expiracion = datetime.now() + timedelta(minutes=15)
+
+        # Invalidar códigos anteriores no utilizados para este correo
+        cursor.execute(
+            "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE correo = %s AND usado = 0",
+            (correo,)
+        )
+
+        # Guardar nuevo código de verificación
+        cursor.execute(
+            """
+            INSERT INTO CODIGO_VERIFICACION
+            (correo, codigo, tipo, intentos, usado, expira_en)
+            VALUES (%s, %s, 'REGISTRO', 0, 0, %s)
+            """,
+            (correo, codigo_otp, expiracion)
+        )
+
+        conexion.commit()
+
+        # Enviar correo de verificación asíncrono con el código
+        try:
+            enviar_correo_codigo_verificacion(correo, nombre, codigo_otp)
+        except Exception as err_correo:
+            app.logger.warning("No se pudo disparar el correo de verificación: %s", err_correo)
+
+        # Establecer estado en sesión del servidor (NUNCA enviar el código al cliente)
+        session["correo_pendiente_verificacion"] = correo
+        session["nombre_pendiente_verificacion"] = nombre
+        session["codigo_reenvio_tiempo"] = time_module.time()
+
+        flash(
+            "¡Casi listo! Hemos enviado un código de 6 dígitos a tu correo para verificar tu cuenta.",
+            "info"
+        )
+        return redirect(url_for("verificar_correo_pantalla"))
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("Error al registrar cliente:", e)
+        flash(
+            "No se pudo completar el registro. Intenta nuevamente.",
+            "error"
+        )
+        return redirect(url_for("registro"))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# PANTALLA DE VERIFICACIÓN DE CÓDIGO
+# ==========================================
+
+@app.route("/verificar-correo", methods=["GET"])
+def verificar_correo_pantalla():
+    correo = session.get("correo_pendiente_verificacion")
+    if not correo:
+        flash("Ingresa tus datos de registro para verificar tu correo.", "info")
+        return redirect(url_for("registro"))
+
+    # Ocultar parcialmente el correo para presentación segura
+    partes = correo.split("@")
+    usuario_raw = partes[0]
+    dominio_raw = partes[1] if len(partes) > 1 else ""
+    if len(usuario_raw) > 3:
+        correo_oculto = f"{usuario_raw[:2]}***{usuario_raw[-1]}@{dominio_raw}"
+    else:
+        correo_oculto = f"{usuario_raw[0]}***@{dominio_raw}"
+
+    return render_template(
+        "verificar_correo.html",
+        correo=correo,
+        correo_oculto=correo_oculto
+    )
+
+
+# ==========================================
+# VERIFICAR CÓDIGO (POST / API)
+# ==========================================
+
+@app.route("/verificar-codigo", methods=["POST"])
+def verificar_codigo():
+    correo = session.get("correo_pendiente_verificacion")
+    if not correo:
+        mensaje_sesion = "Tu sesión de verificación ha expirado. Por favor regístrate nuevamente."
+        if request.is_json:
+            return jsonify({"ok": False, "mensaje": mensaje_sesion, "redirect": url_for("registro")}), 400
+        flash(mensaje_sesion, "error")
+        return redirect(url_for("registro"))
+
+    # Obtener el código enviado (soporta JSON o Formulario)
+    datos = request.get_json(silent=True) or {}
+    codigo_ingresado = (datos.get("codigo") if request.is_json else request.form.get("codigo", "")).strip()
+
+    if not codigo_ingresado or len(codigo_ingresado) != 6 or not codigo_ingresado.isdigit():
+        msg = "Ingresa un código numérico válido de 6 dígitos."
+        if request.is_json:
+            return jsonify({"ok": False, "mensaje": msg}), 400
+        flash(msg, "error")
+        return redirect(url_for("verificar_correo_pantalla"))
+
+    conexion = None
+    cursor = None
+
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # Buscar el código activo más reciente para este correo
+        consulta = """
+            SELECT id_codigo, codigo, intentos, expira_en
+            FROM CODIGO_VERIFICACION
+            WHERE correo = %s AND usado = 0
+            ORDER BY id_codigo DESC
+            LIMIT 1
+        """
+        cursor.execute(consulta, (correo,))
+        registro_codigo = cursor.fetchone()
+
+        if not registro_codigo:
+            msg = "No hay ningún código de verificación activo. Haz clic en 'Reenviar código'."
+            if request.is_json:
+                return jsonify({"ok": False, "mensaje": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("verificar_correo_pantalla"))
+
+        # Validar límite de intentos fallidos
+        intentos = registro_codigo.get("intentos", 0)
+        if intentos >= 5:
+            msg = "Has superado el número de intentos permitidos (5). Solicita un nuevo código."
+            if request.is_json:
+                return jsonify({"ok": False, "mensaje": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("verificar_correo_pantalla"))
+
+        # Validar tiempo de expiración
+        expira_en = registro_codigo.get("expira_en")
+        if isinstance(expira_en, str):
+            try:
+                expira_en = datetime.fromisoformat(expira_en)
+            except Exception:
+                pass
+
+        if expira_en and datetime.now() > expira_en:
+            msg = "El código ha expirado (validez de 15 minutos). Por favor solicita uno nuevo."
+            if request.is_json:
+                return jsonify({"ok": False, "mensaje": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("verificar_correo_pantalla"))
+
+        # Comparación segura de tiempo constante para evitar fugas de información
+        codigo_guardado = str(registro_codigo.get("codigo", "")).strip()
+        if not secrets.compare_digest(codigo_guardado, codigo_ingresado):
+            cursor.execute(
+                "UPDATE CODIGO_VERIFICACION SET intentos = intentos + 1 WHERE id_codigo = %s",
+                (registro_codigo["id_codigo"],)
+            )
+            conexion.commit()
+            intentos_restantes = max(0, 4 - intentos)
+            msg = f"El código ingresado es incorrecto. Intentos restantes: {intentos_restantes}."
+            if request.is_json:
+                return jsonify({"ok": False, "mensaje": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("verificar_correo_pantalla"))
+
+        # ¡CÓDIGO CORRECTO! Marcar código como usado y activar cliente
+        cursor.execute(
+            "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE id_codigo = %s",
+            (registro_codigo["id_codigo"],)
+        )
+        cursor.execute(
+            "UPDATE CLIENTE SET correo_verificado = 1 WHERE correo = %s",
+            (correo,)
+        )
+        conexion.commit()
+
+        nombre_cliente = session.get("nombre_pendiente_verificacion", "")
+
+        # Enviar correo de bienvenida al confirmar el correo con éxito
+        try:
+            enviar_correo_bienvenida(correo, nombre_cliente)
+        except Exception as err_correo:
+            app.logger.warning("No se pudo disparar el correo de bienvenida: %s", err_correo)
+
+        # Limpiar variables temporales de sesión
+        session.pop("correo_pendiente_verificacion", None)
+        session.pop("nombre_pendiente_verificacion", None)
+        session.pop("codigo_reenvio_tiempo", None)
+
+        flash("¡Excelente! Tu correo ha sido verificado con éxito 💗. Ya puedes iniciar sesión con tu cuenta.", "success")
+
+        if request.is_json:
+            return jsonify({
+                "ok": True,
+                "mensaje": "¡Verificación exitosa! Redirigiendo...",
+                "redirect": url_for("login")
+            })
+
+        return redirect(url_for("login"))
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        print("Error al verificar código:", e)
+        msg = "Ocurrió un problema al procesar la verificación. Intenta nuevamente."
+        if request.is_json:
+            return jsonify({"ok": False, "mensaje": msg}), 500
+        flash(msg, "error")
+        return redirect(url_for("verificar_correo_pantalla"))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# REENVIAR CÓDIGO DE VERIFICACIÓN
+# ==========================================
+
+@app.route("/reenviar-codigo", methods=["POST"])
+def reenviar_codigo():
+    correo = session.get("correo_pendiente_verificacion")
+    nombre = session.get("nombre_pendiente_verificacion", "")
+
+    if not correo:
+        return jsonify({
+            "ok": False,
+            "mensaje": "Sesión vencida. Vuelve a iniciar el registro."
+        }), 400
+
+    # Rate limiting para evitar saturación de correos (cooldown de 45s)
+    ahora = time_module.time()
+    ultimo_envio = session.get("codigo_reenvio_tiempo", 0)
+    tiempo_transcurrido = ahora - ultimo_envio
+
+    if tiempo_transcurrido < 45:
+        segundos_espera = int(45 - tiempo_transcurrido)
+        return jsonify({
+            "ok": False,
+            "mensaje": f"Por favor espera {segundos_espera} segundos antes de solicitar un nuevo código."
+        }), 429
+
     conexion = None
     cursor = None
 
@@ -3403,71 +3829,48 @@ def registrar_cliente():
         conexion = obtener_conexion()
         cursor = conexion.cursor()
 
-        # Comprobar si el correo ya existe
+        # Generar nuevo código de 6 dígitos
+        nuevo_codigo = f"{secrets.randbelow(900000) + 100000}"
+        expiracion = datetime.now() + timedelta(minutes=15)
+
+        # Invalidar anteriores
         cursor.execute(
-            "SELECT id_cliente FROM CLIENTE WHERE correo = %s",
+            "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE correo = %s AND usado = 0",
             (correo,)
         )
 
-        cliente_existente = cursor.fetchone()
-
-        if cliente_existente:
-            flash(
-                "Este correo ya está registrado. Inicia sesión.",
-                "error"
-            )
-            return redirect(url_for("registro"))
-
-        # Encriptar la contraseña mediante hash
-        contrasena_hash = generate_password_hash(contrasena)
-
-        # Insertar el cliente en Aiven
-        consulta = """
-            INSERT INTO CLIENTE
-            (nombre, correo, contrasena)
-            VALUES (%s, %s, %s)
-        """
-
         cursor.execute(
-            consulta,
-            (nombre, correo, contrasena_hash)
+            """
+            INSERT INTO CODIGO_VERIFICACION
+            (correo, codigo, tipo, intentos, usado, expira_en)
+            VALUES (%s, %s, 'REGISTRO', 0, 0, %s)
+            """,
+            (correo, nuevo_codigo, expiracion)
         )
-
         conexion.commit()
 
-        # Enviar correo de bienvenida al cliente
-        try:
-            enviar_correo_bienvenida(correo, nombre)
-        except Exception as err_correo:
-            app.logger.warning("No se pudo disparar el correo de bienvenida: %s", err_correo)
+        # Enviar correo asíncrono
+        enviar_correo_codigo_verificacion(correo, nombre, nuevo_codigo)
 
-        # Mensaje para el login
-        flash(
-            "¡Registro exitoso! 💗 Ya puedes iniciar sesión.",
-            "success"
-        )
+        session["codigo_reenvio_tiempo"] = ahora
 
-        return redirect(url_for("login"))
+        return jsonify({
+            "ok": True,
+            "mensaje": "¡Hemos enviado un nuevo código de seguridad a tu correo electrónico!"
+        })
 
     except Exception as e:
-
         if conexion:
             conexion.rollback()
-
-        print("Error al registrar cliente:", e)
-
-        flash(
-            "No se pudo completar el registro. Intenta nuevamente.",
-            "error"
-        )
-
-        return redirect(url_for("registro"))
+        print("Error al reenviar código:", e)
+        return jsonify({
+            "ok": False,
+            "mensaje": "No se pudo reenviar el código. Intenta nuevamente."
+        }), 500
 
     finally:
-
         if cursor:
             cursor.close()
-
         if conexion and conexion.is_connected():
             conexion.close()
 
@@ -3493,9 +3896,9 @@ def iniciar_sesion():
         conexion = obtener_conexion()
         cursor = conexion.cursor(dictionary=True)
 
-        # Buscar el cliente en Aiven
+        # Buscar el cliente en la base de datos
         consulta = """
-            SELECT id_cliente, nombre, correo, contrasena
+            SELECT id_cliente, nombre, correo, contrasena, correo_verificado
             FROM CLIENTE
             WHERE correo = %s
         """
@@ -3507,6 +3910,35 @@ def iniciar_sesion():
             cliente["contrasena"],
             contrasena
         ):
+            # Comprobar si el correo ya fue verificado
+            if cliente.get("correo_verificado") in (0, False, "0"):
+                codigo_otp = f"{secrets.randbelow(900000) + 100000}"
+                expiracion = datetime.now() + timedelta(minutes=15)
+                cursor.execute(
+                    "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE correo = %s AND usado = 0",
+                    (correo,)
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO CODIGO_VERIFICACION
+                    (correo, codigo, tipo, intentos, usado, expira_en)
+                    VALUES (%s, %s, 'REGISTRO', 0, 0, %s)
+                    """,
+                    (correo, codigo_otp, expiracion)
+                )
+                conexion.commit()
+
+                try:
+                    enviar_correo_codigo_verificacion(correo, cliente["nombre"], codigo_otp)
+                except Exception as err_env:
+                    app.logger.warning("No se pudo enviar código al iniciar sesión: %s", err_env)
+
+                session["correo_pendiente_verificacion"] = correo
+                session["nombre_pendiente_verificacion"] = cliente["nombre"]
+                session["codigo_reenvio_tiempo"] = time_module.time()
+
+                flash("Debes verificar tu correo para activar tu cuenta. Te enviamos un nuevo código.", "warning")
+                return redirect(url_for("verificar_correo_pantalla"))
 
             # Crear sesión única para el cliente
             session.clear()
@@ -3554,6 +3986,7 @@ def iniciar_sesion():
 
         if conexion and conexion.is_connected():
             conexion.close()
+
 
 
 # ==========================================

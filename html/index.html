@@ -474,7 +474,7 @@
                 </h2>
                 <p class="section-subtitle">
                     Mueve a Pedrito con el mouse, toque o flechas del teclado para atrapar deliciosos pasteles y postres
-                    reales. ¡Gana tu descuento especial!
+                    reales. ¡Alcanza los 1,000 puntos para coronarte ganador!
                 </p>
             </div>
 
@@ -528,7 +528,7 @@
                                 fresas en su bandeja. ¡Cuidado con los brócolis!
                             </p>
                             <div class="game-modal-badge" id="modalBadge">
-                                🎁 ¡Alcanza 1,000 pts para ganar un 15% de Descuento!
+                                ✨ ¡Alcanza 1,000 puntos para ganar la partida!
                             </div>
                             <div class="game-modal-actions">
                                 <button class="btn-sweet-primary" id="btnStartGame" style="width: 100%;">
@@ -536,7 +536,7 @@
                                 </button>
                                 <a href="/login" class="btn-sweet-secondary" id="btnModalLogin"
                                     style="width: 100%; display: none;">
-                                    <span>🎂 Canjear Descuento en Iniciar Sesión</span>
+                                    <span>🎂 Iniciar Sesión</span>
                                 </a>
                             </div>
                         </div>
@@ -1510,19 +1510,41 @@
                 if (['ArrowRight', 'KeyD'].includes(e.code)) keys.right = false;
             });
 
-            arena.addEventListener('pointermove', (e) => {
+            function handlePlayerMove(clientX) {
                 if (!isRunning) return;
                 const rect = canvas.getBoundingClientRect();
-                player.x = e.clientX - rect.left;
-            });
+                player.x = clientX - rect.left;
+                player.x = Math.max(player.width / 2, Math.min(canvas.width - player.width / 2, player.x));
+            }
+
+            arena.addEventListener('pointermove', (e) => handlePlayerMove(e.clientX));
+            arena.addEventListener('touchmove', (e) => {
+                if (!isRunning) return;
+                if (e.touches && e.touches[0]) {
+                    e.preventDefault();
+                    handlePlayerMove(e.touches[0].clientX);
+                }
+            }, { passive: false });
 
             const btnLeft = document.getElementById('btnTouchLeft');
             const btnRight = document.getElementById('btnTouchRight');
             if (btnLeft && btnRight) {
-                btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; }, { passive: false });
-                btnLeft.addEventListener('touchend', () => { keys.left = false; });
-                btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; }, { passive: false });
-                btnRight.addEventListener('touchend', () => { keys.right = false; });
+                const pressLeft = (e) => { e.preventDefault(); keys.left = true; };
+                const releaseLeft = (e) => { e.preventDefault(); keys.left = false; };
+                const pressRight = (e) => { e.preventDefault(); keys.right = true; };
+                const releaseRight = (e) => { e.preventDefault(); keys.right = false; };
+
+                btnLeft.addEventListener('touchstart', pressLeft, { passive: false });
+                btnLeft.addEventListener('touchend', releaseLeft);
+                btnLeft.addEventListener('mousedown', pressLeft);
+                btnLeft.addEventListener('mouseup', releaseLeft);
+                btnLeft.addEventListener('mouseleave', releaseLeft);
+
+                btnRight.addEventListener('touchstart', pressRight, { passive: false });
+                btnRight.addEventListener('touchend', releaseRight);
+                btnRight.addEventListener('mousedown', pressRight);
+                btnRight.addEventListener('mouseup', releaseRight);
+                btnRight.addEventListener('mouseleave', releaseRight);
             }
 
             function startGame() {
@@ -1544,23 +1566,23 @@
                 modal.classList.remove('hidden');
 
                 if (won || score >= 1000) {
-                    modalEmoji.innerText = '🏆🎉';
-                    modalTitle.innerText = '¡Felicidades, Eres un Maestro Pastelero!';
-                    modalDesc.innerText = `¡Lograste ${score} puntos y atrapaste ${cakesCaught} pasteles! Has desbloqueado un 15% de Descuento en tu primer pedido de Twiins Bakery.`;
-                    modalBadge.innerText = '🎟️ CÓDIGO: DULCE15';
-                    btnModalLogin.style.display = 'inline-flex';
-                    btnStart.querySelector('span').innerText = '🔄 Jugar de Nuevo';
+                    modalEmoji.innerText = '🏆🎂';
+                    modalTitle.innerText = '¡Felicidades, eres un excelente jugador!';
+                    modalDesc.innerText = `¡Alcanzaste ${score} puntos y atrapaste ${cakesCaught} pasteles! Demostraste una destreza pastelera inigualable.`;
+                    modalBadge.innerText = '✨ ¡Gran trabajo! Puntuación de campeón superada.';
+                    if (btnModalLogin) btnModalLogin.style.display = 'none';
+                    btnStart.querySelector('span').innerText = '🔄 Volver a jugar';
 
                     if (typeof confetti === 'function') {
                         confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
                     }
                 } else {
-                    modalEmoji.innerText = '😢🍰';
-                    modalTitle.innerText = '¡Fin del Juego!';
-                    modalDesc.innerText = `Conseguiste ${score} puntos. ¡Inténtalo de nuevo para alcanzar los 1,000 puntos y ganar tu premio!`;
+                    modalEmoji.innerText = '🍀🍰';
+                    modalTitle.innerText = '¡Suerte a la próxima!';
+                    modalDesc.innerText = `Conseguiste ${score} puntos y atrapaste ${cakesCaught} pasteles. ¡Sigue practicando para superar tu récord personal!`;
                     modalBadge.innerText = '💡 Consejo: Atrapa las estrellas ⭐ y evita los brócolis 🥦';
-                    btnModalLogin.style.display = 'none';
-                    btnStart.querySelector('span').innerText = '🎮 Reintentar';
+                    if (btnModalLogin) btnModalLogin.style.display = 'none';
+                    btnStart.querySelector('span').innerText = '🔄 Volver a jugar';
                 }
             }
 
@@ -1674,6 +1696,13 @@
                                 color: item.type === 'special' ? '#ffd166' : '#ff7597',
                                 life: 1.0
                             });
+
+                            if (score >= 1000) {
+                                updateHUD();
+                                items.splice(i, 1);
+                                gameOver(true);
+                                return;
+                            }
                         } else if (item.type === 'bad') {
                             lives--;
                             combo = 1;

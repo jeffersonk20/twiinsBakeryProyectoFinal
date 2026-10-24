@@ -93,11 +93,11 @@
                             Correo electrónico
                         </label>
 
-                        <input type="email" id="correo" name="correo" placeholder="ejemplo@gmail.com"
+                        <input type="email" id="correo" name="correo" placeholder="tu_correo@gmail.com"
                             autocomplete="email" maxlength="150" required>
 
-                        <small class="field-help">
-                            Utiliza un correo válido al que tengas acceso.
+                        <small id="emailHelpMessage" class="field-help">
+                            Usa tu correo real de Google (@gmail.com), Hotmail/Outlook, Yahoo o iCloud.
                         </small>
                     </div>
 
@@ -249,23 +249,81 @@
         password.addEventListener("input", validarContrasenas);
         confirmPassword.addEventListener("input", validarContrasenas);
 
+        // Validación de correo para evitar correos ficticios
+        const correoInput = document.getElementById("correo");
+        const emailHelpMessage = document.getElementById("emailHelpMessage");
+        const dominiosPermitidos = [
+            "gmail.com",
+            "googlemail.com",
+            "hotmail.com",
+            "outlook.com",
+            "live.com",
+            "msn.com",
+            "yahoo.com",
+            "yahoo.es",
+            "ymail.com",
+            "icloud.com"
+        ];
+
+        function validarCorreo() {
+            const valor = correoInput.value.trim().toLowerCase();
+            if (!valor) {
+                emailHelpMessage.textContent = "Usa tu correo real de Google (@gmail.com), Hotmail/Outlook, Yahoo o iCloud.";
+                emailHelpMessage.className = "field-help";
+                correoInput.setCustomValidity("");
+                return false;
+            }
+
+            const partes = valor.split("@");
+            if (partes.length !== 2 || !partes[0] || !partes[1]) {
+                emailHelpMessage.textContent = "Formato de correo incompleto.";
+                emailHelpMessage.className = "field-help error-text";
+                correoInput.setCustomValidity("Ingresa un correo válido con @");
+                return false;
+            }
+
+            const usuario = partes[0];
+            const dominio = partes[1];
+
+            if (usuario.length < 3) {
+                emailHelpMessage.textContent = "El usuario del correo debe tener al menos 3 caracteres.";
+                emailHelpMessage.className = "field-help error-text";
+                correoInput.setCustomValidity("Nombre de correo demasiado corto");
+                return false;
+            }
+
+            if (!dominiosPermitidos.includes(dominio)) {
+                emailHelpMessage.textContent = "⚠️ Para evitar correos inventados, solo se permiten proveedores autorizados (@gmail.com, @hotmail.com, @outlook.com, @yahoo.com, @icloud.com).";
+                emailHelpMessage.className = "field-help error-text";
+                correoInput.setCustomValidity("Proveedor de correo no permitido");
+                return false;
+            }
+
+            emailHelpMessage.textContent = `✓ Proveedor autorizado (@${dominio}).`;
+            emailHelpMessage.className = "field-help success-text";
+            correoInput.setCustomValidity("");
+            return true;
+        }
+
+        correoInput.addEventListener("input", validarCorreo);
+        correoInput.addEventListener("blur", validarCorreo);
+
         // Envío del formulario
         document.getElementById("registroForm")
             .addEventListener("submit", function (event) {
 
+                const esEmailValido = validarCorreo();
                 validarContrasenas();
 
-                if (!this.checkValidity()) {
+                if (!esEmailValido || !this.checkValidity()) {
                     event.preventDefault();
                     this.reportValidity();
                     return;
                 }
 
                 const button = document.getElementById("registerButton");
-
                 button.disabled = true;
-                button.textContent = "Registrando...";
-
+                button.textContent = "Enviando código de seguridad...";
             });
 
        

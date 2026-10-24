@@ -187,6 +187,54 @@ def _despachar_asincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
 
 
 # ==============================================================================
+# 0. CÓDIGO DE VERIFICACIÓN DE CORREO (OTP)
+# ==============================================================================
+
+def enviar_correo_codigo_verificacion(destinatario, nombre, codigo):
+    """Envía un código OTP de 6 dígitos para verificar la autenticidad del correo del cliente."""
+    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    asunto = f"Tu código de verificación es {codigo} - TWINS Bakery 🔐"
+
+    contenido_html = f"""
+      <h2 style="color:#e05374; margin-top:0; font-size:22px; font-weight:700;">¡Hola, {nombre_seguro}! 🎂</h2>
+      <p style="font-size:15px; color:#4a5568;">
+        Para proteger la seguridad de tu cuenta y confirmar que este correo electrónico te pertenece, por favor ingresa el siguiente código de verificación en la pantalla de confirmación:
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fff5f7 0%, #fed7e2 100%); border: 2px dashed #e05374; border-radius: 14px; padding: 25px 20px; text-align: center; margin: 25px 0;">
+        <span style="display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: #b83256; font-weight: 700; margin-bottom: 8px;">Código de Verificación</span>
+        <div style="font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #e05374; font-family: monospace;">
+          {codigo}
+        </div>
+        <span style="display: block; font-size: 12px; color: #718096; margin-top: 10px;">⏰ Este código vencerá en 15 minutos</span>
+      </div>
+
+      <p style="font-size:14px; color:#718096;">
+        🛡️ <strong>Parche de Seguridad:</strong> Si tú no solicitaste este código en TWINS Bakery, puedes ignorar este mensaje; tu correo no será vinculado sin este código.
+      </p>
+
+      <p style="margin:25px 0 10px; font-size:15px; color:#4a5568;">
+        Con cariño,<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Hola, {nombre_seguro}!
+
+Tu código de verificación de seguridad para TWINS Bakery es: {codigo}
+
+Este código expira en 15 minutos. Ingrésalo en la pantalla de verificación para completar el registro de tu cuenta.
+
+Si no realizaste esta solicitud, puedes ignorar este mensaje con total seguridad.
+
+El equipo de TWINS Bakery.
+"""
+
+    html_completo = _plantilla_base_html("Código de Verificación", "Seguridad y Protección de tu Cuenta", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
 # 1. BIENVENIDA TRAS REGISTRO DE CLIENTE
 # ==============================================================================
 

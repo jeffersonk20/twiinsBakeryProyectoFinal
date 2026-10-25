@@ -1,10 +1,10 @@
-# 🍰 TWINS Bakery — Proyecto Final
+#  TWINS Bakery — Proyecto Final
 
 Sistema web integral para la pastelería artesanal **TWINS Bakery**, desarrollado con **Python (Flask)** en el backend, arquitectura de datos relacional y asistente conversacional inteligente con ciberseguridad avanzada.
 
 ---
 
-## 🚀 Guía Rápida de Instalación y Ejecución
+##  Guía Rápida de Instalación y Ejecución
 
 El proyecto está diseñado para funcionar **inmediatamente tras ser clonado**, ya que incluye la base de datos SQLite preconfigurada con productos, imágenes y categorías de prueba.
 
@@ -32,7 +32,7 @@ Al iniciarse, la consola mostrará un enlace interactivo al que puedes hacer cli
 
 ---
 
-## 🗄️ Base de Datos
+##  Base de Datos
 
 * **Motor activo por defecto:** **SQLite** (`twins_bakery.db`). No requiere instalar MySQL ni configuraciones adicionales.
 * **Compatibilidad MySQL:** También soporta conexión directa a MySQL en la nube (Aiven Cloud) configurando las variables en el archivo `.env`.
@@ -44,23 +44,23 @@ Al iniciarse, la consola mostrará un enlace interactivo al que puedes hacer cli
 
 ---
 
-## 🔑 Credenciales de Acceso para Pruebas
+##  Credenciales de Acceso para Pruebas
 
 ### Panel de Administrador:
 - **Ruta:** `/admin/login`
 - **Correo:** `admin@twinsbakery.com`
-- **Contraseña:** `Admin1234!`
+- **Contraseña:** `admin1234`
 - *(Token de configuración inicial si se requiere restablecer el admin: `twins_bakery_admin_token_2026_super_seguro_token_32chars`)*
 
 ### Cliente de Pruebas:
 Puedes registrar una nueva cuenta en `/registro` o iniciar sesión con:
 - **Ruta:** `/login`
-- **Correo:** `cliente@gmail.com`
-- **Contraseña:** `Cliente1234!`
+- **Correo:** `laura.gomez@gmail.com`
+- **Contraseña:** `cliente123`
 
 ---
 
-## 🛡️ Características Principales
+##  Características Principales
 1. **Backend 100% en Python:** Toda la lógica de reservas, pagos, inventario y autenticación corre en el servidor.
 2. **Cero filtración de datos sensibles:** Contraseñas hasheadas (`werkzeug.security`), tokens seguros con el módulo nativo `secrets`, y validación contra IDOR.
 3. **Asistente Virtual con IA (TWINS IA):** Opera en modo estricto de solo lectura con aislamiento de contexto RAG y respuesta híbrida (Google Gemini 1.5 Flash o motor local seguro).

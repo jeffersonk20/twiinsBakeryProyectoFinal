@@ -97,16 +97,13 @@
         const contenedor = document.createElement('div');
         contenedor.id = 'twinsIaContainer';
         contenedor.innerHTML = `
-            <!-- BOTÓN FLOTANTE INTERACTIVO -->
-            <button type="button" id="twinsIaTrigger" class="twins-ia-trigger" aria-label="Abrir Asistente Virtual TWINS Bakery" title="Asistente de Inteligencia Artificial">
+            <!-- BOTÓN FLOTANTE INTERACTIVO (MINIMALISTA: SOLO PASTEL Y BADGE IA) -->
+            <button type="button" id="twinsIaTrigger" class="twins-ia-trigger" aria-label="Asistente de Inteligencia Artificial" title="Asistente IA">
                 <div class="twins-ia-trigger-avatar">
                     <span class="twins-ia-pulse-ring"></span>
                     <span>🍰</span>
                 </div>
-                <div class="twins-ia-trigger-label">
-                    <span class="twins-ia-trigger-title">Twins Asistente <span class="twins-ia-trigger-sparkle">✦ IA</span></span>
-                    <span class="twins-ia-trigger-sub" id="twinsTriggerSub">Atención & Catálogo</span>
-                </div>
+                <span class="twins-ia-badge">IA</span>
             </button>
 
             <!-- VENTANA MODAL / CHAT DRAWER -->
@@ -321,7 +318,7 @@
                     elements.roleBadge.textContent = 'Admin Analytics';
                     elements.roleBadge.classList.add('admin-mode');
                     elements.headerAvatar.textContent = '📊';
-                    elements.triggerSub.textContent = 'Inteligencia de Negocios';
+                    if (elements.triggerSub) elements.triggerSub.textContent = 'Inteligencia de Negocios';
                     elements.input.placeholder = 'Consulta métricas, ventas o inventario…';
 
                     // Si es administrador pero no tiene JWT en storage, solicitarlo
@@ -332,7 +329,7 @@
                     elements.roleBadge.textContent = 'Cliente';
                     elements.roleBadge.classList.remove('admin-mode');
                     elements.headerAvatar.textContent = '🍰';
-                    elements.triggerSub.textContent = 'Atención & Catálogo';
+                    if (elements.triggerSub) elements.triggerSub.textContent = 'Atención & Catálogo';
                     elements.input.placeholder = 'Pregunta sobre pasteles, precios o eventos…';
                 }
 
@@ -478,9 +475,42 @@
     }
 
     /**
+     * Determina si la vista activa es el Chat para excluir el botón de IA del DOM
+     */
+    function esRutaChat() {
+        const path = (window.location.pathname || '').toLowerCase();
+        if (
+            path === '/chat' ||
+            path.startsWith('/chat') ||
+            path === '/admin/chat' ||
+            path.startsWith('/admin/chat') ||
+            path.includes('chat_cliente') ||
+            path.includes('chat_evento') ||
+            path.includes('admin_chat')
+        ) {
+            return true;
+        }
+        if (
+            document.querySelector('[data-admin-chat]') ||
+            document.querySelector('[data-client-chat]') ||
+            document.querySelector('.main-admin-chat') ||
+            document.querySelector('.chat-client-shell') ||
+            document.querySelector('.chat-page')
+        ) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Inicialización principal
      */
     function inicializar() {
+        // Exclusión obligatoria: No renderizar ni inyectar en vistas de Chat
+        if (esRutaChat()) {
+            return;
+        }
+
         inyectarEstructuraDOM();
         state.csrfToken = obtenerCsrfToken();
 

@@ -294,6 +294,23 @@ def _inicializar_sqlite(conexion, cursor):
     except Exception:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN foto_perfil BLOB NULL;")
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN tipo_foto_perfil TEXT NULL;")
+    except Exception:
+        pass
+
+    # 12.1 CARRUSEL_HOME
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CARRUSEL_HOME (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        imagen BLOB NOT NULL,
+        tipo_imagen TEXT NOT NULL,
+        orden INTEGER DEFAULT 0,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     # 13. SOLICITUD_PLANIFICACION
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS SOLICITUD_PLANIFICACION (
@@ -533,6 +550,23 @@ def _inicializar_mysql(conexion, cursor):
         cursor.execute("ALTER TABLE CLIENTE ADD COLUMN telefono VARCHAR(30) NULL;")
     except Exception:
         pass
+
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN foto_perfil LONGBLOB NULL;")
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN tipo_foto_perfil VARCHAR(50) NULL;")
+    except Exception:
+        pass
+
+    # 12.1 CARRUSEL_HOME
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CARRUSEL_HOME (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        imagen LONGBLOB NOT NULL,
+        tipo_imagen VARCHAR(50) NOT NULL,
+        orden INT DEFAULT 0,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+    """)
 
     # 13. SOLICITUD_PLANIFICACION
     cursor.execute("""

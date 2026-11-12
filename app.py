@@ -94,9 +94,9 @@ try:
 except Exception as err:
     app.logger.warning("No se pudo cargar el módulo ia_asistente: %s", err)
 
-app.config["MAX_CONTENT_LENGTH"] = int(1.2 * 1024 * 1024) + 65536
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB para admitir carrusel y fotos de perfil de hasta 20 MB
 
-CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas", "Eventos"}
+CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas", "Eventos", "Postres completos"}
 ESTADOS_RESERVA = {
     "PENDIENTE_PAGO",
     "CONFIRMADA",
@@ -242,6 +242,84 @@ except Exception:
     pass
 
 
+def _asegurar_esquema_perfil_y_carrusel():
+    """Garantiza columnas de foto de perfil en CLIENTE y la tabla CARRUSEL_HOME para SQLite y MySQL."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        # 1. Comprobación y creación para SQLite
+        try:
+            cursor.execute("PRAGMA table_info(CLIENTE)")
+            cols_cliente = [c[1] for c in cursor.fetchall()]
+            if cols_cliente and "foto_perfil" not in cols_cliente:
+                cursor.execute("ALTER TABLE CLIENTE ADD COLUMN foto_perfil BLOB NULL")
+            if cols_cliente and "tipo_foto_perfil" not in cols_cliente:
+                cursor.execute("ALTER TABLE CLIENTE ADD COLUMN tipo_foto_perfil TEXT NULL")
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS CARRUSEL_HOME (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                imagen BLOB NOT NULL,
+                tipo_imagen TEXT NOT NULL,
+                orden INTEGER DEFAULT 0,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
+            if hasattr(conexion, "commit"):
+                conexion.commit()
+        except Exception:
+            # 2. Comprobación y creación para MySQL
+            try:
+                cursor.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLIENTE' AND COLUMN_NAME = 'foto_perfil'
+                    """
+                )
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE CLIENTE ADD COLUMN foto_perfil LONGBLOB NULL")
+
+                cursor.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CLIENTE' AND COLUMN_NAME = 'tipo_foto_perfil'
+                    """
+                )
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE CLIENTE ADD COLUMN tipo_foto_perfil VARCHAR(50) NULL")
+
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS CARRUSEL_HOME (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    imagen LONGBLOB NOT NULL,
+                    tipo_imagen VARCHAR(50) NOT NULL,
+                    orden INT DEFAULT 0,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+                """)
+                if hasattr(conexion, "commit"):
+                    conexion.commit()
+            except Exception as e_mysql:
+                app.logger.warning("No se pudo verificar esquema perfil/carrusel en MySQL: %s", e_mysql)
+    except Exception as err:
+        app.logger.warning("No se pudo verificar esquema perfil/carrusel: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+try:
+    _asegurar_esquema_perfil_y_carrusel()
+except Exception:
+    pass
+
+
 # Dominios de correo autorizados para evitar correos ficticios
 DOMINIOS_CORREO_PERMITIDOS = {
     "gmail.com",
@@ -322,6 +400,8 @@ def cliente_requerido(view):
     @wraps(view)
     def vista_protegida(*args, **kwargs):
         if not session.get("id_cliente"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Inicia sesión para continuar."}), 401
             return redirect(url_for("login"))
         return view(*args, **kwargs)
 
@@ -762,6 +842,13 @@ def static_files(filename):
     return send_from_directory(carpeta, archivo)
 
 
+@app.route("/img/<path:archivo>")
+@app.route("/assets/<path:archivo>")
+def imagenes_estaticas_directas(archivo):
+    """Permite el acceso a imágenes con rutas absolutas como /img/logo.png o /assets/logo.png."""
+    return send_from_directory("img", archivo)
+
+
 # ==========================================
 # PANTALLA DE BIENVENIDA / INICIO
 # ==========================================
@@ -902,6 +989,27 @@ EVENTOS_DISPONIBLES = {
             "Reserva con un mínimo de 3 a 5 días de anticipación",
             "Anticipo del 50% requerido",
             "Opción de entrega coordinada sorpresa",
+        ],
+    },
+    "mesa-de-postres": {
+        "tipo": "mesa-de-postres",
+        "tipo_label": "Mesa de postres",
+        "nombre": "Mesa de Postres para Eventos",
+        "titulo": "Mesas de Postres & Candy Bar",
+        "descripcion_corta": "Montajes elegantes y variados de bocadillos dulces, mini pasteles y postres para tus eventos.",
+        "descripcion": "Sorprende a tus invitados con una mesa de postres espectacular diseñada a la medida. Seleccionamos y montamos una variedad de postres miniatura, vasitos gourmet, tartaletas, macarons y pasteles que lucirán increíbles en tu celebración.",
+        "imagen": "https://images.unsplash.com/photo-1535141192574-5d4897c13136?auto=format&fit=crop&w=600&q=80",
+        "incluye": [
+            "Selección de 4 a 6 variedades de postres individuales o miniaturas",
+            "Montaje y ambientación temática con bases y vajilla en préstamo",
+            "Cartelitos identificadores personalizados con el nombre de cada postre",
+            "Opciones sin gluten o reducidas en azúcar bajo solicitud",
+            "Asesoría en cálculo de porciones y sabores según cantidad de invitados",
+        ],
+        "condiciones": [
+            "Reservas con mínimo 15 días de anticipación",
+            "Anticipo del 50% al momento de apartar fecha",
+            "Coordinación de horario de montaje con 3 días de antelación",
         ],
     },
 }
@@ -1729,6 +1837,234 @@ def imagen_producto(producto_id):
             mimetype=imagen[1],
             max_age=0,
         )
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==============================================================================
+# GESTIÓN DE PERFIL DE USUARIO Y FOTO DE PERFIL (CLIENTE)
+# ==============================================================================
+
+@app.route("/cliente/foto-perfil")
+def foto_perfil_cliente():
+    """Sirve la foto de perfil del cliente autenticado o una imagen por defecto."""
+    id_cliente = session.get("id_cliente")
+    if not id_cliente:
+        return send_from_directory("img", "logo.png")
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT foto_perfil, tipo_foto_perfil FROM CLIENTE WHERE id_cliente = %s",
+            (id_cliente,),
+        )
+        fila = cursor.fetchone()
+        if fila and fila.get("foto_perfil") and fila.get("tipo_foto_perfil"):
+            datos_foto = fila["foto_perfil"]
+            if isinstance(datos_foto, str):
+                datos_foto = datos_foto.encode("latin1")
+            return send_file(
+                BytesIO(datos_foto),
+                mimetype=fila["tipo_foto_perfil"],
+                max_age=0,
+            )
+    except Exception as err:
+        app.logger.warning("No se pudo obtener foto de perfil: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+    return send_from_directory("img", "logo.png")
+
+
+@app.route("/api/cliente/foto-perfil", methods=["POST"])
+@cliente_requerido
+def api_subir_foto_perfil():
+    """Actualiza la foto de perfil del cliente con estricta validación de seguridad (<= 20MB, MIME y magic bytes)."""
+    if "foto" not in request.files:
+        return jsonify({"error": "No se envió ningún archivo de imagen."}), 400
+
+    foto = request.files["foto"]
+    if not foto or not foto.filename:
+        return jsonify({"error": "Archivo de imagen inválido."}), 400
+
+    # Límite estricto de 20MB (20 * 1024 * 1024 bytes)
+    limite_bytes = 20 * 1024 * 1024
+    contenido = foto.read(limite_bytes + 1)
+    if len(contenido) > limite_bytes:
+        return jsonify({"error": "La imagen excede el tamaño máximo permitido de 20 MB."}), 400
+
+    # Validación estricta de MIME type
+    mimetype = (foto.mimetype or "").lower()
+    if mimetype not in TIPOS_IMAGEN:
+        return jsonify({"error": "Formato de imagen no permitido. Solo se admiten JPG, PNG o WEBP."}), 400
+
+    # Validación de magic bytes (firma real del archivo)
+    if not any(contenido.startswith(firma) for firma in TIPOS_IMAGEN[mimetype]):
+        return jsonify({"error": "El contenido del archivo no corresponde a una imagen válida."}), 400
+
+    if mimetype == "image/webp" and contenido[8:12] != b"WEBP":
+        return jsonify({"error": "El archivo no es una imagen WEBP válida."}), 400
+
+    id_cliente = session["id_cliente"]
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "UPDATE CLIENTE SET foto_perfil = %s, tipo_foto_perfil = %s WHERE id_cliente = %s",
+            (contenido, mimetype, id_cliente),
+        )
+        conexion.commit()
+        # Seguridad estricta: responder únicamente con confirmación requerida
+        return jsonify({"mensaje": "Foto de perfil actualizada exitosamente.", "ok": True})
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al guardar foto de perfil: %s", err)
+        return jsonify({"error": "No se pudo actualizar la foto de perfil en el servidor."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==============================================================================
+# GESTIÓN DINÁMICA DE IMÁGENES DEL CARRUSEL (HOME)
+# ==============================================================================
+
+IMAGENES_CARRUSEL_DEFAULT = [
+    {"id": "def-1", "url": "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=1400&q=90"},
+    {"id": "def-2", "url": "https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?auto=format&fit=crop&w=1400&q=90"},
+    {"id": "def-3", "url": "https://images.unsplash.com/photo-1550617931-e17a7b70dce2?auto=format&fit=crop&w=1400&q=90"},
+    {"id": "def-4", "url": "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=1400&q=90"},
+    {"id": "def-5", "url": "https://images.unsplash.com/photo-1535141192574-5d4897c13136?auto=format&fit=crop&w=1400&q=90"},
+]
+
+
+@app.route("/api/home/carrusel", methods=["GET"])
+def api_home_carrusel():
+    """Devuelve las referencias de imágenes del carrusel home (sin fugas de datos)."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute("SELECT id FROM CARRUSEL_HOME ORDER BY orden ASC, id ASC LIMIT 5")
+        filas = cursor.fetchall()
+        if filas:
+            imagenes = [
+                {
+                    "id": f["id"] if isinstance(f, dict) else f[0],
+                    "url": url_for("carrusel_imagen", imagen_id=(f["id"] if isinstance(f, dict) else f[0])),
+                }
+                for f in filas
+            ]
+            return jsonify({"imagenes": imagenes})
+    except Exception as err:
+        app.logger.warning("No se pudieron cargar imágenes personalizadas del carrusel: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+    # Si no hay imágenes subidas, devolver las 5 imágenes predeterminadas
+    return jsonify({"imagenes": IMAGENES_CARRUSEL_DEFAULT})
+
+
+@app.route("/carrusel-imagen/<int:imagen_id>")
+def carrusel_imagen(imagen_id):
+    """Transmite el archivo binario de la imagen del carrusel."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute("SELECT imagen, tipo_imagen FROM CARRUSEL_HOME WHERE id = %s", (imagen_id,))
+        fila = cursor.fetchone()
+        if not fila:
+            abort(404)
+        datos = fila["imagen"]
+        if isinstance(datos, str):
+            datos = datos.encode("latin1")
+        return send_file(BytesIO(datos), mimetype=fila["tipo_imagen"], max_age=86400)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/home/carrusel", methods=["POST"])
+@administrador_requerido
+def api_admin_actualizar_carrusel():
+    """Permite al administrador subir de 1 a 5 imágenes para el carrusel con validación estricta <= 20MB."""
+    if not _csrf_valido():
+        return jsonify({"error": "La sesión de seguridad venció. Recarga la página."}), 403
+
+    archivos = request.files.getlist("imagenes")
+    # Filtrar archivos vacíos
+    archivos_validos = [a for a in archivos if a and a.filename]
+
+    if not archivos_validos:
+        return jsonify({"error": "Selecciona al menos una imagen (entre 1 y 5)."}), 400
+
+    if len(archivos_validos) > 5:
+        return jsonify({"error": "Solo puedes subir un máximo de 5 imágenes simultáneamente."}), 400
+
+    limite_bytes = 20 * 1024 * 1024
+    imagenes_procesadas = []
+
+    for idx, archivo in enumerate(archivos_validos):
+        contenido = archivo.read(limite_bytes + 1)
+        if len(contenido) > limite_bytes:
+            return jsonify({"error": f"La imagen '{archivo.filename}' supera el tamaño máximo permitido de 20 MB."}), 400
+
+        mimetype = (archivo.mimetype or "").lower()
+        if mimetype not in TIPOS_IMAGEN:
+            return jsonify({"error": f"El archivo '{archivo.filename}' no tiene un formato válido (solo JPG, PNG, WEBP)."}), 400
+
+        if not any(contenido.startswith(firma) for firma in TIPOS_IMAGEN[mimetype]):
+            return jsonify({"error": f"El archivo '{archivo.filename}' no coincide con una imagen real."}), 400
+
+        if mimetype == "image/webp" and contenido[8:12] != b"WEBP":
+            return jsonify({"error": f"El archivo '{archivo.filename}' no es una imagen WEBP válida."}), 400
+
+        imagenes_procesadas.append((contenido, mimetype, idx))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        # Reemplazar imágenes existentes de forma dinámica
+        cursor.execute("DELETE FROM CARRUSEL_HOME")
+        for img_bytes, tipo_img, orden in imagenes_procesadas:
+            cursor.execute(
+                "INSERT INTO CARRUSEL_HOME (imagen, tipo_imagen, orden) VALUES (%s, %s, %s)",
+                (img_bytes, tipo_img, orden),
+            )
+        conexion.commit()
+        return jsonify({
+            "mensaje": f"Se guardaron con éxito {len(imagenes_procesadas)} imagen(es) en el carrusel de inicio.",
+            "ok": True,
+        })
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al guardar imágenes del carrusel: %s", err)
+        return jsonify({"error": "No se pudieron guardar las imágenes en la base de datos."}), 500
     finally:
         if cursor:
             cursor.close()

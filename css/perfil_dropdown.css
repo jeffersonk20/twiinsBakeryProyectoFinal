@@ -1,0 +1,508 @@
+/* ==============================================================================
+   DROPDOWN DE PERFIL DE USUARIO Y MODAL DE CIERRE DE SESIÓN
+   ============================================================================== */
+
+/* Contenedor del perfil en el Tabnav / Header */
+.user-profile-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    z-index: 1050;
+}
+
+.profile-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px 6px 6px;
+    background: #ffffff;
+    border: 1.5px solid #f1d4dd;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--ink, #153e49);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(242, 50, 113, 0.08);
+}
+
+.profile-toggle-btn:hover,
+.profile-toggle-btn[aria-expanded="true"] {
+    border-color: var(--pink, #f23271);
+    background: #fff8fa;
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.16);
+}
+
+/* Contenedor circular del avatar en la barra */
+.avatar-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #ffeef3;
+    border: 2px solid var(--pink, #f23271);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.avatar-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.user-greeting {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink, #153e49);
+    font-size: 13px;
+}
+
+.chevron-icon {
+    transition: transform 0.25s ease;
+    color: var(--muted, #718187);
+}
+
+.profile-toggle-btn[aria-expanded="true"] .chevron-icon {
+    transform: rotate(180deg);
+    color: var(--pink, #f23271);
+}
+
+/* Menú desplegable con animación CSS */
+.profile-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 270px;
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #f1e2e7;
+    box-shadow: 0 16px 38px rgba(21, 62, 73, 0.15), 0 4px 12px rgba(242, 50, 113, 0.08);
+    padding: 16px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px) scale(0.97);
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.25s;
+    z-index: 1100;
+}
+
+.profile-dropdown-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+/* Cabecera del dropdown con foto editable */
+.dropdown-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 6px 4px 12px;
+}
+
+.dropdown-avatar-wrap {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #ffeef3;
+    border: 3px solid var(--pink, #f23271);
+    box-shadow: 0 6px 18px rgba(242, 50, 113, 0.2);
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dropdown-avatar-wrap:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 22px rgba(242, 50, 113, 0.3);
+}
+
+.dropdown-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Badge para indicar que se puede cambiar la foto */
+.avatar-edit-badge {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    background: rgba(21, 62, 73, 0.7);
+    color: #ffffff;
+    font-size: 11px;
+    padding: 3px 0;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.dropdown-avatar-wrap:hover .avatar-edit-badge {
+    opacity: 1;
+}
+
+.avatar-upload-hint {
+    font-size: 11px;
+    color: var(--pink, #f23271);
+    cursor: pointer;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.avatar-upload-hint:hover {
+    text-decoration: underline;
+}
+
+.dropdown-user-info strong {
+    display: block;
+    font-size: 14px;
+    color: var(--ink, #153e49);
+    font-weight: 600;
+}
+
+.dropdown-user-info small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--muted, #718187);
+    word-break: break-all;
+    margin-top: 2px;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: #f4e8ec;
+    margin: 8px 0 12px;
+}
+
+/* Botón cerrar sesión dentro del menú */
+.dropdown-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #fff0f4;
+    border: 1px solid #f9ced9;
+    color: var(--pink-dark, #d91f5b);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--pink, #f23271);
+    color: #ffffff;
+    border-color: var(--pink, #f23271);
+    box-shadow: 0 4px 12px rgba(242, 50, 113, 0.25);
+}
+
+/* Toast de notificación de cambio de foto */
+.avatar-feedback-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink, #153e49);
+    color: #ffffff;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+.avatar-feedback-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ==============================================================================
+   MODAL DE CONFIRMACIÓN DE LOGOUT (NO NATIVO)
+   ============================================================================== */
+.custom-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(18, 48, 56, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 3000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.custom-modal-overlay.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.custom-modal-card {
+    width: 100%;
+    max-width: 410px;
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 32px 28px;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+    border: 1px solid #f3e5eb;
+    transform: scale(0.92) translateY(12px);
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.custom-modal-overlay.is-visible .custom-modal-card {
+    transform: scale(1) translateY(0);
+}
+
+.modal-icon-wrap {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: #ffeef3;
+    color: var(--pink, #f23271);
+    font-size: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 6px 16px rgba(242, 50, 113, 0.15);
+}
+
+.custom-modal-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink, #153e49);
+    letter-spacing: -0.02em;
+}
+
+.custom-modal-card p {
+    margin: 0 0 24px;
+    font-size: 0.92rem;
+    color: var(--muted, #718187);
+    line-height: 1.55;
+}
+
+.modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.modal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.modal-btn-secondary {
+    background: #f1f4f5;
+    color: var(--ink, #153e49);
+    border: 1.5px solid #dce4e6;
+}
+
+.modal-btn-secondary:hover {
+    background: #e4eaec;
+}
+
+.modal-btn-primary {
+    background: var(--pink, #f23271);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(242, 50, 113, 0.35);
+}
+
+.modal-btn-primary:hover {
+    background: var(--pink-dark, #d91f5b);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(242, 50, 113, 0.45);
+}
+
+/* Responsividad en pantallas pequeñas */
+@media (max-width: 760px) {
+    .user-greeting {
+        display: none;
+    }
+    .profile-toggle-btn {
+        padding: 4px;
+        border-radius: 50%;
+    }
+    .profile-toggle-btn .chevron-icon {
+        display: none;
+    }
+    .profile-dropdown-menu {
+        right: -8px;
+        width: min(290px, calc(100vw - 24px));
+    }
+}
+
+/* ==============================================================================
+   ESTRUCTURA Y RESPONSIVIDAD DEL TABNAV CLIENTE
+   Centrado, bordes redondeados y fijación inferior en móvil
+   ============================================================================== */
+
+/* Eliminar de forma segura cualquier barra de navegación inferior alternativa con iconos */
+.mobile-nav,
+.customer-mobile-nav {
+    display: none !important;
+}
+
+/* Contenedor principal del Tabnav superior con bordes redondeados */
+.catalog-header,
+.site-header,
+.detail-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5.5%;
+    background: #ffffff;
+    border-bottom: 1px solid #f1e8e5;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 20px rgba(21, 62, 73, 0.04);
+    box-sizing: border-box;
+}
+
+/* Tabnav superior con elementos centrados y bordes redondeados */
+.desktop-nav,
+.detail-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2.5vw, 32px);
+    margin: 0 auto;
+    padding: 7px 22px;
+    border-radius: 50px;
+    background: rgba(245, 235, 238, 0.45);
+    border: 1px solid rgba(242, 50, 113, 0.12);
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.desktop-nav a,
+.detail-nav a {
+    position: relative;
+    padding: 8px 12px;
+    color: #52666b;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 20px;
+    transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+
+.desktop-nav a:hover,
+.detail-nav a:hover {
+    color: var(--pink, #f23271);
+}
+
+.desktop-nav a.active,
+.desktop-nav a.active-tab,
+.detail-nav a.active,
+.detail-nav a.active-tab {
+    color: var(--pink, #f23271) !important;
+    font-weight: 700;
+    border-bottom: 3px solid var(--pink, #f23271);
+}
+
+/* En resoluciones móviles (max-width: 768px), fijar el Tabnav original en la parte inferior */
+@media (max-width: 768px) {
+    .catalog-header,
+    .site-header,
+    .detail-header {
+        min-height: 62px;
+        padding: 0 16px;
+        border-radius: 0 0 14px 14px;
+        margin: 0;
+    }
+
+    .desktop-nav,
+    .detail-nav {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        min-height: 58px;
+        z-index: 1000 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: clamp(6px, 2vw, 16px) !important;
+        margin: 0 !important;
+        padding: 8px 12px max(8px, env(safe-area-inset-bottom)) !important;
+        background: #ffffff !important;
+        border-radius: 18px 18px 0 0 !important;
+        border-top: 1.5px solid #f0e2e5 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        box-shadow: 0 -4px 22px rgba(21, 62, 73, 0.12) !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        box-sizing: border-box !important;
+    }
+
+    .desktop-nav a,
+    .detail-nav a {
+        padding: 7px 9px !important;
+        font-size: 11.5px !important;
+        white-space: nowrap !important;
+    }
+
+    /* Padding-bottom al contenedor principal para que el contenido no quede oculto detrás del menú inferior */
+    body {
+        padding-bottom: clamp(68px, 11vh, 88px) !important;
+    }
+
+    main,
+    .catalog-main,
+    .reservation-page,
+    .eventos-main,
+    .hero,
+    .vitrina-main,
+    .detail-main,
+    .main-chat-client,
+    .chat-layout,
+    .occasion-section {
+        padding-bottom: clamp(68px, 11vh, 88px) !important;
+    }
+}
+

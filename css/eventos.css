@@ -2,15 +2,55 @@
    EVENTOS - CSS
    ======================================== */
 
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 /* ── Navbar estándar compartido (catalog-header) ── */
-.catalog-header { min-height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 0 5.5%; border-bottom: 1px solid #f1e8e5; background: #fff; }
+.catalog-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5.5%;
+    border-bottom: 1px solid #f1e8e5;
+    background: #fff;
+    box-sizing: border-box;
+}
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--pink); font-size: 15px; font-weight: 800; letter-spacing: .06em; text-decoration: none; }
 .brand img { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; }
 .brand span { display: inline-flex; flex-direction: column; }
 .brand small { display: block; color: var(--teal); font-size: 9px; letter-spacing: .16em; font-weight: 400; }
-.desktop-nav { display: flex; gap: 36px; color: #52666b; font-size: 13px; }
-.desktop-nav a { color: #52666b; text-decoration: none; transition: color .15s ease; }
-.desktop-nav a:hover, .desktop-nav a.active { color: var(--pink); }
+.desktop-nav { display: flex; align-items: center; gap: 36px; color: #52666b; font-size: 13px; }
+.desktop-nav a {
+    position: relative;
+    padding: 12px 2px;
+    color: #52666b;
+    text-decoration: none;
+    transition: color .15s ease;
+    font-weight: 500;
+}
+.desktop-nav a:hover,
+.desktop-nav a.active,
+.desktop-nav a.active-tab {
+    color: var(--pink);
+    font-weight: 600;
+}
+.desktop-nav a.active::after,
+.desktop-nav a.active-tab::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--pink);
+    border-radius: 3px 3px 0 0;
+}
 .account-link { padding: 10px 17px; border: 1px solid #f4a1b8; border-radius: 999px; color: var(--pink); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .account-link:hover { background: #fff0f5; }
 
@@ -50,14 +90,17 @@
 
 .eventos-hero-sub {
     margin: 0;
-    font-size: 11px;
-    color: var(--muted);
+    font-size: 1.05rem; /* Aumentado para mayor legibilidad e impacto visual */
+    font-weight: 500;
+    color: var(--teal);
+    letter-spacing: 0.02em;
+    line-height: 1.5;
 }
 
 /* ---- Categorias ---- */
 .eventos-categorias h2 {
     margin: 0 0 14px;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--ink);
 }
@@ -65,7 +108,7 @@
 .categorias-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 28px;
 }
 
@@ -73,6 +116,103 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+    transition: transform 0.18s ease;
+    text-align: center;
+}
+
+.categoria-card:hover {
+    transform: translateY(-3px);
+}
+
+.categoria-desc {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--pink-dark, #d91f5b);
+    line-height: 1.3;
+    display: block;
+    max-width: 170px;
+}
+
+/* ---- Banner para Categoría "Postres completos" ---- */
+.postres-completos-banner {
+    background: linear-gradient(135deg, #ffffff 0%, #fff7fa 100%);
+    border: 1.5px solid #f9ced9;
+    border-radius: 20px;
+    padding: 22px 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 10px 0 28px;
+    box-shadow: 0 10px 28px rgba(242, 50, 113, 0.08);
+}
+
+.pc-banner-content h3 {
+    margin: 6px 0 4px;
+    font-size: 1.15rem;
+    color: var(--ink, #153e49);
+    letter-spacing: -0.02em;
+}
+
+.pc-banner-content p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--muted, #718187);
+    line-height: 1.45;
+}
+
+.pc-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #ffeef3;
+    color: var(--pink, #f23271);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn-postres-completos {
+    flex-shrink: 0;
+    padding: 12px 22px;
+    border-radius: 999px;
+    background: var(--pink, #f23271);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.25);
+    white-space: nowrap;
+}
+
+.btn-postres-completos:hover {
+    background: var(--pink-dark, #d91f5b);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(242, 50, 113, 0.35);
+}
+
+@media (max-width: 650px) {
+    .categorias-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    .postres-completos-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px;
+    }
+    .btn-postres-completos {
+        width: 100%;
+        text-align: center;
+    }
+}
     gap: 7px;
     text-decoration: none;
     color: var(--ink);

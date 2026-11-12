@@ -29,49 +29,51 @@
    ============================================================================== */
 .twins-ia-trigger {
     position: fixed;
-    bottom: 26px;
-    right: 26px;
+    bottom: 1.5rem;
+    right: 1.5rem;
     z-index: 99999;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 20px 12px 14px;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.75rem 0.35rem 0.45rem;
     background: linear-gradient(135deg, #123F49 0%, #174b57 100%);
     color: #ffffff;
     border: 2px solid var(--ia-mint-primary);
-    border-radius: 50px;
+    border-radius: 9999px;
     box-shadow: var(--ia-shadow-float);
     cursor: pointer;
     font-family: var(--ia-font);
-    font-size: 0.92rem;
-    font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    font-size: 0.95rem;
+    font-weight: 700;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     outline: none;
     user-select: none;
 }
 
 .twins-ia-trigger:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 16px 42px rgba(18, 63, 73, 0.32), 0 0 24px var(--ia-mint-glow);
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 12px 30px rgba(18, 63, 73, 0.35), 0 0 18px var(--ia-mint-glow);
     border-color: #ffffff;
 }
 
 .twins-ia-trigger:active {
-    transform: translateY(0) scale(0.98);
+    transform: translateY(0) scale(0.97);
 }
 
 .twins-ia-trigger-avatar {
     position: relative;
-    width: 38px;
-    height: 38px;
+    width: 2.2rem;
+    height: 2.2rem;
     border-radius: 50%;
     background: var(--ia-mint-primary);
     color: var(--ia-dark-teal);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
 }
 
 .twins-ia-pulse-ring {
@@ -84,6 +86,15 @@
     border: 2px solid var(--ia-mint-primary);
     animation: iaPulseRing 2.4s cubic-bezier(0.25, 1, 0.5, 1) infinite;
     pointer-events: none;
+}
+
+.twins-ia-badge {
+    font-size: 0.88rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--ia-mint-primary);
+    padding-right: 0.2rem;
+    line-height: 1;
 }
 
 @keyframes iaPulseRing {
@@ -102,31 +113,7 @@
 }
 
 .twins-ia-trigger-label {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    line-height: 1.2;
-}
-
-.twins-ia-trigger-title {
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 0.92rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.twins-ia-trigger-sparkle {
-    color: var(--ia-mint-primary);
-    font-size: 0.85rem;
-}
-
-.twins-ia-trigger-sub {
-    font-size: 0.72rem;
-    color: var(--ia-mint-primary);
-    font-weight: 500;
-    letter-spacing: 0.3px;
+    display: none;
 }
 
 /* ==============================================================================
@@ -556,15 +543,22 @@
 /* ==============================================================================
    6. RESPONSIVIDAD (MÓVIL / PANTALLAS PEQUEÑAS)
    ============================================================================== */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .twins-ia-trigger {
-        bottom: 18px;
-        right: 18px;
-        padding: 10px 16px 10px 12px;
+        bottom: 4.8rem; /* Por encima del Tabnav fijo inferior */
+        right: 1rem;
+        padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+        gap: 0.35rem;
     }
 
-    .twins-ia-trigger-sub {
-        display: none;
+    .twins-ia-trigger-avatar {
+        width: 1.9rem;
+        height: 1.9rem;
+        font-size: 1rem;
+    }
+
+    .twins-ia-badge {
+        font-size: 0.78rem;
     }
 
     .twins-ia-window {

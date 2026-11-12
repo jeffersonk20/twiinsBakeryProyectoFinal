@@ -1,16 +1,30 @@
 @import url("home.css");
 
+.catalog-sub.vitrina-sub,
+.vitrina-page .catalog-sub {
+    font-size: 1.15rem !important;
+    font-weight: 600 !important;
+    color: var(--ink, #153e49) !important;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
 .vitrina-intro {
-    max-width: 650px;
-    margin: 17px 0 25px;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.8;
+    max-width: 720px;
+    margin: 18px 0 28px;
+    color: var(--ink, #153e49);
+    font-size: 1.1rem !important;
+    font-weight: 500 !important;
+    line-height: 1.7;
 }
 
 @media (max-width: 650px) {
+    .catalog-sub.vitrina-sub,
+    .vitrina-page .catalog-sub {
+        font-size: 1.05rem !important;
+    }
     .vitrina-intro {
-        margin: 12px 0 20px;
-        font-size: 11px;
+        margin: 14px 0 22px;
+        font-size: 0.98rem !important;
     }
 }

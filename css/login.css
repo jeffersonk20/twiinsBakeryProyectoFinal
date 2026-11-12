@@ -4,6 +4,11 @@
     box-sizing: border-box;
 }
 
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 body {
     font-family: 'Poppins', sans-serif;
     background: #fff1f5;
@@ -23,7 +28,8 @@ body {
 .login-card {
     width: 100%;
     max-width: 1010px;
-    height: 620px;
+    min-height: 620px;
+    height: auto;
     background: white;
     border-radius: 30px;
     overflow: hidden;
@@ -119,7 +125,9 @@ form {
     grid-column: 2;
     grid-row: 1 / 4;
 
-    width: 398px;
+    width: 100%;
+    max-width: 398px;
+    box-sizing: border-box;
     justify-self: center;
     align-self: center;
 }
@@ -287,7 +295,9 @@ form::before {
 
     text-align: center;
 
-    width: 398px;
+    width: 100%;
+    max-width: 398px;
+    box-sizing: border-box;
 
     justify-self: center;
 
@@ -320,7 +330,9 @@ form::before {
     right: 7%;
     top: 25px;
 
-    width: 398px;
+    width: 100%;
+    max-width: 398px;
+    box-sizing: border-box;
 
     padding: 10px 15px;
 

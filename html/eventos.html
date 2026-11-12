@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#153e49">
-    <title>Eventos | TWINS Bakery</title>
+    <title>Eventos | TWIINS Bakery</title>
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/eventos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,19 +16,47 @@
 <body>
     <header class="catalog-header">
         <a class="brand" href="{{ url_for('inicio') }}">
-            <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWINS Bakery">
-            <span>TWINS <small>BAKERY</small></span>
+            <img src="/static/img/logo.png" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+            <span>TWIINS <small>BAKERY</small></span>
         </a>
         <nav class="desktop-nav" aria-label="Navegación principal">
             <a href="{{ url_for('inicio') }}">Inicio</a>
             <a href="{{ url_for('catalogo') }}">Catálogo</a>
             <a href="{{ url_for('vitrina') }}">Vitrina</a>
             <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
-            <a class="active" href="{{ url_for('eventos') }}">Eventos</a>
+            <a class="active active-tab" href="{{ url_for('eventos') }}">Eventos</a>
             <a href="{{ url_for('chat_general') }}">Chat</a>
-            <a href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
         </nav>
-        <a class="account-link" href="{{ url_for('cerrar_sesion') }}">Cerrar sesión</a>
+        {% if session.get('id_cliente') %}
+        <div class="user-profile-menu" id="userProfileMenu">
+            <button type="button" class="profile-toggle-btn" id="profileToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Menú de perfil">
+                <div class="avatar-circle" id="headerAvatarContainer">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
+                </div>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar-wrap" id="dropdownAvatarTrigger" title="Haz clic para cambiar foto">
+                        <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="dropdown-avatar-img" id="dropdownAvatarImg" onerror="this.src='/img/logo.png'">
+                        <span class="avatar-edit-badge">Cambiar</span>
+                    </div>
+                    <span class="avatar-upload-hint" id="avatarUploadHint">Cambiar foto de perfil</span>
+                    <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" aria-label="Subir foto de perfil">
+                    <div class="dropdown-user-info">
+                        <strong>{{ session.get('nombre_cliente', 'Cliente') }}</strong>
+                        <small>{{ session.get('correo_cliente', '') }}</small>
+                    </div>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item" id="btnCerrarSesionPerfil">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Cerrar sesión</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
     </header>
 
     <main class="eventos-page">
@@ -34,9 +64,21 @@
             <h1>Eventos</h1>
             <div class="eventos-hero-card">
                 <p class="eventos-hero-tagline">Hacemos realidad<br><strong>tus celebraciones</strong></p>
-                <p class="eventos-hero-sub">Cumpleanos &middot; Bodas &middot; Graduaciones &middot; Baby Showers &middot; Aniversarios</p>
+                <p class="eventos-hero-sub">Cumpleaños &middot; Bodas &middot; Graduaciones &middot; Baby Showers &middot; Aniversarios</p>
             </div>
         </div>
+
+        <!-- Filtro/Acceso directo a la nueva categoría "Postres completos" -->
+        <section class="postres-completos-banner">
+            <div class="pc-banner-content">
+                <span class="pc-badge">Nueva Categoría</span>
+                <h3>Postres completos para celebraciones</h3>
+                <p>Descubre nuestra selección exclusiva de postres completos diseñados para compartir en tus momentos especiales.</p>
+            </div>
+            <a href="{{ url_for('catalogo', categoria='Postres completos') }}" class="btn-postres-completos">
+                Ver Postres completos ↗
+            </a>
+        </section>
 
         <section class="eventos-categorias">
             <h2>Categorias</h2>
@@ -71,21 +113,32 @@
                     </div>
                     <span>Aniversarios</span>
                 </a>
+                <!-- Nueva Categoría: Mesa de postres -->
+                <a href="{{ url_for('evento_detalle', tipo='mesa-de-postres') }}" class="categoria-card">
+                    <div class="categoria-img-wrap">
+                        <img src="https://images.unsplash.com/photo-1535141192574-5d4897c13136?auto=format&fit=crop&w=600&q=80" alt="Mesa de postres" loading="lazy">
+                    </div>
+                    <span>Mesa de postres</span>
+                    <small class="categoria-desc">Reservas con mínimo 15 días de anticipación.</small>
+                </a>
             </div>
         </section>
-
-        <div class="ver-eventos-btn-wrap">
-            <a href="{{ url_for('ver_eventos') }}" class="btn-ver-eventos" id="btnVerEventos">Ver todos los eventos</a>
-        </div>
     </main>
 
-    <nav class="customer-mobile-nav" aria-label="Navegacion movil">
-        <a href="{{ url_for('inicio') }}"><span aria-hidden="true">&#8962;</span>Inicio</a>
-        <a href="{{ url_for('catalogo') }}"><span aria-hidden="true">&#9638;</span>Catalogo</a>
-        <a href="{{ url_for('mis_reservas') }}"><span aria-hidden="true">&#9635;</span>Reservas</a>
-        <a class="active" href="{{ url_for('eventos') }}"><span aria-hidden="true">&#10022;</span>Eventos</a>
-        <a href="{{ url_for('chat_general') }}"><span aria-hidden="true">💬</span>Chat</a>
-        <a href="{{ url_for('cerrar_sesion') }}"><span aria-hidden="true">&#9675;</span>Salir</a>
-    </nav>
+    <!-- Modal personalizado para confirmar cierre de sesión -->
+    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+        <div class="custom-modal-card">
+            <div class="modal-icon-wrap">🔒</div>
+            <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
+            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
 </body>
 </html>

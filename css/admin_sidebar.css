@@ -1,0 +1,329 @@
+/* ==============================================================================
+   ADMIN SIDEBAR & MODAL DE LOGOUT - TWIINS BAKERY
+   Diseño de Scroll Independiente (Zero Layout Shift) y Modal Accesible
+   ============================================================================== */
+
+:root {
+    --admin-pink: #f23271;
+    --admin-pink-dark: #d91f5b;
+    --admin-teal: #20b7b2;
+    --admin-ink: #123f49;
+    --admin-sidebar-bg: #123f49;
+    --admin-cream: #fff8ef;
+}
+
+/* ── SHELL CON SCROLL INDEPENDIENTE (100VH) ── */
+html, body {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.admin-shell {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    display: grid !important;
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    overflow: hidden !important;
+}
+
+/* ── SIDEBAR VERTICAL FIJO / ESTÁTICO ── */
+.admin-sidebar,
+aside.sidebar {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 240px !important;
+    min-width: 240px !important;
+    max-width: 240px !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 28px 17px 18px !important;
+    color: #ffffff !important;
+    background: var(--admin-sidebar-bg) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+    z-index: 100 !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.admin-brand {
+    width: max-content;
+    margin: 0 0 40px 7px;
+    color: var(--admin-pink);
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-decoration: none;
+    display: block;
+}
+
+.admin-brand span {
+    display: block;
+    margin-top: 3px;
+    color: #41d0c6;
+    font-size: 8px;
+    letter-spacing: .12em;
+}
+
+.admin-sidebar nav,
+aside.sidebar nav {
+    display: grid;
+    gap: 8px;
+}
+
+.admin-sidebar nav a,
+aside.sidebar nav a {
+    position: relative;
+    padding: 12px 16px;
+    border-radius: 10px;
+    color: #c8dde0;
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    cursor: pointer;
+    display: block;
+    border-left: 4px solid transparent;
+    box-sizing: border-box;
+}
+
+.admin-sidebar nav a:hover,
+aside.sidebar nav a:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar nav a.active,
+.admin-sidebar nav a.active-pill,
+.admin-sidebar nav a.active-tab,
+aside.sidebar nav a.active,
+aside.sidebar nav a.active-pill,
+aside.sidebar nav a.active-tab {
+    color: #ffffff !important;
+    background: rgba(242, 50, 113, 0.18) !important;
+    border-left: 4px solid var(--admin-pink) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(242, 50, 113, 0.2);
+}
+
+.sidebar-footer {
+    display: grid;
+    gap: 8px;
+    margin-top: auto;
+    color: #d8e6e8;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+    padding-top: 16px;
+}
+
+.sidebar-footer form {
+    margin: 0;
+}
+
+.sidebar-footer button,
+.sidebar-footer .admin-logout-trigger {
+    padding: 0;
+    border: 0;
+    color: #ff83a5;
+    background: transparent;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color .15s ease;
+    text-align: left;
+}
+
+.sidebar-footer button:hover,
+.sidebar-footer .admin-logout-trigger:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+/* ── CONTENEDOR PRINCIPAL DERECHO CON SCROLL PROPIO ── */
+.admin-main,
+main.main-admin-chat,
+main.main-eventos {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/* ── MODAL PERSONALIZADO DE CIERRE DE SESIÓN ADMIN ── */
+.admin-logout-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(18, 63, 73, 0.68);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.24s;
+}
+
+.admin-logout-modal-overlay.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.admin-logout-modal-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 390px;
+    border-radius: 20px;
+    padding: 32px 28px 28px;
+    box-shadow: 0 20px 60px rgba(18, 63, 73, 0.35);
+    text-align: center;
+    box-sizing: border-box;
+    transform: scale(0.92) translateY(12px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-logout-modal-overlay.is-visible .admin-logout-modal-card {
+    transform: scale(1) translateY(0);
+}
+
+.admin-logout-icon {
+    font-size: 40px;
+    line-height: 1;
+    margin-bottom: 14px;
+}
+
+.admin-logout-modal-card h3 {
+    margin: 0 0 10px;
+    color: var(--admin-ink);
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.admin-logout-modal-card p {
+    margin: 0 0 24px;
+    color: #718187;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.admin-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.admin-modal-btn {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+    transition: all 0.18s ease;
+}
+
+.admin-modal-btn.admin-modal-cancel {
+    background: #f1f4f5;
+    color: var(--admin-ink);
+    border: 1.5px solid #dce4e6;
+}
+
+.admin-modal-btn.admin-modal-cancel:hover {
+    background: #e4eaec;
+}
+
+.admin-modal-btn.admin-modal-confirm {
+    background: var(--admin-pink);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.35);
+}
+
+.admin-modal-btn.admin-modal-confirm:hover {
+    background: var(--admin-pink-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(242, 50, 113, 0.45);
+}
+
+/* ── RESPONSIVO (PANTALLAS PEQUEÑAS) ── */
+@media (max-width: 760px) {
+    html, body {
+        height: auto !important;
+        overflow-y: auto !important;
+    }
+    .admin-shell {
+        grid-template-columns: 1fr !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .admin-sidebar,
+    aside.sidebar {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        position: static !important;
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 17px !important;
+    }
+    .admin-brand { margin: 0; font-size: 17px; }
+    .admin-brand span { font-size: 7px; }
+    .admin-sidebar nav,
+    aside.sidebar nav {
+        grid-column: 1 / -1;
+        display: flex !important;
+        gap: 5px;
+        overflow-x: auto;
+    }
+    .admin-sidebar nav a,
+    aside.sidebar nav a {
+        flex: 0 0 auto;
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+    .admin-sidebar nav a.active,
+    .admin-sidebar nav a.active-pill,
+    .admin-sidebar nav a.active-tab,
+    aside.sidebar nav a.active,
+    aside.sidebar nav a.active-pill,
+    aside.sidebar nav a.active-tab {
+        border-left: none !important;
+        border-bottom: 3px solid var(--admin-pink) !important;
+        border-radius: 8px !important;
+    }
+    .sidebar-footer {
+        justify-self: end;
+        grid-column: 2;
+        grid-row: 1;
+        gap: 4px;
+        padding-top: 0;
+    }
+    .admin-main,
+    main.main-admin-chat,
+    main.main-eventos {
+        height: auto !important;
+        overflow: visible !important;
+        padding: 20px 14px 40px !important;
+    }
+}
+

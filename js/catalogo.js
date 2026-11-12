@@ -6,6 +6,21 @@
     let selectedCategory = "Todos";
     let products = [];
 
+    // Detectar filtro inicial desde query params (ej. ?categoria=Postres+completos)
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramCategory = urlParams.get("categoria");
+    if (paramCategory) {
+        selectedCategory = paramCategory;
+        const targetBtn = filters.querySelector(`[data-category="${paramCategory}"]`);
+        if (targetBtn) {
+            filters.querySelectorAll("[data-category]").forEach((filter) => {
+                const selected = filter === targetBtn;
+                filter.classList.toggle("active", selected);
+                filter.setAttribute("aria-pressed", String(selected));
+            });
+        }
+    }
+
     function render() {
         const filteredProducts = products.filter((producto) => (
             selectedCategory === "Todos" || producto.categoria === selectedCategory

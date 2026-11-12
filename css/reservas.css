@@ -1,17 +1,53 @@
 :root { --pink: #f23271; --pink-dark: #d91f5b; --teal: #20b7b2; --ink: #153e49; --muted: #718187; --cream: #fff8ef; --line: #f0e7df; }
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; max-width: 100%; }
 body { min-height: 100vh; margin: 0; color: var(--ink); background: linear-gradient(180deg, #fff 0, #fffaf7 46%, #fff 100%); font-family: "Poppins", sans-serif; }
 a { color: inherit; text-decoration: none; }
 button, input { font: inherit; }
 /* ── Navbar estándar compartido (catalog-header) ── */
-.catalog-header { min-height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 0 5.5%; border-bottom: 1px solid #f1e8e5; background: #fff; }
+.catalog-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5.5%;
+    border-bottom: 1px solid #f1e8e5;
+    background: #fff;
+    box-sizing: border-box;
+}
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--pink); font-size: 15px; font-weight: 800; letter-spacing: .06em; text-decoration: none; }
 .brand img { width: 44px; height: 44px; border-radius: 50%; object-fit: contain; }
 .brand span { display: inline-flex; flex-direction: column; }
 .brand small { display: block; color: var(--teal); font-size: 9px; letter-spacing: .16em; font-weight: 400; }
-.desktop-nav { display: flex; gap: 36px; color: #52666b; font-size: 13px; }
-.desktop-nav a { color: #52666b; text-decoration: none; transition: color .15s ease; }
-.desktop-nav a:hover, .desktop-nav a.active { color: var(--pink); }
+.desktop-nav { display: flex; align-items: center; gap: 36px; color: #52666b; font-size: 13px; }
+.desktop-nav a {
+    position: relative;
+    padding: 12px 2px;
+    color: #52666b;
+    text-decoration: none;
+    transition: color .15s ease;
+    font-weight: 500;
+}
+.desktop-nav a:hover,
+.desktop-nav a.active,
+.desktop-nav a.active-tab {
+    color: var(--pink);
+    font-weight: 600;
+}
+.desktop-nav a.active::after,
+.desktop-nav a.active-tab::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--pink);
+    border-radius: 3px 3px 0 0;
+}
 .account-link { padding: 10px 17px; border: 1px solid #f4a1b8; border-radius: 999px; color: var(--pink); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .account-link:hover { background: #fff0f5; }
 /* ── Navbar cliente (legado, mantenido para compatibilidad) ── */
@@ -27,7 +63,14 @@ button, input { font: inherit; }
 .page-heading { margin-bottom: 23px; }
 .eyebrow { margin: 0 0 5px; color: var(--teal); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
 .page-heading h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); letter-spacing: -.05em; }
-.page-heading > p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+.page-heading > p:last-child,
+.reservation-heading-sub {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 1.12rem !important; /* Aumentado para mejorar visibilidad y jerarquía */
+    font-weight: 500;
+    line-height: 1.5;
+}
 .reservation-layout { display: grid; grid-template-columns: minmax(270px, .77fr) minmax(0, 1.23fr); align-items: start; gap: 22px; }
 .reservation-product, .reservation-form-card { border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 16px 42px #153e490a; }
 .reservation-product { position: sticky; top: 90px; padding: 19px; }
@@ -74,7 +117,8 @@ button, input { font: inherit; }
 .primary-button:hover { transform: translateY(-1px); background: var(--pink-dark); }
 .notice { margin: 0 0 16px; padding: 11px 13px; border-radius: 8px; color: #286c50; background: #e9f7ee; font-size: 11px; line-height: 1.6; }
 .notice-error { color: #a12a45; background: #fff0f3; }
-.customer-mobile-nav { display: none; }
+.customer-mobile-nav,
+.mobile-nav { display: none !important; }
 
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; color: #886423; background: #fff3d9; font-size: 9px; font-weight: 600; }
 .status-pill.confirmed, .status-pill.delivered { color: #32774f; background: #e7f6eb; }
@@ -126,10 +170,7 @@ button, input { font: inherit; }
     .payment-caption { grid-column: 1 / -1; margin: 7px 2px 0; }
     .reservation-form-card { padding: 17px; }
     .reservation-form-card h2 { margin-bottom: 15px; font-size: 17px; }
-    .customer-mobile-nav { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; justify-content: space-around; padding: 7px 5px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid #eee6e1; background: #fff; }
-    .customer-mobile-nav a { display: grid; justify-items: center; gap: 2px; color: #879296; font-size: 8px; }
-    .customer-mobile-nav a span { font-size: 17px; }
-    .customer-mobile-nav a.active { color: var(--pink); }
+    .customer-mobile-nav { display: none !important; }
     .customer-reservation-card { grid-template-columns: 1fr; }
     .reservation-card-action { grid-template-columns: 1fr auto; align-items: center; justify-items: start; }
     .confirmation-card { margin: 0 auto; padding: 23px 16px; }

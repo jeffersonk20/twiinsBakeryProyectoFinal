@@ -139,6 +139,100 @@
         </div>
     </dialog>
 
+    <!-- DIALOG PARA REALIZAR COBROS CON TARJETA (WOMPI) EN LOCAL / ADMIN -->
+    <dialog class="edit-dialog card-charge-dialog" data-card-charge-dialog style="max-width: 520px;">
+        <form method="dialog" class="dialog-close-row">
+            <button class="icon-close" aria-label="Cerrar">×</button>
+        </form>
+        <div class="dialog-content">
+            <p class="eyebrow">Punto de cobro · Wompi</p>
+            <h2>Cobro con tarjeta <span data-card-code></span></h2>
+            <p class="dialog-help" style="margin-bottom: 12px;">
+                Genera un enlace o código QR de pago oficial de Wompi para cobrarle con tarjeta de crédito o débito al cliente en el local, sin filtrar credenciales en el navegador.
+            </p>
+
+            <div class="card-charge-summary" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Cliente:</span>
+                    <strong data-card-customer>—</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Total del pedido:</span>
+                    <strong data-card-total>$0.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Anticipo requerido (50%):</span>
+                    <span data-card-anticipo>$0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Monto ya pagado:</span>
+                    <span data-card-paid>$0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px dashed #cbd5e0; font-size: 12px;">
+                    <strong style="color: #2d3748;">Saldo pendiente:</strong>
+                    <strong data-card-pending style="color: var(--pink); font-size: 14px;">$0.00</strong>
+                </div>
+            </div>
+
+            <form data-card-charge-form>
+                <input type="hidden" name="reserva_id" id="card-charge-reserva-id">
+
+                <div class="field" style="margin-bottom: 12px;">
+                    <label for="card-charge-monto" style="font-weight: 600; display: block; margin-bottom: 5px;">Monto a cobrar con tarjeta (USD):</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;" class="quick-amount-container">
+                        <button type="button" class="button-secondary quick-amount-btn" id="btnQuickAnticipo" style="flex: 1; font-size: 11px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">Cobrar 50%</button>
+                        <button type="button" class="button-secondary quick-amount-btn" id="btnQuickSaldo" style="flex: 1; font-size: 11px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">Cobrar Saldo</button>
+                    </div>
+                    <input type="number" step="0.01" min="0.01" id="card-charge-monto" name="monto" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 15px; font-weight: 700; color: #2d3748;">
+                </div>
+
+                <div class="dialog-actions" style="margin-top: 12px;">
+                    <button type="button" class="button-secondary" data-cancel-card-charge>Cerrar</button>
+                    <button type="submit" class="button-primary" id="btnGenerarEnlaceWompi" style="background: var(--pink); border-color: var(--pink);">💳 Generar enlace Wompi</button>
+                </div>
+            </form>
+
+            <!-- CONTENEDOR RESULTADO DE PAGO GENERADO -->
+            <div data-card-result-box style="display: none; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                <div style="background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 10px; padding: 12px; margin-bottom: 12px; text-align: center;">
+                    <span style="font-size: 11px; color: #2b6cb0; display: block; margin-bottom: 4px;">Cobro Wompi preparado para:</span>
+                    <strong data-result-amount style="font-size: 20px; color: #2c5282;">$0.00 USD</strong>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+                    <a href="#" target="_blank" rel="noopener noreferrer" class="button-primary" id="btnAbrirPasarelaWompi" style="display: block; text-align: center; background: #319795; border-color: #319795; color: #fff; text-decoration: none; padding: 9px; font-weight: 600; font-size: 12px;">
+                        ↗ Abrir pasarela Wompi para pagar con tarjeta
+                    </a>
+                    <button type="button" class="button-secondary" id="btnCopiarEnlaceWompi" style="padding: 8px; font-size: 11px;">
+                        📋 Copiar enlace de pago
+                    </button>
+                    <button type="button" class="button-primary" id="btnVerificarPagoWompi" style="background: #2563eb; border-color: #2563eb; color: #fff; padding: 9px; font-size: 12px; font-weight: 700;">
+                        🔄 Comprobar si ya se pagó en Wompi
+                    </button>
+                    <button type="button" class="button-secondary" id="btnConfirmarManualWompi" style="width: 100%; border-color: #38a169; color: #166534; background: #f0fdf4; padding: 8px 10px; font-size: 11px; font-weight: 700; border-radius: 8px; cursor: pointer;">
+                        ✓ Registrar pago (el cliente ya pagó en su celular)
+                    </button>
+                    <div id="verificarWompiStatus" style="font-size: 11px; text-align: center; color: #64748b; margin-top: -2px;">
+                        Esperando pago... (verificando automáticamente con Wompi)
+                    </div>
+                </div>
+
+                <!-- CÓDIGO QR PARA ESCANEO RÁPIDO EN MOSTRADOR -->
+                <div style="text-align: center; background: #fff; border: 1px dashed #cbd5e0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                    <p style="font-size: 10px; color: #718096; margin-bottom: 8px;">O pídele al cliente que escanee este QR con la cámara de su celular:</p>
+                    <img id="qrCodeImg" src="" alt="Código QR Wompi" style="width: 140px; height: 140px; margin: 0 auto; display: block; border-radius: 8px;">
+                </div>
+
+                <div style="border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+                    <p style="font-size: 10px; color: #718096; margin-bottom: 8px;">¿Ya pasaste la tarjeta en el POS físico de la pastelería?</p>
+                    <button type="button" class="button-secondary" id="btnConfirmarManualPOS" style="width: 100%; border-color: #9ae6b4; color: #22543d; background: #f0fff4; padding: 7px; font-size: 10px; font-weight: 600;">
+                        ✓ Marcar como cobrado en terminal POS físico
+                    </button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
     <!-- Modal personalizado para confirmar cierre de sesión Admin -->
     <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminLogoutModalTitle">
         <div class="admin-logout-modal-card">

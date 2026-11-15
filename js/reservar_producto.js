@@ -4,6 +4,10 @@
 
     const quantity = page.querySelector("[data-quantity]");
     const deposit = page.querySelector("[data-deposit-amount]");
+    const wompiBox = page.querySelector("#wompiAmountBox");
+    const wompiAnticipoPriceEl = page.querySelector("[data-wompi-anticipo-price]");
+    const wompiTotalPriceEl = page.querySelector("[data-wompi-total-price]");
+    const wompiChargeTypes = page.querySelectorAll('input[name="tipo_cobro_tarjeta"]');
     const date = page.querySelector("[data-date]");
     const timeSelect = page.querySelector("[data-time]");
     const phoneInput = page.querySelector("#telefono");
@@ -64,11 +68,44 @@
             : digits;
     }
 
+    function getSelectedWompiChargeType() {
+        const checked = page.querySelector('input[name="tipo_cobro_tarjeta"]:checked');
+        return checked ? checked.value : "ANTICIPO_50";
+    }
+
+    function updateSubmitButtonText() {
+        const selectedMethod = page.querySelector('input[name="metodo_pago"]:checked');
+        if (!selectedMethod || selectedMethod.value !== "WOMPI") {
+            submitButton.firstChild.textContent = "Confirmar reserva ";
+            return;
+        }
+
+        const selectedQuantity = Math.max(1, Math.min(30, Number(quantity.value) || 1));
+        const total = Math.round(productPrice * selectedQuantity * 100) / 100;
+        const anticipo = Math.round(productPrice * selectedQuantity * 50) / 100;
+        const chargeType = getSelectedWompiChargeType();
+
+        if (chargeType === "TOTAL_100") {
+            submitButton.firstChild.textContent = `Pagar total (${window.ProductStore.formatPrice(total)}) en Wompi `;
+        } else {
+            submitButton.firstChild.textContent = `Pagar anticipo (${window.ProductStore.formatPrice(anticipo)}) en Wompi `;
+        }
+    }
+
     function updateDeposit() {
         if (productPrice <= 0) return;
         const selectedQuantity = Math.max(1, Math.min(30, Number(quantity.value) || 1));
-        const amount = Math.round(productPrice * selectedQuantity * 50) / 100;
-        deposit.textContent = window.ProductStore.formatPrice(amount);
+        const anticipo = Math.round(productPrice * selectedQuantity * 50) / 100;
+        const total = Math.round(productPrice * selectedQuantity * 100) / 100;
+
+        deposit.textContent = window.ProductStore.formatPrice(anticipo);
+        if (wompiAnticipoPriceEl) {
+            wompiAnticipoPriceEl.textContent = window.ProductStore.formatPrice(anticipo);
+        }
+        if (wompiTotalPriceEl) {
+            wompiTotalPriceEl.textContent = window.ProductStore.formatPrice(total);
+        }
+        updateSubmitButtonText();
     }
 
     quantity.addEventListener("input", updateDeposit);
@@ -76,12 +113,19 @@
     date.addEventListener("change", updateAvailableTimes);
     phoneInput.addEventListener("input", formatPhone);
     updateAvailableTimes();
+
     paymentMethods.forEach((method) => {
         method.addEventListener("change", () => {
-            submitButton.firstChild.textContent = method.value === "WOMPI"
-                ? "Continuar a Wompi "
-                : "Confirmar reserva ";
+            const isWompi = method.value === "WOMPI";
+            if (wompiBox) {
+                wompiBox.style.display = isWompi ? "block" : "none";
+            }
+            updateSubmitButtonText();
         });
+    });
+
+    wompiChargeTypes.forEach((radio) => {
+        radio.addEventListener("change", updateSubmitButtonText);
     });
 
     page.querySelector("form").addEventListener("submit", (event) => {

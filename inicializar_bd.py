@@ -377,6 +377,10 @@ def _inicializar_sqlite(conexion, cursor):
     );
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_codigo_correo ON CODIGO_VERIFICACION (correo, usado);")
+    try:
+        cursor.execute("ALTER TABLE CODIGO_VERIFICACION ADD COLUMN tipo TEXT NOT NULL DEFAULT 'REGISTRO';")
+    except Exception:
+        pass
 
 
 def _inicializar_mysql(conexion, cursor):

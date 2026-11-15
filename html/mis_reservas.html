@@ -78,7 +78,16 @@
                             <p class="reservation-code">{{ reserva.codigo }}</p>
                             <h2>{{ reserva.nombre_producto }} · {{ reserva.cantidad }} unidad(es)</h2>
                             <p>Retiro: {{ reserva.fecha_retiro.strftime("%d/%m/%Y · %I:%M %p") }}</p>
-                            <p class="card-total">Total: ${{ "%.2f"|format(reserva.total) }} USD · Pagado: ${{ "%.2f"|format(reserva.monto_pagado) }} USD</p>
+                            <p class="card-total">
+                                Total: ${{ "%.2f"|format(reserva.total) }} USD · Pagado: ${{ "%.2f"|format(reserva.monto_pagado) }} USD
+                                {% if reserva.monto_pagado >= reserva.total %}
+                                    <span style="color: #16a34a; font-weight: 600;">(100% Pagado)</span>
+                                {% elif reserva.monto_pagado > 0 %}
+                                    <span style="color: #d97706; font-weight: 600;">(Resta: ${{ "%.2f"|format(reserva.total - reserva.monto_pagado) }} USD)</span>
+                                {% else %}
+                                    <span style="color: #64748b;">(Anticipo req: ${{ "%.2f"|format(reserva.anticipo_requerido) }} USD)</span>
+                                {% endif %}
+                            </p>
                             {% if reserva.estado == "CANCELADA" and reserva.monto_pagado > 0 %}
                                 <p>Por política de reservas, los pagos realizados no son reembolsables.</p>
                             {% endif %}
@@ -90,6 +99,10 @@
                                 <span class="status-pill delivered">Entregada</span>
                             {% elif reserva.estado == "CANCELADA" %}
                                 <span class="status-pill cancelled">Cancelada</span>
+                            {% elif reserva.monto_pagado >= reserva.total %}
+                                <span class="status-pill" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;">✓ Total pagado (100%) · Esperando aceptación</span>
+                            {% elif reserva.monto_pagado >= reserva.anticipo_requerido %}
+                                <span class="status-pill" style="background: #e6fffa; color: #0f766e; border: 1px solid #99f6e4;">✓ Anticipo pagado (50%) · Esperando aceptación</span>
                             {% else %}
                                 <span class="status-pill">Pendiente de anticipo</span>
                             {% endif %}

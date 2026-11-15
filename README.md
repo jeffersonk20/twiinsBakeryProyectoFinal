@@ -48,6 +48,8 @@ Al iniciarse, la consola mostrará un enlace interactivo al que puedes hacer cli
 
 ### Panel de Administrador:
 - **Ruta:** `/admin/login`
+
+
 - **Correo:** `admin@twinsbakery.com`
 - **Contraseña:** `admin1234`
 - *(Token de configuración inicial si se requiere restablecer el admin: `twins_bakery_admin_token_2026_super_seguro_token_32chars`)*

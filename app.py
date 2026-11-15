@@ -19,6 +19,7 @@ from conexion import obtener_conexion
 from dotenv import load_dotenv
 import os
 import re
+import socket
 from functools import wraps
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
@@ -41,6 +42,9 @@ from servicios_correo import (
     enviar_correo_evento_rechazado,
     enviar_correo_reserva_rechazada,
     enviar_correo_codigo_verificacion,
+    enviar_correo_recuperacion_contrasena,
+    enviar_correo_contrasena_actualizada,
+    enviar_correo_pago_tarjeta_recibido,
 )
 
 load_dotenv()
@@ -54,16 +58,21 @@ def _normalizar_url_publica(valor):
     valor = valor.strip().rstrip("/")
     if not valor:
         return ""
-    url = urlsplit(valor if "://" in valor else f"https://{valor}")
+    url = urlsplit(valor if "://" in valor else f"http://{valor}")
+    host = (url.hostname or "").lower()
+    es_local = host in ("localhost", "127.0.0.1") or host.endswith(".localhost")
+    if es_local:
+        puerto_str = f":{url.port}" if url.port else ""
+        return f"{url.scheme or 'http'}://{host}{puerto_str}"
     if (
-        url.scheme != "https"
+        url.scheme not in ("https", "http")
         or not url.netloc
         or url.path
         or url.query
         or url.fragment
     ):
-        raise RuntimeError("Las URL públicas deben ser HTTPS y no incluir rutas.")
-    return f"https://{url.netloc}"
+        raise RuntimeError("Las URL públicas deben ser válidas y no incluir rutas.")
+    return f"{url.scheme}://{url.netloc}"
 
 
 CLIENT_URL = _normalizar_url_publica(os.getenv("CLIENT_URL", ""))
@@ -76,8 +85,14 @@ app = Flask(
     static_folder=None
 )
 
-# Clave privada para las sesiones
-app.secret_key = os.getenv("SECRET_KEY") or "twins_bakery_2026_clave_privada_8f3a9c2d"
+# Clave privada para las sesiones (protegida contra fallbacks vulnerables)
+_secret_key = (os.getenv("SECRET_KEY") or "").strip()
+if not _secret_key:
+    raise RuntimeError(
+        "Falta configurar SECRET_KEY en el archivo .env. "
+        "Define una clave criptográfica aleatoria segura para proteger las sesiones."
+    )
+app.secret_key = _secret_key
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -107,7 +122,7 @@ ESTADOS_RESERVA = {
 }
 WOMPI_CLIENT_ID = os.getenv("WOMPI_CLIENT_ID", "")
 WOMPI_CLIENT_SECRET = os.getenv("WOMPI_CLIENT_SECRET", "")
-URL_BASE_TUWEB = _normalizar_url_publica(os.getenv("URL_BASE_TUWEB", ""))
+URL_BASE_TUWEB = _normalizar_url_publica(os.getenv("URL_BASE_TUWEB", "")) or "http://localhost:5000"
 WOMPI_TOKEN_URL = "https://id.wompi.sv/connect/token"
 WOMPI_PAYMENT_LINK_URL = "https://api.wompi.sv/EnlacePago"
 WOMPI_TOKEN = {"valor": None, "expira": 0}
@@ -643,13 +658,33 @@ def _notificar_reserva_rechazada(reserva_id, motivo=None):
 
 
 def _wompi_configurada():
+    if not (WOMPI_CLIENT_ID and WOMPI_CLIENT_SECRET):
+        return False
     base_url = urlsplit(URL_BASE_TUWEB)
     return bool(
-        WOMPI_CLIENT_ID
-        and WOMPI_CLIENT_SECRET
-        and base_url.scheme == "https"
-        and base_url.netloc
+        base_url.netloc
+        and (base_url.scheme in ("https", "http"))
     )
+
+
+def _obtener_ip_local():
+    """Detecta la IP local de la computadora en la red Wi-Fi/Ethernet."""
+    try:
+        ip = socket.gethostbyname(socket.gethostname())
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    return "localhost"
 
 
 def obtener_token():
@@ -684,26 +719,32 @@ def obtener_token():
 
 def crear_enlace_pago(pedido_id, monto, nombre_producto):
     if not _wompi_configurada():
-        raise ValueError("Configura las credenciales Wompi y URL_BASE_TUWEB HTTPS.")
+        raise ValueError("Configura las credenciales WOMPI_CLIENT_ID y WOMPI_CLIENT_SECRET en .env.")
     monto = Decimal(str(monto)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if monto <= 0 or not pedido_id or not nombre_producto:
         raise ValueError("Los datos del enlace de pago no son válidos.")
+
+    correo_comercio = os.getenv("MAIL_USERNAME", "jeffersonk20castillo@gmail.com").strip()
+    url_base = URL_BASE_TUWEB.strip().rstrip("/") if URL_BASE_TUWEB else "http://localhost:5000"
+    base_split = urlsplit(url_base)
+    host = (base_split.hostname or "").lower()
+    es_local = host in ("localhost", "127.0.0.1") or host.endswith(".localhost")
+
+    configuracion = {
+        "notificarTransaccionCliente": True,
+        "emailsNotificacion": correo_comercio,
+        "urlRedirect": f"{url_base}/pago/resultado",
+    }
+
+    # Solo incluir urlWebhook si es un dominio público real en internet (no localhost)
+    if not es_local and base_split.scheme == "https":
+        configuracion["urlWebhook"] = f"{url_base}/webhook/wompi"
+
     payload = {
-        "identificadorEnlaceComercio": pedido_id,
+        "identificadorEnlaceComercio": str(pedido_id),
         "monto": float(monto),
-        "nombreProducto": nombre_producto,
-        "formaPago": {
-            "permitirTarjetaCreditoDebido": True,
-            "permitirPagoConPuntoAgricola": False,
-            "permitirPagoEnCuotasAgricola": False,
-            "permitirPagoEnBitcoin": False,
-            "permitePagoQuickPay": False,
-        },
-        "configuracion": {
-            "urlRedirect": f"{URL_BASE_TUWEB}/pago/resultado",
-            "urlWebhook": f"{URL_BASE_TUWEB}/webhook/wompi",
-            "notificarTransaccionCliente": True,
-        },
+        "nombreProducto": str(nombre_producto)[:100],
+        "configuracion": configuracion,
     }
     respuesta = requests.post(
         WOMPI_PAYMENT_LINK_URL,
@@ -711,6 +752,8 @@ def crear_enlace_pago(pedido_id, monto, nombre_producto):
         headers={"Authorization": f"Bearer {obtener_token()}"},
         timeout=15,
     )
+    if not respuesta.ok:
+        app.logger.error("Error respuesta Wompi: %s - %s", respuesta.status_code, respuesta.text)
     respuesta.raise_for_status()
     enlace = respuesta.json()
     if (
@@ -723,6 +766,68 @@ def crear_enlace_pago(pedido_id, monto, nombre_producto):
     if url_pago.scheme != "https" or not url_pago.netloc:
         raise ValueError("Wompi devolvió una URL de pago no segura.")
     return enlace
+
+
+def consultar_estado_enlace_wompi(id_enlace):
+    """Consulta la API de Wompi para saber si un enlace de pago ya fue completado exitosamente."""
+    if not (WOMPI_CLIENT_ID and WOMPI_CLIENT_SECRET) or not id_enlace:
+        return {"pagado": False, "transacciones": []}
+    try:
+        token = obtener_token()
+        url = f"{WOMPI_PAYMENT_LINK_URL}/{id_enlace}"
+        res = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        app.logger.info("Wompi EnlacePago GET %s -> Status %s", url, res.status_code)
+        if res.ok:
+            datos = res.json()
+            app.logger.info("Wompi EnlacePago %s respuesta: %s", id_enlace, datos)
+
+            # Desempaquetar si viene envuelto
+            if isinstance(datos, dict) and "data" in datos and isinstance(datos["data"], dict):
+                payload = datos["data"]
+            elif isinstance(datos, dict) and "resultado" in datos and isinstance(datos["resultado"], dict):
+                payload = datos["resultado"]
+            else:
+                payload = datos if isinstance(datos, dict) else {}
+
+            pagos_exitosos = int(payload.get("cantidadPagosExitosos") or payload.get("cantidadPagos") or 0)
+            esta_pagado_flag = bool(payload.get("estaPagado") or payload.get("esPagado") or payload.get("pagado"))
+
+            # Revisar transaccionCompra (última transacción registrada en Wompi)
+            tc = payload.get("transaccionCompra") or {}
+            tc_exitosa = bool(
+                tc and (
+                    tc.get("resultadoTransaccion") in (0, "0", "ExitosaAprobada", "Aprobada")
+                    or tc.get("idTransaccion")
+                    or tc.get("esAprobada") is True
+                    or tc.get("codigoAutorizacion")
+                )
+            )
+
+            # Revisar lista de transacciones
+            transacciones = payload.get("transacciones") or []
+            tx_exitosa = any(
+                isinstance(t, dict) and (
+                    t.get("resultadoTransaccion") in (0, "0", "ExitosaAprobada", "Aprobada")
+                    or t.get("esAprobada") is True
+                    or t.get("idTransaccion")
+                    or t.get("codigoAutorizacion")
+                )
+                for t in transacciones
+            )
+
+            pagado = bool(pagos_exitosos > 0 or esta_pagado_flag or tc_exitosa or tx_exitosa)
+
+            return {
+                "pagado": pagado,
+                "pagos_exitosos": pagos_exitosos,
+                "transacciones": transacciones,
+                "datos": payload,
+            }
+        else:
+            app.logger.warning("Error respuesta Wompi GET EnlacePago %s: %s - %s", id_enlace, res.status_code, res.text)
+    except Exception as e:
+        app.logger.warning("Error al consultar estado de enlace Wompi %s: %s", id_enlace, e)
+    return {"pagado": False, "transacciones": []}
 
 
 def _marcar_pago_aprobado(datos_webhook):
@@ -2673,7 +2778,192 @@ def wompi_confirmar():
 
 @app.get("/pago/resultado")
 def pago_resultado():
-    return render_template("pago_resultado.html")
+    intento = session.get("intento_reserva")
+    id_transaccion = request.args.get("idTransaccion", "").strip()
+    id_enlace = request.args.get("idEnlace", "").strip()
+    es_aprobada_raw = request.args.get("esAprobada", "").strip().lower()
+    es_aprobada = es_aprobada_raw in ("true", "1") or (id_transaccion and es_aprobada_raw != "false")
+
+    # 1. SI PROVIENE DE UNA RESERVA NUEVA DEL CLIENTE (intento en sesión):
+    if intento:
+        if es_aprobada:
+            conexion = None
+            cursor = None
+            try:
+                conexion = obtener_conexion()
+                conexion.start_transaction()
+                cursor = conexion.cursor(dictionary=True)
+
+                codigo = f"TB-{secrets.token_hex(4).upper()}"
+                monto_pagado = Decimal(str(intento["monto_cobro"])).quantize(Decimal("0.01"))
+                total = Decimal(str(intento["total"])).quantize(Decimal("0.01"))
+                anticipo = Decimal(str(intento["anticipo_requerido"])).quantize(Decimal("0.01"))
+                # La reserva inicia como PENDIENTE_PAGO con el anticipo/pago registrado; el admin debe confirmarla manualmente
+                estado_inicial = "PENDIENTE_PAGO"
+
+                cursor.execute(
+                    """
+                    INSERT INTO RESERVA
+                        (codigo, id_cliente, fecha_reserva, fecha_retiro, estado,
+                         nombre_cliente, telefono, total, anticipo_requerido, monto_pagado)
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        codigo,
+                        intento["id_cliente"],
+                        intento["fecha_retiro"],
+                        estado_inicial,
+                        intento["nombre_cliente"],
+                        intento["telefono"],
+                        total,
+                        anticipo,
+                        monto_pagado,
+                    ),
+                )
+                id_reserva = cursor.lastrowid
+
+                cursor.execute(
+                    """
+                    INSERT INTO DETALLE_RESERVA
+                        (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        id_reserva,
+                        intento["producto_id"],
+                        intento["nombre_producto"],
+                        intento["precio_unitario"],
+                        intento["cantidad"],
+                    ),
+                )
+
+                referencia_comercio = intento.get("intento_id") or f"{codigo}-WOMPI"
+                ref_wompi = id_transaccion or intento.get("id_enlace") or "WOMPI-CARD"
+                cursor.execute(
+                    """
+                    INSERT INTO PAGO
+                        (id_reserva, metodo_pago, monto, estado, referencia, referencia_wompi, fecha_pago)
+                    VALUES (%s, 'WOMPI', %s, 'PAGADO', %s, %s, NOW())
+                    """,
+                    (
+                        id_reserva,
+                        monto_pagado,
+                        referencia_comercio,
+                        ref_wompi,
+                    ),
+                )
+                conexion.commit()
+
+                correo_cliente = intento.get("correo_cliente")
+                if correo_cliente:
+                    try:
+                        enviar_correo_reserva_creada(
+                            destinatario=correo_cliente,
+                            nombre=intento["nombre_cliente"],
+                            codigo=codigo,
+                            nombre_producto=intento["nombre_producto"],
+                            categoria=intento.get("categoria", ""),
+                            cantidad=intento["cantidad"],
+                            total=total,
+                            anticipo=anticipo,
+                            fecha_retiro=intento["fecha_retiro"],
+                            metodo_pago="WOMPI",
+                        )
+                    except Exception as err_c:
+                        app.logger.warning("No se pudo enviar correo de reserva creada tras pago: %s", err_c)
+
+                    try:
+                        saldo_restante = max(Decimal("0.00"), total - monto_pagado)
+                        enviar_correo_pago_tarjeta_recibido(
+                            destinatario=correo_cliente,
+                            nombre=intento["nombre_cliente"],
+                            codigo=codigo,
+                            monto_pagado=monto_pagado,
+                            referencia_pago=referencia_comercio,
+                            total=total,
+                            saldo_restante=saldo_restante,
+                            nombre_producto=intento["nombre_producto"],
+                        )
+                    except Exception as err_p:
+                        app.logger.warning("No se pudo enviar correo de comprobante de pago: %s", err_p)
+
+                session.pop("intento_reserva", None)
+                flash("¡Pago con tarjeta completado con éxito! Tu reserva ha sido registrada.", "success")
+                return redirect(url_for("reserva_registrada", codigo=codigo))
+
+            except Exception as e_bd:
+                if conexion:
+                    conexion.rollback()
+                app.logger.exception("Error al registrar reserva tras pago en Wompi: %s", e_bd)
+                flash("Ocurrió un error al guardar tu reserva tras el pago. Comunícate con nosotros indicando tu transacción.", "error")
+                return render_template("pago_resultado.html", exito=False, mensaje="Ocurrió un problema al guardar la reserva.")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conexion and conexion.is_connected():
+                    conexion.close()
+        else:
+            session.pop("intento_reserva", None)
+            return render_template(
+                "pago_resultado.html",
+                exito=False,
+                mensaje="El pago no fue completado o fue cancelado en la pasarela. No se ha generado ninguna reserva en el sistema ni se realizó ningún cargo a tu tarjeta."
+            )
+
+    # 2. SI PROVIENE DE UN COBRO DE ADMIN (o enlace Wompi general):
+    if es_aprobada or id_transaccion:
+        conexion = None
+        cursor = None
+        try:
+            conexion = obtener_conexion()
+            cursor = conexion.cursor(dictionary=True)
+            # Buscar si hay algún pago de WOMPI pendiente
+            filtro_sql = "p.estado = 'PENDIENTE' AND p.metodo_pago = 'WOMPI'"
+            params = []
+            if id_enlace:
+                filtro_sql += " AND p.referencia_wompi = %s"
+                params.append(id_enlace)
+
+            cursor.execute(
+                f"""
+                SELECT p.id_pago, p.id_reserva, p.monto, p.referencia, r.codigo, r.total, r.monto_pagado
+                FROM PAGO p
+                JOIN RESERVA r ON r.id_reserva = p.id_reserva
+                WHERE {filtro_sql}
+                ORDER BY p.id_pago DESC
+                LIMIT 1
+                """,
+                tuple(params),
+            )
+            pago_pend = cursor.fetchone()
+            if pago_pend:
+                conexion.start_transaction()
+                monto_pagado = Decimal(str(pago_pend["monto"])).quantize(Decimal("0.01"))
+                pagado_previo = Decimal(str(pago_pend["monto_pagado"] or 0)).quantize(Decimal("0.01"))
+                nuevo_pagado = (pagado_previo + monto_pagado).quantize(Decimal("0.01"))
+
+                cursor.execute(
+                    "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW() WHERE id_pago = %s",
+                    (pago_pend["id_pago"],),
+                )
+                cursor.execute(
+                    "UPDATE RESERVA SET monto_pagado = %s WHERE id_reserva = %s",
+                    (nuevo_pagado, pago_pend["id_reserva"]),
+                )
+                conexion.commit()
+
+                return render_template("pago_resultado.html", exito=True, mensaje=f"¡Pago de ${monto_pagado:.2f} registrado exitosamente para la reserva {pago_pend['codigo']}!")
+        except Exception as err_admin_pago:
+            if conexion:
+                conexion.rollback()
+            app.logger.warning("Error al auto-actualizar cobro de admin en /pago/resultado: %s", err_admin_pago)
+        finally:
+            if cursor:
+                cursor.close()
+            if conexion and conexion.is_connected():
+                conexion.close()
+
+    return render_template("pago_resultado.html", exito=True)
 
 
 @app.post("/webhook/wompi")
@@ -2967,6 +3257,7 @@ def api_admin_reserva(reserva_id):
 
 @app.route("/api/admin/reservas/<int:reserva_id>/marcar-pago", methods=["POST"])
 @app.route("/api/admin/reservas/<int:reserva_id>/confirmar", methods=["POST"])
+@app.route("/api/admin/reservas/<int:reserva_id>/pago", methods=["POST"])
 @administrador_requerido
 def api_admin_marcar_pago(reserva_id):
     """Confirma manualmente la reserva tras recibir el anticipo en tienda y notifica al cliente."""
@@ -2999,13 +3290,12 @@ def api_admin_marcar_pago(reserva_id):
 
         anticipo = Decimal(str(reserva["anticipo_requerido"] or 0))
 
-        # Actualiza o crea el registro de pago del anticipo en efectivo
+        # Actualiza o crea el registro de pago del anticipo
         if reserva.get("id_pago"):
             cursor.execute(
                 """
                 UPDATE PAGO
                 SET estado = 'PAGADO',
-                    metodo_pago = CASE WHEN metodo_pago = 'WOMPI' THEN 'EFECTIVO_TIENDA' ELSE metodo_pago END,
                     fecha_pago = NOW()
                 WHERE id_pago = %s
                 """,
@@ -3152,6 +3442,452 @@ def api_admin_marcar_lista(reserva_id):
         if conexion:
             conexion.rollback()
         return _error_base_datos(error, "No se pudo actualizar la reserva a lista.")
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/cobro-tarjeta", methods=["POST"])
+@administrador_requerido
+def api_admin_cobro_tarjeta(reserva_id):
+    """
+    Genera un cobro dinámico con tarjeta mediante Wompi para una reserva en el panel admin.
+    Permite cobrar el anticipo o el saldo restante cuando el cliente llega al local o en línea.
+    """
+    if not _csrf_valido():
+        return jsonify({"error": "La sesión de seguridad venció. Recarga la página."}), 403
+
+    if not _wompi_configurada():
+        return jsonify({
+            "error": "Wompi no está configurado en .env. Por favor define WOMPI_CLIENT_ID y WOMPI_CLIENT_SECRET."
+        }), 503
+
+    datos = request.get_json(silent=True) or {}
+    monto_raw = datos.get("monto")
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_reserva, codigo, total, anticipo_requerido, monto_pagado, estado, nombre_cliente, telefono
+            FROM RESERVA
+            WHERE id_reserva = %s
+            """,
+            (reserva_id,),
+        )
+        reserva = cursor.fetchone()
+        if not reserva:
+            return jsonify({"error": "La reserva no existe."}), 404
+        if reserva["estado"] == "CANCELADA":
+            return jsonify({"error": "No se puede generar un cobro para una reserva cancelada."}), 409
+
+        total = Decimal(str(reserva["total"] or 0))
+        monto_pagado = Decimal(str(reserva["monto_pagado"] or 0))
+        saldo_pendiente = (total - monto_pagado).quantize(Decimal("0.01"))
+
+        if saldo_pendiente <= 0:
+            return jsonify({"error": "Esta reserva ya está pagada en su totalidad."}), 400
+
+        if monto_raw:
+            try:
+                monto_cobro = Decimal(str(monto_raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            except (ValueError, InvalidOperation):
+                return jsonify({"error": "El monto especificado no es válido."}), 400
+        else:
+            anticipo = Decimal(str(reserva["anticipo_requerido"] or 0))
+            if monto_pagado < anticipo:
+                monto_cobro = (anticipo - monto_pagado).quantize(Decimal("0.01"))
+            else:
+                monto_cobro = saldo_pendiente
+
+        if monto_cobro <= 0:
+            return jsonify({"error": "El monto a cobrar debe ser mayor a cero."}), 400
+
+        if monto_cobro > saldo_pendiente:
+            monto_cobro = saldo_pendiente
+
+        referencia_cobro = f"POS-{reserva['codigo']}-{secrets.token_hex(3).upper()}"
+        nombre_producto = f"Reserva {reserva['codigo']} - TWINS Bakery"
+
+        # Crear enlace de pago oficial en Wompi usando Python nativo
+        enlace = crear_enlace_pago(referencia_cobro, monto_cobro, nombre_producto)
+
+        cursor.execute(
+            """
+            INSERT INTO PAGO (id_reserva, metodo_pago, monto, estado, referencia, referencia_wompi)
+            VALUES (%s, 'WOMPI', %s, 'PENDIENTE', %s, %s)
+            """,
+            (reserva_id, monto_cobro, referencia_cobro, str(enlace.get("idEnlace", ""))),
+        )
+        conexion.commit()
+
+        return jsonify({
+            "ok": True,
+            "referencia": referencia_cobro,
+            "url_pago": enlace["urlEnlace"],
+            "id_enlace": enlace["idEnlace"],
+            "monto": float(monto_cobro),
+            "codigo_reserva": reserva["codigo"],
+            "cliente": reserva["nombre_cliente"],
+            "saldo_pendiente": float(saldo_pendiente),
+        })
+
+    except Exception as error:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al generar cobro Wompi para reserva %s: %s", reserva_id, error)
+        return jsonify({"error": f"No se pudo crear el enlace de cobro de Wompi: {str(error)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/verificar-pago-wompi", methods=["POST"])
+@administrador_requerido
+def api_admin_verificar_pago_wompi(reserva_id):
+    """
+    Verifica en tiempo real contra la API de Wompi si el enlace de cobro generado fue completado.
+    Permite confirmar el cobro automáticamente desde el admin sin depender del móvil.
+    """
+    if not _csrf_valido():
+        return jsonify({"error": "Sesión vencida. Recarga la página."}), 403
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT p.id_pago, p.id_reserva, p.monto, p.estado, p.referencia, p.referencia_wompi,
+                   r.codigo, r.total, r.anticipo_requerido, r.monto_pagado, r.nombre_cliente,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo_cliente
+            FROM PAGO p
+            JOIN RESERVA r ON r.id_reserva = p.id_reserva
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            WHERE p.id_reserva = %s AND p.metodo_pago = 'WOMPI'
+            ORDER BY p.id_pago DESC
+            LIMIT 1
+            """,
+            (reserva_id,),
+        )
+        pago = cursor.fetchone()
+        if not pago:
+            return jsonify({"ok": False, "error": "No hay ningún cobro con Wompi registrado para esta reserva."}), 404
+
+        if pago["estado"] == "PAGADO":
+            return jsonify({
+                "ok": True,
+                "pagado": True,
+                "ya_registrado": True,
+                "monto": float(pago["monto"]),
+                "mensaje": "Este cobro ya se encuentra registrado y pagado.",
+            })
+
+        id_enlace = str(pago.get("referencia_wompi") or "").strip()
+        if not id_enlace:
+            return jsonify({"ok": False, "error": "El registro de cobro no tiene ID de enlace Wompi."}), 400
+
+        resultado_wompi = consultar_estado_enlace_wompi(id_enlace)
+        if resultado_wompi.get("pagado"):
+            conexion.start_transaction()
+            monto_cobrado = Decimal(str(pago["monto"])).quantize(Decimal("0.01"))
+            pagado_actual = Decimal(str(pago["monto_pagado"] or 0)).quantize(Decimal("0.01"))
+            nuevo_pagado = (pagado_actual + monto_cobrado).quantize(Decimal("0.01"))
+            total = Decimal(str(pago["total"] or 0)).quantize(Decimal("0.01"))
+
+            cursor.execute(
+                """
+                UPDATE PAGO
+                SET estado = 'PAGADO', fecha_pago = NOW()
+                WHERE id_pago = %s
+                """,
+                (pago["id_pago"],),
+            )
+
+            # Actualizar el monto pagado de la reserva. El estado de la reserva se mantiene
+            # tal cual (el administrador debe pulsar 'Aceptar reserva' para confirmarla manualmente).
+            cursor.execute(
+                """
+                UPDATE RESERVA
+                SET monto_pagado = %s
+                WHERE id_reserva = %s
+                """,
+                (nuevo_pagado, reserva_id),
+            )
+            conexion.commit()
+
+            correo_cli = pago.get("correo_cliente")
+            if correo_cli:
+                try:
+                    saldo_restante = max(Decimal("0.00"), total - nuevo_pagado)
+                    enviar_correo_pago_tarjeta_recibido(
+                        destinatario=correo_cli,
+                        nombre=pago["nombre_cliente"],
+                        codigo=pago["codigo"],
+                        monto_pagado=monto_cobrado,
+                        referencia_pago=pago.get("referencia") or id_enlace,
+                        total=total,
+                        saldo_restante=saldo_restante,
+                        nombre_producto=f"Reserva {pago['codigo']}",
+                    )
+                except Exception as err_m:
+                    app.logger.warning("No se pudo enviar comprobante tras verificar Wompi: %s", err_m)
+
+            return jsonify({
+                "ok": True,
+                "pagado": True,
+                "monto": float(monto_cobrado),
+                "nuevo_pagado": float(nuevo_pagado),
+                "total": float(total),
+                "mensaje": f"¡Pago de ${monto_cobrado:.2f} verificado con éxito en Wompi y registrado!",
+            })
+
+        return jsonify({
+            "ok": True,
+            "pagado": False,
+            "mensaje": "El pago aún no ha sido completado en Wompi.",
+        })
+
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al verificar pago Wompi en reserva %s: %s", reserva_id, err)
+        return jsonify({"ok": False, "error": f"Error al verificar en Wompi: {str(err)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/marcar-cobro-tarjeta-manual", methods=["POST"])
+@administrador_requerido
+def api_admin_marcar_cobro_tarjeta_manual(reserva_id):
+    """
+    Permite registrar un cobro con tarjeta realizado presencialmente en el POS del local.
+    """
+    if not _csrf_valido():
+        return jsonify({"error": "Sesión vencida. Recarga la página."}), 403
+
+    datos = request.get_json(silent=True) or {}
+    monto_raw = datos.get("monto")
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT r.id_reserva, r.codigo, r.total, r.anticipo_requerido, r.monto_pagado, r.estado, r.nombre_cliente,
+                   COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo_cliente,
+                   d.nombre_producto
+            FROM RESERVA r
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            LEFT JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+            WHERE r.id_reserva = %s
+            ORDER BY d.id_detalle ASC
+            LIMIT 1
+            """,
+            (reserva_id,),
+        )
+        reserva = cursor.fetchone()
+        if not reserva:
+            conexion.rollback()
+            return jsonify({"error": "La reserva no existe."}), 404
+
+        total = Decimal(str(reserva["total"] or 0))
+        monto_pagado = Decimal(str(reserva["monto_pagado"] or 0))
+        saldo_pendiente = (total - monto_pagado).quantize(Decimal("0.01"))
+
+        if saldo_pendiente <= 0:
+            conexion.rollback()
+            return jsonify({"error": "Esta reserva ya se encuentra pagada en su totalidad."}), 400
+
+        if monto_raw:
+            try:
+                monto_cobro = Decimal(str(monto_raw)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            except (ValueError, InvalidOperation):
+                conexion.rollback()
+                return jsonify({"error": "El monto especificado no es válido."}), 400
+        else:
+            anticipo = Decimal(str(reserva["anticipo_requerido"] or 0))
+            if monto_pagado < anticipo:
+                monto_cobro = (anticipo - monto_pagado).quantize(Decimal("0.01"))
+            else:
+                monto_cobro = saldo_pendiente
+
+        if monto_cobro <= 0:
+            conexion.rollback()
+            return jsonify({"error": "El monto a cobrar debe ser mayor a cero."}), 400
+
+        if monto_cobro > saldo_pendiente:
+            monto_cobro = saldo_pendiente
+
+        nuevo_pagado = (monto_pagado + monto_cobro).quantize(Decimal("0.01"))
+        ref_pos = f"POS-FISICO-{reserva['codigo']}-{secrets.token_hex(3).upper()}"
+
+        cursor.execute(
+            """
+            INSERT INTO PAGO (id_reserva, metodo_pago, monto, estado, referencia, fecha_pago)
+            VALUES (%s, 'WOMPI_POS', %s, 'PAGADO', %s, NOW())
+            """,
+            (reserva_id, monto_cobro, ref_pos),
+        )
+
+        # Actualizar monto pagado sin alterar estado_reserva para que el admin confirme manualmente
+        cursor.execute(
+            """
+            UPDATE RESERVA
+            SET monto_pagado = %s
+            WHERE id_reserva = %s
+            """,
+            (nuevo_pagado, reserva_id),
+        )
+        conexion.commit()
+
+        correo_cli = reserva.get("correo_cliente")
+        if correo_cli:
+            try:
+                saldo_restante = max(Decimal("0.00"), total - nuevo_pagado)
+                enviar_correo_pago_tarjeta_recibido(
+                    destinatario=correo_cli,
+                    nombre=reserva["nombre_cliente"],
+                    codigo=reserva["codigo"],
+                    monto_pagado=monto_cobro,
+                    referencia_pago=ref_pos,
+                    total=total,
+                    saldo_restante=saldo_restante,
+                    nombre_producto=reserva.get("nombre_producto") or f"Reserva {reserva['codigo']}",
+                )
+            except Exception as err_m:
+                app.logger.warning("No se pudo enviar comprobante tras cobro POS manual: %s", err_m)
+
+        return jsonify({
+            "ok": True,
+            "monto": float(monto_cobro),
+            "nuevo_pagado": float(nuevo_pagado),
+            "saldo_restante": float(max(Decimal("0.00"), total - nuevo_pagado)),
+            "mensaje": f"Cobro con tarjeta de ${monto_cobro:.2f} registrado exitosamente.",
+        })
+
+    except Exception as error:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al registrar cobro POS manual para reserva %s: %s", reserva_id, error)
+        return jsonify({"error": f"No se pudo registrar el cobro: {str(error)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/reservas/<int:reserva_id>/liquidar-pago", methods=["POST"])
+@app.route("/api/admin/reservas/<int:reserva_id>/marcar-pago-completo", methods=["POST"])
+@administrador_requerido
+def api_admin_liquidar_pago(reserva_id):
+    """
+    Registra la liquidación completa del saldo restante de una reserva (100% pagado).
+    Permite al administrador indicar cuándo el pago total ha sido completado.
+    """
+    if not _csrf_valido():
+        return jsonify({"error": "La sesión de seguridad venció. Recarga la página."}), 403
+
+    datos = request.get_json(silent=True) or {}
+    metodo = datos.get("metodo_pago", "EFECTIVO_TIENDA")
+    if metodo not in ("EFECTIVO_TIENDA", "WOMPI_POS", "TRANSFERENCIA", "WOMPI"):
+        metodo = "EFECTIVO_TIENDA"
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_reserva, codigo, total, monto_pagado, estado, nombre_cliente,
+                   COALESCE(NULLIF(correo, ''), '') AS correo_cliente
+            FROM RESERVA
+            WHERE id_reserva = %s
+            """,
+            (reserva_id,),
+        )
+        reserva = cursor.fetchone()
+        if not reserva:
+            conexion.rollback()
+            return jsonify({"error": "La reserva no existe."}), 404
+        if reserva["estado"] == "CANCELADA":
+            conexion.rollback()
+            return jsonify({"error": "No se puede liquidar una reserva cancelada."}), 409
+
+        total = Decimal(str(reserva["total"] or 0)).quantize(Decimal("0.01"))
+        pagado_actual = Decimal(str(reserva["monto_pagado"] or 0)).quantize(Decimal("0.01"))
+        saldo_pendiente = (total - pagado_actual).quantize(Decimal("0.01"))
+
+        if saldo_pendiente <= Decimal("0.00"):
+            conexion.rollback()
+            return jsonify({"error": "Esta reserva ya se encuentra 100% pagada."}), 400
+
+        ref_liq = f"LIQ-{reserva['codigo']}-{secrets.token_hex(2).upper()}"
+        cursor.execute(
+            """
+            INSERT INTO PAGO (id_reserva, metodo_pago, monto, estado, referencia, fecha_pago)
+            VALUES (%s, %s, %s, 'PAGADO', %s, NOW())
+            """,
+            (reserva_id, metodo, saldo_pendiente, ref_liq),
+        )
+
+        cursor.execute(
+            """
+            UPDATE RESERVA
+            SET monto_pagado = %s
+            WHERE id_reserva = %s
+            """,
+            (total, reserva_id),
+        )
+        conexion.commit()
+
+        # Enviar comprobante al cliente si tiene correo registrado
+        correo_cli = reserva.get("correo_cliente")
+        if correo_cli:
+            try:
+                enviar_correo_pago_tarjeta_recibido(
+                    destinatario=correo_cli,
+                    nombre=reserva["nombre_cliente"],
+                    codigo=reserva["codigo"],
+                    monto_pagado=saldo_pendiente,
+                    referencia_pago=ref_liq,
+                    total=total,
+                    saldo_restante=Decimal("0.00"),
+                    nombre_producto=f"Liquidación Total · Reserva {reserva['codigo']}",
+                )
+            except Exception as err_m:
+                app.logger.warning("No se pudo enviar comprobante de liquidación total: %s", err_m)
+
+        return jsonify({
+            "ok": True,
+            "codigo": reserva["codigo"],
+            "monto_liquidado": float(saldo_pendiente),
+            "nuevo_pagado": float(total),
+            "total": float(total),
+            "mensaje": f"¡Saldo de ${saldo_pendiente:.2f} registrado con éxito! La reserva {reserva['codigo']} quedó 100% pagada.",
+        })
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al liquidar pago de reserva %s: %s", reserva_id, e)
+        return jsonify({"error": f"No se pudo registrar la liquidación del pago: {str(e)}"}), 500
     finally:
         if cursor:
             cursor.close()
@@ -4322,6 +5058,409 @@ def iniciar_sesion():
 
 
 # ==========================================
+# RECUPERACIÓN DE CONTRASEÑA (CLIENTE)
+# ==========================================
+
+def _enmascarar_correo(correo):
+    if not correo or "@" not in correo:
+        return correo or ""
+    partes = correo.split("@", 1)
+    usuario, dominio = partes[0], partes[1]
+    if len(usuario) <= 2:
+        oculto = usuario[0] + "***"
+    else:
+        oculto = usuario[0] + "***" + usuario[-1]
+    return f"{oculto}@{dominio}"
+
+
+@app.route("/olvide-contrasena", methods=["GET"])
+def olvide_contrasena():
+    return render_template("olvide_contrasena.html")
+
+
+@app.route("/solicitar-recuperacion-contrasena", methods=["POST"])
+def solicitar_recuperacion_contrasena():
+    correo = request.form.get("correo", "").strip().lower()
+
+    if not correo:
+        flash("Por favor ingresa tu correo electrónico registrado.", "error")
+        return redirect(url_for("olvide_contrasena"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT id_cliente, nombre, correo FROM CLIENTE WHERE LOWER(correo) = %s",
+            (correo,)
+        )
+        cliente = cursor.fetchone()
+
+        if not cliente:
+            flash("No encontramos ninguna cuenta asociada a este correo electrónico. Por favor verifica tus datos.", "error")
+            return redirect(url_for("olvide_contrasena"))
+
+        # Generar código OTP de 6 dígitos seguro
+        codigo_otp = f"{secrets.randbelow(900000) + 100000}"
+        expiracion = datetime.now() + timedelta(minutes=15)
+
+        # Invalidar solicitudes anteriores
+        cursor.execute(
+            "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE correo = %s AND tipo = 'RECUPERACION' AND usado = 0",
+            (correo,)
+        )
+
+        cursor.execute(
+            """
+            INSERT INTO CODIGO_VERIFICACION
+                (correo, codigo, tipo, intentos, usado, expira_en)
+            VALUES (%s, %s, 'RECUPERACION', 0, 0, %s)
+            """,
+            (correo, codigo_otp, expiracion)
+        )
+        conexion.commit()
+
+        # Enviar correo asíncrono
+        try:
+            enviar_correo_recuperacion_contrasena(correo, cliente["nombre"], codigo_otp)
+        except Exception as err_mail:
+            app.logger.warning("No se pudo enviar correo de recuperación: %s", err_mail)
+
+        session["correo_recuperacion"] = correo
+        session["nombre_recuperacion"] = cliente["nombre"]
+        session["recuperacion_reenvio_tiempo"] = time_module.time()
+        session["codigo_recuperacion_aprobado"] = False
+
+        flash("¡Código de seguridad enviado! Revisa tu bandeja de entrada o carpeta de spam.", "success")
+        return redirect(url_for("verificar_codigo_recuperacion"))
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al solicitar recuperación de contraseña: %s", e)
+        flash("Ocurrió un error al procesar tu solicitud. Por favor intenta nuevamente.", "error")
+        return redirect(url_for("olvide_contrasena"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/verificar-codigo-recuperacion", methods=["GET", "POST"])
+def verificar_codigo_recuperacion():
+    correo = session.get("correo_recuperacion")
+    if not correo:
+        flash("La sesión de recuperación ha vencido. Por favor ingresa tu correo nuevamente.", "warning")
+        return redirect(url_for("olvide_contrasena"))
+
+    if request.method == "GET":
+        return render_template(
+            "verificar_codigo_recuperacion.html",
+            correo_oculto=_enmascarar_correo(correo)
+        )
+
+    codigo_ingresado = request.form.get("codigo", "").strip()
+    if not codigo_ingresado:
+        flash("Por favor ingresa el código de 6 dígitos que recibiste por correo.", "error")
+        return redirect(url_for("verificar_codigo_recuperacion"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT id_codigo, codigo, intentos, expira_en
+            FROM CODIGO_VERIFICACION
+            WHERE correo = %s AND tipo = 'RECUPERACION' AND usado = 0
+            ORDER BY id_codigo DESC
+            LIMIT 1
+            """,
+            (correo,)
+        )
+        registro = cursor.fetchone()
+
+        if not registro:
+            flash("No encontramos ningún código de recuperación pendiente o ya venció. Solicita uno nuevo.", "error")
+            return redirect(url_for("olvide_contrasena"))
+
+        # Validar intentos máximos (5)
+        if registro.get("intentos", 0) >= 5:
+            cursor.execute("UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE id_codigo = %s", (registro["id_codigo"],))
+            conexion.commit()
+            flash("Has superado el número de intentos permitidos. Solicita un nuevo código de seguridad.", "error")
+            return redirect(url_for("olvide_contrasena"))
+
+        # Validar expiración
+        expira_en = registro["expira_en"]
+        if isinstance(expira_en, str):
+            try:
+                expira_en = datetime.fromisoformat(expira_en)
+            except Exception:
+                pass
+        if isinstance(expira_en, datetime) and datetime.now() > expira_en:
+            cursor.execute("UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE id_codigo = %s", (registro["id_codigo"],))
+            conexion.commit()
+            flash("El código ha vencido (validez de 15 minutos). Por favor solicita uno nuevo.", "error")
+            return redirect(url_for("olvide_contrasena"))
+
+        # Validar coincidencia de código
+        if str(registro["codigo"]).strip() != codigo_ingresado:
+            cursor.execute(
+                "UPDATE CODIGO_VERIFICACION SET intentos = intentos + 1 WHERE id_codigo = %s",
+                (registro["id_codigo"],)
+            )
+            conexion.commit()
+            intentos_restantes = max(0, 5 - (registro.get("intentos", 0) + 1))
+            flash(f"El código ingresado es incorrecto. Te quedan {intentos_restantes} intento(s).", "error")
+            return redirect(url_for("verificar_codigo_recuperacion"))
+
+        # Código correcto: marcarlo usado y aprobar el cambio de contraseña
+        cursor.execute("UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE id_codigo = %s", (registro["id_codigo"],))
+        conexion.commit()
+
+        session["codigo_recuperacion_aprobado"] = True
+        flash("Código verificado exitosamente. Ahora crea tu nueva contraseña.", "success")
+        return redirect(url_for("nueva_contrasena"))
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al verificar código de recuperación: %s", e)
+        flash("Ocurrió un error al verificar el código. Intenta nuevamente.", "error")
+        return redirect(url_for("verificar_codigo_recuperacion"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/reenviar-codigo-recuperacion", methods=["POST"])
+def reenviar_codigo_recuperacion():
+    correo = session.get("correo_recuperacion")
+    nombre = session.get("nombre_recuperacion", "Cliente")
+
+    if not correo:
+        return jsonify({
+            "ok": False,
+            "mensaje": "Sesión vencida. Vuelve a ingresar tu correo."
+        }), 400
+
+    ahora = time_module.time()
+    ultimo_envio = session.get("recuperacion_reenvio_tiempo", 0)
+    tiempo_transcurrido = ahora - ultimo_envio
+
+    if tiempo_transcurrido < 45:
+        segundos_espera = int(45 - tiempo_transcurrido)
+        return jsonify({
+            "ok": False,
+            "mensaje": f"Por favor espera {segundos_espera} segundos antes de solicitar un nuevo código."
+        }), 429
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+
+        nuevo_codigo = f"{secrets.randbelow(900000) + 100000}"
+        expiracion = datetime.now() + timedelta(minutes=15)
+
+        cursor.execute(
+            "UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE correo = %s AND tipo = 'RECUPERACION' AND usado = 0",
+            (correo,)
+        )
+        cursor.execute(
+            """
+            INSERT INTO CODIGO_VERIFICACION
+                (correo, codigo, tipo, intentos, usado, expira_en)
+            VALUES (%s, %s, 'RECUPERACION', 0, 0, %s)
+            """,
+            (correo, nuevo_codigo, expiracion)
+        )
+        conexion.commit()
+
+        enviar_correo_recuperacion_contrasena(correo, nombre, nuevo_codigo)
+        session["recuperacion_reenvio_tiempo"] = ahora
+
+        return jsonify({
+            "ok": True,
+            "mensaje": "¡Hemos enviado un nuevo código de seguridad a tu correo electrónico!"
+        })
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.warning("Error al reenviar código de recuperación: %s", e)
+        return jsonify({
+            "ok": False,
+            "mensaje": "No se pudo reenviar el código. Intenta nuevamente."
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/nueva-contrasena", methods=["GET"])
+def nueva_contrasena():
+    correo = session.get("correo_recuperacion")
+    aprobado = session.get("codigo_recuperacion_aprobado")
+
+    if not correo or not aprobado:
+        flash("Por seguridad, debes verificar tu código antes de crear una nueva contraseña.", "warning")
+        return redirect(url_for("olvide_contrasena"))
+
+    return render_template("nueva_contrasena.html", correo=correo)
+
+
+@app.route("/guardar-nueva-contrasena", methods=["POST"])
+def guardar_nueva_contrasena():
+    correo = session.get("correo_recuperacion")
+    aprobado = session.get("codigo_recuperacion_aprobado")
+    nombre = session.get("nombre_recuperacion", "Cliente")
+
+    if not correo or not aprobado:
+        flash("Tu sesión de recuperación no es válida o ha vencido. Intenta de nuevo.", "error")
+        return redirect(url_for("login"))
+
+    nueva_pwd = request.form.get("nueva_contrasena", "")
+    confirmar_pwd = request.form.get("confirmar_contrasena", "")
+
+    if not nueva_pwd or len(nueva_pwd) < 8:
+        flash("La nueva contraseña debe tener al menos 8 caracteres.", "error")
+        return redirect(url_for("nueva_contrasena"))
+
+    if nueva_pwd != confirmar_pwd:
+        flash("Las contraseñas ingresadas no coinciden.", "error")
+        return redirect(url_for("nueva_contrasena"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+
+        hash_nueva = generate_password_hash(nueva_pwd)
+        cursor.execute(
+            "UPDATE CLIENTE SET contrasena = %s WHERE LOWER(correo) = %s",
+            (hash_nueva, correo.lower())
+        )
+        conexion.commit()
+
+        # Enviar correo de notificación de contraseña actualizada
+        try:
+            enviar_correo_contrasena_actualizada(correo, nombre)
+        except Exception as err_mail:
+            app.logger.warning("No se pudo notificar contraseña actualizada por correo: %s", err_mail)
+
+        # Limpiar variables de recuperación de la sesión
+        session.pop("correo_recuperacion", None)
+        session.pop("nombre_recuperacion", None)
+        session.pop("codigo_recuperacion_aprobado", None)
+        session.pop("recuperacion_reenvio_tiempo", None)
+
+        flash("¡Tu contraseña ha sido restablecida con éxito! Ya puedes iniciar sesión.", "success")
+        return redirect(url_for("login"))
+
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al guardar nueva contraseña: %s", e)
+        flash("Ocurrió un error al guardar la nueva contraseña. Por favor intenta nuevamente.", "error")
+        return redirect(url_for("nueva_contrasena"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/restablecer-contrasena", methods=["GET", "POST"])
+def restablecer_contrasena():
+    correo = session.get("correo_recuperacion")
+    if not correo:
+        flash("Ingresa tu correo para comenzar la recuperación.", "warning")
+        return redirect(url_for("olvide_contrasena"))
+
+    if request.method == "GET":
+        return render_template(
+            "restablecer_contrasena.html",
+            correo_oculto=_enmascarar_correo(correo)
+        )
+
+    # Si se envía por POST directo a restablecer_contrasena
+    codigo = request.form.get("codigo", "").strip()
+    nueva_pwd = request.form.get("nueva_contrasena", "")
+    confirmar_pwd = request.form.get("confirmar_contrasena", "")
+
+    if not codigo or not nueva_pwd or len(nueva_pwd) < 8:
+        flash("Ingresa el código de 6 dígitos y una contraseña de mínimo 8 caracteres.", "error")
+        return redirect(url_for("restablecer_contrasena"))
+
+    if nueva_pwd != confirmar_pwd:
+        flash("Las contraseñas no coinciden.", "error")
+        return redirect(url_for("restablecer_contrasena"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT id_codigo, codigo, expira_en
+            FROM CODIGO_VERIFICACION
+            WHERE correo = %s AND tipo = 'RECUPERACION' AND usado = 0
+            ORDER BY id_codigo DESC LIMIT 1
+            """,
+            (correo,)
+        )
+        registro = cursor.fetchone()
+
+        if not registro or str(registro["codigo"]).strip() != codigo:
+            flash("Código de seguridad incorrecto o vencido.", "error")
+            return redirect(url_for("restablecer_contrasena"))
+
+        cursor.execute("UPDATE CODIGO_VERIFICACION SET usado = 1 WHERE id_codigo = %s", (registro["id_codigo"],))
+        hash_nueva = generate_password_hash(nueva_pwd)
+        cursor.execute("UPDATE CLIENTE SET contrasena = %s WHERE LOWER(correo) = %s", (hash_nueva, correo.lower()))
+        conexion.commit()
+
+        nombre = session.get("nombre_recuperacion", "Cliente")
+        try:
+            enviar_correo_contrasena_actualizada(correo, nombre)
+        except Exception:
+            pass
+
+        session.pop("correo_recuperacion", None)
+        session.pop("nombre_recuperacion", None)
+        session.pop("codigo_recuperacion_aprobado", None)
+
+        flash("¡Tu contraseña ha sido restablecida con éxito! Ya puedes iniciar sesión.", "success")
+        return redirect(url_for("login"))
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al restablecer contraseña: %s", e)
+        flash("Error al procesar el cambio de contraseña.", "error")
+        return redirect(url_for("restablecer_contrasena"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
 # CERRAR SESIÓN
 # ==========================================
 
@@ -4341,9 +5480,12 @@ def cerrar_sesion():
 
 if __name__ == "__main__":
     puerto = int(os.getenv("PORT", 5000))
+    # Modo depuración controlado por variable de entorno (por defecto False para seguridad)
+    debug_mode = os.getenv("FLASK_DEBUG", "false").strip().lower() in ("1", "true", "yes", "t")
     print("\n" + "=" * 60)
     print("  TWINS BAKERY - SERVIDOR INICIADO CON EXITO")
     print(f"  * Aplicacion web (Cliente): http://127.0.0.1:{puerto}/")
     print(f"  * Panel de Administracion:  http://127.0.0.1:{puerto}/admin/login")
+    print(f"  * Modo Debug (desarrollo):  {'ACTIVADO' if debug_mode else 'DESACTIVADO (Producción segura)'}")
     print("=" * 60 + "\n")
-    app.run(debug=True, host="127.0.0.1", port=puerto)
+    app.run(debug=debug_mode, host="127.0.0.1", port=puerto)

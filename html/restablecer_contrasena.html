@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIINS Bakery | Restablecer Contraseña</title>
+
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/verificar_correo.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .input-group-custom {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .input-label-custom {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 7px;
+        }
+
+        .password-field-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-text-custom {
+            width: 100%;
+            padding: 13px 46px 13px 16px;
+            font-size: 14.5px;
+            font-family: inherit;
+            color: var(--dark);
+            background: #fff8fa;
+            border: 2px solid var(--pink-border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .input-text-custom:focus {
+            background: #ffffff;
+            border-color: var(--pink);
+            box-shadow: 0 0 0 4px rgba(243, 38, 112, 0.15);
+        }
+
+        .toggle-pwd-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0aec0;
+            transition: color 0.2s;
+        }
+
+        .toggle-pwd-btn:hover {
+            color: var(--pink);
+        }
+
+        .otp-single-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 12px;
+            text-align: center;
+            font-family: monospace;
+            color: var(--pink);
+            background: #fff8fa;
+            border: 2px dashed var(--pink);
+            border-radius: 14px;
+            outline: none;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            transition: all 0.25s;
+        }
+
+        .otp-single-input:focus {
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(243, 38, 112, 0.15);
+        }
+
+        .password-rules {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="verify-container">
+
+        <main class="verify-card">
+
+            <div class="top-line"></div>
+
+            <div class="verify-content">
+
+                <!-- ENCABEZADO -->
+                <header class="verify-header">
+                    <a href="{{ url_for('olvide_contrasena') }}" class="back-button" title="Volver al paso anterior" aria-label="Volver al paso anterior">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                    </a>
+
+                    <div class="brand-badge">
+                        <span class="icon-pulse">🔐</span>
+                    </div>
+
+                    <h1>Crea tu nueva contraseña</h1>
+                    <p class="verify-subtitle">
+                        Hemos enviado un código de 6 dígitos a tu correo:
+                    </p>
+
+                    <div class="email-badge-container">
+                        <span class="email-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            <strong id="displayEmail">{{ correo_oculto }}</strong>
+                        </span>
+                    </div>
+                </header>
+
+                <!-- MENSAJES FLASH DEL SERVIDOR -->
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                <div class="server-messages">
+                    {% for categoria, texto in mensajes %}
+                    <div class="alert alert-{{ categoria }}" role="alert">
+                        {{ texto }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <div id="dynamicAlert" class="alert" style="display: none;" role="alert"></div>
+
+                <!-- FORMULARIO DE RESTABLECIMIENTO -->
+                <form id="resetForm" action="{{ url_for('restablecer_contrasena') }}" method="POST" autocomplete="off">
+
+                    <label class="input-label-custom" for="codigo" style="text-align: center;">
+                        Ingresa el código de 6 dígitos recibido:
+                    </label>
+
+                    <input type="text" id="codigo" name="codigo" class="otp-single-input"
+                        inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="------" required autofocus>
+
+                    <!-- NUEVA CONTRASEÑA -->
+                    <div class="input-group-custom">
+                        <label class="input-label-custom" for="nueva_contrasena">
+                            Nueva contraseña:
+                        </label>
+                        <div class="password-field-wrapper">
+                            <input type="password" id="nueva_contrasena" name="nueva_contrasena" class="input-text-custom"
+                                placeholder="Mínimo 8 caracteres" minlength="8" required>
+                            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('nueva_contrasena', this)" aria-label="Mostrar contraseña">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="password-rules">Al menos 8 caracteres para mantener segura tu cuenta.</p>
+                    </div>
+
+                    <!-- CONFIRMAR NUEVA CONTRASEÑA -->
+                    <div class="input-group-custom">
+                        <label class="input-label-custom" for="confirmar_contrasena">
+                            Confirmar nueva contraseña:
+                        </label>
+                        <div class="password-field-wrapper">
+                            <input type="password" id="confirmar_contrasena" name="confirmar_contrasena" class="input-text-custom"
+                                placeholder="Vuelve a escribir la contraseña" minlength="8" required>
+                            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('confirmar_contrasena', this)" aria-label="Mostrar contraseña">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="security-note" style="margin-bottom: 22px;">
+                        <span class="shield-icon">🛡️</span>
+                        <span>Se actualizará la contraseña de tu cuenta existente sin duplicar registros. El código expira en 15 minutos.</span>
+                    </div>
+
+                    <button type="submit" class="primary-verify-button" id="btnRestablecer">
+                        <span>✨ Guardar nueva contraseña</span>
+                    </button>
+                </form>
+
+                <!-- ACCIONES ADICIONALES -->
+                <div class="verify-footer-actions">
+                    <p class="resend-text">
+                        ¿No recibiste el correo?
+                        <button type="button" class="btn-resend" id="btnReenviar" disabled>
+                            Reenviar código (<span id="timerCountdown">45</span>s)
+                        </button>
+                    </p>
+
+                    <div class="links-divider"></div>
+
+                    <div class="bottom-links">
+                        <a href="{{ url_for('olvide_contrasena') }}" class="alt-link">
+                            ✏️ Cambiar o corregir correo
+                        </a>
+                        <span style="color: #cbd5e0;">·</span>
+                        <a href="{{ url_for('login') }}" class="alt-link">
+                            Iniciar sesión
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        function togglePasswordVisibility(fieldId, button) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+            if (field.type === "password") {
+                field.type = "text";
+                button.setAttribute("aria-label", "Ocultar contraseña");
+                button.style.color = "var(--pink)";
+            } else {
+                field.type = "password";
+                button.setAttribute("aria-label", "Mostrar contraseña");
+                button.style.color = "#a0aec0";
+            }
+        }
+
+        // Cuenta regresiva para reenvío
+        let timeLeft = 45;
+        const countdownEl = document.getElementById("timerCountdown");
+        const btnReenviar = document.getElementById("btnReenviar");
+
+        const timer = setInterval(() => {
+            timeLeft -= 1;
+            if (countdownEl) countdownEl.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                if (btnReenviar) {
+                    btnReenviar.disabled = false;
+                    btnReenviar.textContent = "Reenviar código ahora";
+                }
+            }
+        }, 1000);
+
+        if (btnReenviar) {
+            btnReenviar.addEventListener("click", async function () {
+                btnReenviar.disabled = true;
+                btnReenviar.textContent = "Reenviando...";
+
+                try {
+                    const response = await fetch("{{ url_for('reenviar_codigo_recuperacion') }}", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" }
+                    });
+                    const data = await response.json();
+                    const dynamicAlert = document.getElementById("dynamicAlert");
+                    if (data.ok) {
+                        dynamicAlert.className = "alert alert-success";
+                        dynamicAlert.textContent = data.mensaje || "Nuevo código enviado con éxito a tu correo.";
+                        dynamicAlert.style.display = "block";
+                        timeLeft = 45;
+                        btnReenviar.disabled = true;
+                        btnReenviar.innerHTML = 'Reenviar código (<span id="timerCountdown">45</span>s)';
+                        // reiniciar timer
+                        setInterval(() => {
+                            timeLeft -= 1;
+                            const el = document.getElementById("timerCountdown");
+                            if (el) el.textContent = timeLeft;
+                            if (timeLeft <= 0) {
+                                btnReenviar.disabled = false;
+                                btnReenviar.textContent = "Reenviar código ahora";
+                            }
+                        }, 1000);
+                    } else {
+                        dynamicAlert.className = "alert alert-error";
+                        dynamicAlert.textContent = data.mensaje || "No se pudo reenviar el código.";
+                        dynamicAlert.style.display = "block";
+                        btnReenviar.disabled = false;
+                        btnReenviar.textContent = "Reintentar";
+                    }
+                } catch (e) {
+                    btnReenviar.disabled = false;
+                    btnReenviar.textContent = "Reenviar código ahora";
+                }
+            });
+        }
+
+        // Validación de coincidencia de contraseñas al enviar
+        document.getElementById("resetForm").addEventListener("submit", function (e) {
+            const pwd = document.getElementById("nueva_contrasena").value;
+            const confirm = document.getElementById("confirmar_contrasena").value;
+            const dynamicAlert = document.getElementById("dynamicAlert");
+
+            if (pwd !== confirm) {
+                e.preventDefault();
+                dynamicAlert.className = "alert alert-error";
+                dynamicAlert.textContent = "Las contraseñas no coinciden. Por favor verifícalas.";
+                dynamicAlert.style.display = "block";
+                return;
+            }
+
+            if (pwd.length < 8) {
+                e.preventDefault();
+                dynamicAlert.className = "alert alert-error";
+                dynamicAlert.textContent = "La nueva contraseña debe tener al menos 8 caracteres.";
+                dynamicAlert.style.display = "block";
+                return;
+            }
+
+            const btn = document.getElementById("btnRestablecer");
+            btn.disabled = true;
+            btn.innerHTML = "<span>Actualizando contraseña en la base de datos...</span>";
+        });
+    </script>
+
+</body>
+</html>

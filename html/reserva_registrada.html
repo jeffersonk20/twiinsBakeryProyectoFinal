@@ -79,8 +79,16 @@
             {% else %}
                 <div class="success-icon pending-icon" aria-hidden="true">⌛</div>
                 <p class="eyebrow">TWIINS Bakery · Reserva registrada</p>
-                <h1>Falta confirmar el anticipo</h1>
-                <p>Tu reserva tiene un código, pero se confirmará cuando pagues el 50% requerido.</p>
+                {% if reserva.monto_pagado >= reserva.total %}
+                    <h1>¡Pago completo recibido con tarjeta!</h1>
+                    <p>El total de tu pedido (${{ "%.2f"|format(reserva.total) }} USD) ya fue pagado con éxito mediante Wompi. Tu reserva está en espera de aceptación del administrador. ¡No tendrás que pagar nada más al retirar!</p>
+                {% elif reserva.monto_pagado >= reserva.anticipo_requerido %}
+                    <h1>Anticipo recibido con tarjeta</h1>
+                    <p>Tu anticipo del 50% ya fue registrado con éxito mediante Wompi. Tu reserva está en espera de que el administrador la acepte. ¡No necesitas ir al local a dejar ningún anticipo en efectivo! El saldo restante (${{ "%.2f"|format(reserva.total - reserva.monto_pagado) }} USD) lo liquidas al retirar tu pedido.</p>
+                {% else %}
+                    <h1>Falta confirmar el anticipo</h1>
+                    <p>Tu reserva tiene un código, pero se confirmará cuando pagues el 50% requerido.</p>
+                {% endif %}
             {% endif %}
 
             <div class="pickup-ticket">
@@ -90,7 +98,17 @@
                     <p>Producto<strong>{{ reserva.nombre_producto }} · {{ reserva.cantidad }} unidad(es)</strong></p>
                     <p>Retiro<strong>{{ reserva.fecha_retiro.strftime("%d/%m/%Y · %I:%M %p") }}</strong></p>
                     <p>Total<strong>${{ "%.2f"|format(reserva.total) }} USD</strong></p>
-                    <p>Anticipo pagado<strong>${{ "%.2f"|format(reserva.monto_pagado) }} USD de ${{ "%.2f"|format(reserva.anticipo_requerido) }}</strong></p>
+                    <p>
+                        Monto pagado
+                        <strong>
+                            ${{ "%.2f"|format(reserva.monto_pagado) }} USD
+                            {% if reserva.monto_pagado >= reserva.total %}
+                                (100% Pagado)
+                            {% elif reserva.monto_pagado >= reserva.anticipo_requerido %}
+                                (50% Anticipo)
+                            {% endif %}
+                        </strong>
+                    </p>
                 </div>
             </div>
 
@@ -100,16 +118,26 @@
                 {% if reserva.metodo_pago == "EFECTIVO_TIENDA" %}
                     <p class="payment-progress">Forma de pago: efectivo en tienda. Acércate a TWIINS Bakery y presenta el código para pagar el anticipo del 50%.</p>
                 {% else %}
-                    <p class="payment-progress">Forma de pago: tarjeta por Wompi. El estado se actualizará cuando Wompi confirme el pago.</p>
-                    {% if reserva.pago_estado == "PENDIENTE" and wompi_configurada %}
-                        <form method="post" action="{{ url_for('reintentar_pago_wompi', codigo=reserva.codigo) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button class="primary-button retry-payment-button" type="submit">Continuar a Wompi y pagar el anticipo</button>
-                        </form>
+                    {% if reserva.monto_pagado >= reserva.total %}
+                        <p class="payment-progress paid">✓ Pago completo del 100% recibido por Wompi. En espera de aceptación por el administrador.</p>
+                    {% elif reserva.monto_pagado >= reserva.anticipo_requerido %}
+                        <p class="payment-progress paid">✓ Anticipo del 50% recibido por Wompi. En espera de aceptación por el administrador.</p>
+                    {% else %}
+                        <p class="payment-progress">Forma de pago: tarjeta por Wompi. El estado se actualizará cuando Wompi confirme el pago.</p>
+                        {% if reserva.pago_estado == "PENDIENTE" and wompi_configurada %}
+                            <form method="post" action="{{ url_for('reintentar_pago_wompi', codigo=reserva.codigo) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button class="primary-button retry-payment-button" type="submit">Continuar a Wompi y realizar el pago</button>
+                            </form>
+                        {% endif %}
                     {% endif %}
                 {% endif %}
             {% else %}
-                <p class="payment-progress paid">Anticipo recibido. El saldo restante se paga al retirar el pedido.</p>
+                {% if reserva.monto_pagado >= reserva.total %}
+                    <p class="payment-progress paid">✓ Pedido 100% liquidado. Presenta tu código al retirar.</p>
+                {% else %}
+                    <p class="payment-progress paid">Anticipo recibido. El saldo restante (${{ "%.2f"|format(reserva.total - reserva.monto_pagado) }} USD) se paga al retirar el pedido.</p>
+                {% endif %}
             {% endif %}
             <div class="confirmation-actions">
                 <a class="primary-button" href="{{ url_for('mis_reservas') }}">Ver mis reservas</a>

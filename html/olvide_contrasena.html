@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIINS Bakery | Olvidé mi contraseña</title>
+
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/verificar_correo.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .input-email-field {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--dark);
+            background: #fff8fa;
+            border: 2px solid var(--pink-border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+
+        .input-email-field:focus {
+            background: #ffffff;
+            border-color: var(--pink);
+            box-shadow: 0 0 0 4px rgba(243, 38, 112, 0.15);
+        }
+
+        .form-label-custom {
+            display: block;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="verify-container">
+
+        <main class="verify-card">
+
+            <div class="top-line"></div>
+
+            <div class="verify-content">
+
+                <!-- ENCABEZADO -->
+                <header class="verify-header">
+                    <a href="{{ url_for('login') }}" class="back-button" title="Volver al inicio de sesión" aria-label="Volver al inicio de sesión">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                    </a>
+
+                    <div class="brand-badge">
+                        <span class="icon-pulse">🔑</span>
+                    </div>
+
+                    <h1>¿Olvidaste tu contraseña?</h1>
+                    <p class="verify-subtitle">
+                        No te preocupes. Ingresa el correo electrónico asociado a tu cuenta de <strong>TWINS Bakery</strong>. Revisaremos si está registrado y te enviaremos un código de seguridad para que puedas restablecerla.
+                    </p>
+                </header>
+
+                <!-- MENSAJES FLASH DEL SERVIDOR -->
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                <div class="server-messages">
+                    {% for categoria, texto in mensajes %}
+                    <div class="alert alert-{{ categoria }}" role="alert">
+                        {{ texto }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <!-- FORMULARIO DE ENVÍO DE CÓDIGO -->
+                <form id="forgotForm" action="{{ url_for('solicitar_recuperacion_contrasena') }}" method="POST" autocomplete="on">
+
+                    <label class="form-label-custom" for="correo">
+                        Correo electrónico registrado:
+                    </label>
+
+                    <input type="email" id="correo" name="correo" class="input-email-field"
+                        placeholder="ejemplo@correo.com" autocomplete="email" required autofocus maxlength="150">
+
+                    <div class="security-note" style="margin-bottom: 22px;">
+                        <span class="shield-icon">🛡️</span>
+                        <span>Verificaremos que el correo exista en nuestra base de datos antes de enviar el código de un solo uso.</span>
+                    </div>
+
+                    <button type="submit" class="primary-verify-button" id="btnEnviarCodigo">
+                        <span>✉️ Enviar código de recuperación</span>
+                    </button>
+                </form>
+
+                <!-- ACCIONES ADICIONALES -->
+                <div class="verify-footer-actions">
+                    <div class="bottom-links">
+                        <a href="{{ url_for('login') }}" class="alt-link">
+                            ← Volver a Iniciar Sesión
+                        </a>
+                        <span style="color: #cbd5e0;">·</span>
+                        <a href="{{ url_for('registro') }}" class="alt-link">
+                            Crear cuenta nueva
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        // Evitar doble envío
+        document.getElementById("forgotForm").addEventListener("submit", function () {
+            const btn = document.getElementById("btnEnviarCodigo");
+            btn.disabled = true;
+            btn.innerHTML = "<span>Verificando y enviando código...</span>";
+        });
+    </script>
+
+</body>
+</html>

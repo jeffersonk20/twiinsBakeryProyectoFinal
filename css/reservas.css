@@ -177,6 +177,117 @@ button, input { font: inherit; }
     .success-icon { width: 62px; height: 62px; font-size: 32px; }
 }
 
+.wompi-amount-box {
+    margin-top: 14px;
+    padding: 16px;
+    background: #fbfdfe;
+    border: 1.5px dashed #20b7b255;
+    border-radius: 14px;
+    animation: fadeInWompi 0.25s ease-out;
+}
+
+@keyframes fadeInWompi {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.wompi-amount-title {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.wompi-options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.wompi-sub-choice {
+    position: relative;
+    cursor: pointer;
+    display: block;
+}
+
+.wompi-sub-choice > input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.wompi-sub-card {
+    padding: 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 110px;
+    box-sizing: border-box;
+}
+
+.wompi-sub-choice:hover .wompi-sub-card {
+    border-color: #20b7b2;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(32, 183, 178, 0.12);
+}
+
+.wompi-sub-choice:has(input:checked) .wompi-sub-card {
+    border-color: #0d9488;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+.wompi-sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.wompi-badge-pill {
+    padding: 2px 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 999px;
+    background: #e6fffa;
+    color: #0f766e;
+    border: 1px solid #99f6e4;
+}
+
+.wompi-badge-pill.total-pill {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.wompi-sub-price {
+    font-size: 17px;
+    font-weight: 800;
+    color: #0f766e;
+}
+
+.wompi-sub-card strong {
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.wompi-sub-card small {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+@media (max-width: 600px) {
+    .wompi-options-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 420px) {
     .customer-header { padding-right: 12px; padding-left: 12px; }
     .customer-brand { font-size: 16px; }

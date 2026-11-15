@@ -120,27 +120,57 @@
                     </div>
 
                     <fieldset class="payment-options">
-                        <legend>¿Cómo pagarás el anticipo?</legend>
+                        <legend>¿Cómo deseas pagar?</legend>
                         <label class="payment-choice payment-choice-cash">
                             <input type="radio" name="metodo_pago" value="EFECTIVO_TIENDA" required checked>
                             <span class="choice-icon" aria-hidden="true">⌂</span>
                             <span class="choice-copy">
                                 <strong>Efectivo en tienda</strong>
-                                <small>Presenta tu código en TWIINS Bakery y paga el anticipo del 50%.</small>
+                                <small>Presenta tu código en TWIINS Bakery y paga el anticipo del 50% en caja.</small>
                                 <span class="payment-detail">Pagas presencialmente</span>
                             </span>
                             <span class="choice-check" aria-hidden="true">✓</span>
                         </label>
                         <label class="payment-choice payment-choice-card">
                             <input type="radio" name="metodo_pago" value="WOMPI">
-                            <span class="choice-icon" aria-hidden="true">▣</span>
+                            <span class="choice-icon" aria-hidden="true">💳</span>
                             <span class="choice-copy">
-                                <strong>Pagar con tarjeta</strong>
-                                <small>{% if wompi_configurada %}Continúa al checkout seguro de Wompi para pagar el anticipo.{% else %}Tarjetas disponibles en Wompi. Si las credenciales del comercio aún no están configuradas, se te indicará antes de registrar la reserva.{% endif %}</small>
-                                <span class="payment-detail">{% if wompi_configurada %}Pago seguro en línea · Wompi{% else %}Tarjeta de crédito o débito · Wompi{% endif %}</span>
+                                <strong>Pagar con tarjeta en línea (Wompi)</strong>
+                                <small>{% if wompi_configurada %}Paga seguro al instante desde tu celular o computadora.{% else %}Tarjetas disponibles en Wompi (Visa / MasterCard).{% endif %}</small>
+                                <span class="payment-detail">Pago en línea con tarjeta</span>
                             </span>
                             <span class="choice-check" aria-hidden="true">✓</span>
                         </label>
+
+                        <!-- SUB-OPCIONES PARA PAGO CON TARJETA (WOMPI) -->
+                        <div class="wompi-amount-box" id="wompiAmountBox" style="display: none;">
+                            <p class="wompi-amount-title">Elige cuánto deseas pagar con tu tarjeta:</p>
+                            <div class="wompi-options-grid">
+                                <label class="wompi-sub-choice">
+                                    <input type="radio" name="tipo_cobro_tarjeta" value="ANTICIPO_50" checked>
+                                    <div class="wompi-sub-card">
+                                        <div class="wompi-sub-header">
+                                            <span class="wompi-badge-pill">Anticipo</span>
+                                            <strong class="wompi-sub-price" data-wompi-anticipo-price>—</strong>
+                                        </div>
+                                        <strong>Pagar solo el 50% de anticipo</strong>
+                                        <small>Aseguras tu reserva pagando el 50% ahora. El saldo restante lo pagas al retirar tu pedido en la pastelería.</small>
+                                    </div>
+                                </label>
+
+                                <label class="wompi-sub-choice">
+                                    <input type="radio" name="tipo_cobro_tarjeta" value="TOTAL_100">
+                                    <div class="wompi-sub-card">
+                                        <div class="wompi-sub-header">
+                                            <span class="wompi-badge-pill total-pill">100% Completo</span>
+                                            <strong class="wompi-sub-price" data-wompi-total-price>—</strong>
+                                        </div>
+                                        <strong>Pagar el 100% completo</strong>
+                                        <small>Liquidas todo el valor de tu pedido hoy. ¡Al ir a retirar solo presentas tu código y no pagas nada más!</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
                     </fieldset>
 
                     <p class="reservation-terms">La reserva se debe solicitar con 5 días de anticipación y queda pendiente hasta recibir el anticipo del 50%. Si cancelas el pedido, no hay devolución de los pagos realizados. Conserva el código de reserva para retirar tu pedido.</p>

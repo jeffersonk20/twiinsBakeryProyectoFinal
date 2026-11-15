@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIINS Bakery | Nueva Contraseña</title>
+
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/verificar_correo.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .input-group-custom {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-label-custom {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 7px;
+        }
+
+        .password-field-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-text-custom {
+            width: 100%;
+            padding: 13px 46px 13px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--dark);
+            background: #fff8fa;
+            border: 2px solid var(--pink-border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .input-text-custom:focus {
+            background: #ffffff;
+            border-color: var(--pink);
+            box-shadow: 0 0 0 4px rgba(243, 38, 112, 0.15);
+        }
+
+        .toggle-pwd-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0aec0;
+            transition: color 0.2s;
+        }
+
+        .toggle-pwd-btn:hover {
+            color: var(--pink);
+        }
+
+        .password-rules {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 6px;
+        }
+
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 6px 14px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="verify-container">
+
+        <main class="verify-card">
+
+            <div class="top-line"></div>
+
+            <div class="verify-content">
+
+                <!-- ENCABEZADO -->
+                <header class="verify-header">
+                    <div class="brand-badge">
+                        <span class="icon-pulse">🔐</span>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <span class="verified-badge">
+                            ✓ Código verificado correctamente
+                        </span>
+                    </div>
+
+                    <h1>Crea tu nueva contraseña</h1>
+                    <p class="verify-subtitle">
+                        El código ha sido confirmado para <strong>{{ correo }}</strong>. Ingresa tu nueva contraseña para acceder a tu cuenta.
+                    </p>
+                </header>
+
+                <!-- MENSAJES FLASH DEL SERVIDOR -->
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                <div class="server-messages">
+                    {% for categoria, texto in mensajes %}
+                    <div class="alert alert-{{ categoria }}" role="alert">
+                        {{ texto }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <div id="dynamicAlert" class="alert" style="display: none;" role="alert"></div>
+
+                <!-- FORMULARIO DE NUEVA CONTRASEÑA -->
+                <form id="newPasswordForm" action="{{ url_for('guardar_nueva_contrasena') }}" method="POST" autocomplete="off">
+
+                    <!-- NUEVA CONTRASEÑA -->
+                    <div class="input-group-custom">
+                        <label class="input-label-custom" for="nueva_contrasena">
+                            Nueva contraseña:
+                        </label>
+                        <div class="password-field-wrapper">
+                            <input type="password" id="nueva_contrasena" name="nueva_contrasena" class="input-text-custom"
+                                placeholder="Mínimo 8 caracteres" minlength="8" required autofocus>
+                            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('nueva_contrasena', this)" aria-label="Mostrar contraseña">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="password-rules">Mínimo 8 caracteres para asegurar tu cuenta.</p>
+                    </div>
+
+                    <!-- CONFIRMAR NUEVA CONTRASEÑA -->
+                    <div class="input-group-custom">
+                        <label class="input-label-custom" for="confirmar_contrasena">
+                            Confirmar nueva contraseña:
+                        </label>
+                        <div class="password-field-wrapper">
+                            <input type="password" id="confirmar_contrasena" name="confirmar_contrasena" class="input-text-custom"
+                                placeholder="Vuelve a escribir la contraseña" minlength="8" required>
+                            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('confirmar_contrasena', this)" aria-label="Mostrar contraseña">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="security-note" style="margin-bottom: 22px;">
+                        <span class="shield-icon">🛡️</span>
+                        <span>Se actualizará la contraseña de tu cuenta existente sin duplicar registros.</span>
+                    </div>
+
+                    <button type="submit" class="primary-verify-button" id="btnGuardar">
+                        <span>✨ Guardar nueva contraseña</span>
+                    </button>
+                </form>
+
+                <!-- ACCIONES ADICIONALES -->
+                <div class="verify-footer-actions">
+                    <div class="bottom-links">
+                        <a href="{{ url_for('login') }}" class="alt-link">
+                            ← Cancelar y volver al login
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        function togglePasswordVisibility(fieldId, button) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+            if (field.type === "password") {
+                field.type = "text";
+                button.setAttribute("aria-label", "Ocultar contraseña");
+                button.style.color = "var(--pink)";
+            } else {
+                field.type = "password";
+                button.setAttribute("aria-label", "Mostrar contraseña");
+                button.style.color = "#a0aec0";
+            }
+        }
+
+        // Validación en frontend antes de enviar
+        document.getElementById("newPasswordForm").addEventListener("submit", function (e) {
+            const pwd = document.getElementById("nueva_contrasena").value;
+            const confirm = document.getElementById("confirmar_contrasena").value;
+            const dynamicAlert = document.getElementById("dynamicAlert");
+
+            if (pwd !== confirm) {
+                e.preventDefault();
+                dynamicAlert.className = "alert alert-error";
+                dynamicAlert.textContent = "Las contraseñas no coinciden. Por favor verifícalas.";
+                dynamicAlert.style.display = "block";
+                return;
+            }
+
+            if (pwd.length < 8) {
+                e.preventDefault();
+                dynamicAlert.className = "alert alert-error";
+                dynamicAlert.textContent = "La nueva contraseña debe tener al menos 8 caracteres.";
+                dynamicAlert.style.display = "block";
+                return;
+            }
+
+            const btn = document.getElementById("btnGuardar");
+            btn.disabled = true;
+            btn.innerHTML = "<span>Actualizando contraseña...</span>";
+        });
+    </script>
+
+</body>
+</html>

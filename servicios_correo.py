@@ -235,6 +235,218 @@ El equipo de TWINS Bakery.
 
 
 # ==============================================================================
+# 0.1 RECUPERACIÓN DE CONTRASEÑA (OTP)
+# ==============================================================================
+
+def enviar_correo_recuperacion_contrasena(destinatario, nombre, codigo):
+    """Envía un código OTP de 6 dígitos para restablecer la contraseña de la cuenta."""
+    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    asunto = f"Tu código de recuperación es {codigo} - TWINS Bakery 🔑"
+
+    contenido_html = f"""
+      <h2 style="color:#e05374; margin-top:0; font-size:22px; font-weight:700;">¡Hola, {nombre_seguro}! 🎂</h2>
+      <p style="font-size:15px; color:#4a5568;">
+        Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>TWINS Bakery</strong>.
+      </p>
+      <p style="font-size:15px; color:#4a5568;">
+        Por favor ingresa el siguiente código de seguridad en la pantalla de recuperación para definir tu nueva contraseña:
+      </p>
+
+      <div style="background: linear-gradient(135deg, #fff5f7 0%, #fed7e2 100%); border: 2px dashed #e05374; border-radius: 14px; padding: 25px 20px; text-align: center; margin: 25px 0;">
+        <span style="display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: #b83256; font-weight: 700; margin-bottom: 8px;">Código de Restablecimiento</span>
+        <div style="font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #e05374; font-family: monospace;">
+          {codigo}
+        </div>
+        <span style="display: block; font-size: 12px; color: #718096; margin-top: 10px;">⏰ Este código vencerá en 15 minutos</span>
+      </div>
+
+      <div style="background-color:#fff5f7; border-left:4px solid #e05374; padding:12px 16px; margin:20px 0; border-radius:0 8px 8px 0;">
+        <p style="margin:0; font-size:13px; color:#70243b;">
+          🛡️ <strong>Aviso de Seguridad:</strong> Si tú no solicitaste este cambio, no te preocupes; tu contraseña actual continúa siendo segura y nadie puede modificarla sin este código.
+        </p>
+      </div>
+
+      <p style="margin:25px 0 10px; font-size:15px; color:#4a5568;">
+        Con cariño,<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Hola, {nombre_seguro}!
+
+Recibimos una solicitud para restablecer la contraseña de tu cuenta en TWINS Bakery.
+
+Tu código de recuperación es: {codigo}
+
+Este código expira en 15 minutos. Ingrésalo en la pantalla de recuperación para definir tu nueva contraseña.
+
+Si tú no solicitaste este cambio, puedes ignorar este mensaje; tu contraseña actual continuará protegida.
+
+El equipo de TWINS Bakery.
+"""
+
+    html_completo = _plantilla_base_html("Recuperación de Contraseña", "Seguridad y Restablecimiento de Cuenta", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+def enviar_correo_contrasena_actualizada(destinatario, nombre):
+    """Notifica al cliente que su contraseña fue cambiada exitosamente."""
+    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    asunto = "Tu contraseña ha sido actualizada - TWINS Bakery 🔐"
+    fecha_hora = datetime.now().strftime("%d/%m/%Y a las %I:%M %p")
+
+    contenido_html = f"""
+      <h2 style="color:#e05374; margin-top:0; font-size:22px; font-weight:700;">¡Hola, {nombre_seguro}! 🔐</h2>
+      <p style="font-size:15px; color:#4a5568;">
+        Te confirmamos que la contraseña de tu cuenta en <strong>TWINS Bakery</strong> fue actualizada exitosamente el <strong>{fecha_hora}</strong>.
+      </p>
+
+      <div style="background-color:#edf2f7; border-radius:10px; padding:18px 20px; margin:22px 0;">
+        <p style="margin:0; font-size:14px; color:#2d3748; font-weight:600;">
+          ✅ Tu cuenta está lista para iniciar sesión con tu nueva contraseña.
+        </p>
+      </div>
+
+      <p style="font-size:13px; color:#718096;">
+        Si tú realizaste este cambio, no tienes que hacer nada más. Si tú <strong>NO</strong> realizaste este cambio, por favor ponte en contacto de inmediato con nosotros para proteger tu cuenta.
+      </p>
+
+      <p style="margin:25px 0 10px; font-size:15px; color:#4a5568;">
+        Atentamente,<br>
+        <strong>Seguridad TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Hola, {nombre_seguro}!
+
+Te confirmamos que la contraseña de tu cuenta en TWINS Bakery fue actualizada exitosamente el {fecha_hora}.
+
+Ya puedes iniciar sesión con tu nueva contraseña.
+
+Si tú no realizaste este cambio, contáctanos de inmediato.
+
+Atentamente,
+El equipo de TWINS Bakery.
+"""
+
+    html_completo = _plantilla_base_html("Contraseña Actualizada", "Seguridad de tu Cuenta", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
+# 0.3 NOTIFICACIÓN DE PAGO CON TARJETA EXITOSO (WOMPI)
+# ==============================================================================
+
+def enviar_correo_pago_tarjeta_recibido(
+    destinatario,
+    nombre,
+    codigo,
+    monto_pagado,
+    referencia_pago,
+    total,
+    saldo_restante,
+    nombre_producto="Pastel o postre artesanal",
+    fecha_hora=None
+):
+    """Envía un comprobante digital al cliente cuando se procesa exitosamente un pago con tarjeta (Wompi)."""
+    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    asunto = f"Comprobante de Pago con Tarjeta [Reserva: {codigo}] - TWINS Bakery 💳💗"
+
+    if not fecha_hora:
+        fecha_hora = datetime.now().strftime("%d/%m/%Y a las %I:%M %p")
+
+    monto_f = float(monto_pagado)
+    total_f = float(total)
+    saldo_f = max(0.0, float(saldo_restante))
+
+    estado_anticipo = "Anticipo liquidado · En espera de aceptación por el Administrador" if saldo_f > 0 else "Total del pedido pagado al 100%"
+
+    contenido_html = f"""
+      <div style="text-align:center; margin-bottom:20px;">
+        <span style="display:inline-block; background-color:#c6f6d5; color:#22543d; font-size:13px; font-weight:800; padding:6px 18px; border-radius:50px; text-transform:uppercase; letter-spacing:1px;">
+          ✓ Pago con Tarjeta Aprobado
+        </span>
+      </div>
+
+      <h2 style="color:#22543d; margin-top:0; font-size:22px; font-weight:800; text-align:center;">
+        ¡Pago recibido con éxito, {nombre_seguro}! 💳💗
+      </h2>
+
+      <p style="font-size:15px; color:#4a5568; text-align:center;">
+        Hemos procesado con éxito tu pago con tarjeta a través de la pasarela segura de <strong>Wompi</strong> para tu reserva con código <strong>{codigo}</strong>.
+      </p>
+
+      <div style="background-color:#fff5f7; border:1px solid #fed7e2; border-radius:14px; padding:22px; margin:25px 0;">
+        <h3 style="margin-top:0; color:#e05374; font-size:16px; border-bottom:1px dashed #fed7e2; padding-bottom:10px;">
+          🧾 Detalle del Comprobante
+        </h3>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#2d3748;">
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🔖 Código de reserva:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:800; color:#e05374;">{codigo}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🍰 Producto:</td>
+            <td style="padding:6px 0; text-align:right;">{nombre_producto}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💳 Monto pagado con tarjeta:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:800; color:#38a169; font-size:16px;">${monto_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">💵 Total de la reserva:</td>
+            <td style="padding:6px 0; text-align:right;">${total_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🏷️ Saldo pendiente al retirar:</td>
+            <td style="padding:6px 0; text-align:right; font-weight:700; color:#b7791f;">${saldo_f:.2f} USD</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">🔢 Referencia de transacción:</td>
+            <td style="padding:6px 0; text-align:right; font-family:monospace; color:#718096; font-size:12px;">{referencia_pago}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; font-weight:600;">📅 Fecha y hora:</td>
+            <td style="padding:6px 0; text-align:right;">{fecha_hora}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#edf2f7; border-left:4px solid #319795; padding:14px 18px; margin:20px 0; border-radius:0 10px 10px 0;">
+        <p style="margin:0; font-size:13.5px; color:#2d3748; line-height:1.5;">
+          ℹ️ <strong>Importante:</strong> Tu anticipo del 50% ya quedó registrado. <strong>No necesitas ir al local a dejar ningún anticipo en efectivo</strong>. Tu reserva está a la espera de que el administrador la acepte y te notificaremos de inmediato.
+        </p>
+      </div>
+
+      <p style="margin:25px 0 10px; font-size:15px; color:#4a5568;">
+        ¡Gracias por confiar en TWINS Bakery!<br>
+        <strong>El equipo de TWINS Bakery 💗</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""¡Hola, {nombre_seguro}!
+
+Hemos recibido exitosamente tu pago con tarjeta de crédito/débito por ${monto_f:.2f} USD a través de Wompi.
+
+Detalles de tu comprobante:
+- Código de reserva: {codigo}
+- Producto: {nombre_producto}
+- Monto pagado: ${monto_f:.2f} USD
+- Total de la reserva: ${total_f:.2f} USD
+- Saldo restante al retirar: ${saldo_f:.2f} USD
+- Referencia de pago: {referencia_pago}
+- Fecha y hora: {fecha_hora}
+
+Tu anticipo ya está cubierto; no necesitas ir al local a dejar ningún pago en efectivo. Te notificaremos cuando el administrador acepte tu pedido.
+
+El equipo de TWINS Bakery 💗
+"""
+
+    html_completo = _plantilla_base_html("Comprobante de Pago", "Pago con Tarjeta Aprobado - Wompi", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
+# ==============================================================================
 # 1. BIENVENIDA TRAS REGISTRO DE CLIENTE
 # ==============================================================================
 
@@ -386,7 +598,27 @@ def enviar_correo_reserva_creada(
     aviso_anticipo_html = ""
     aviso_anticipo_texto = ""
 
-    if es_pastel_o_evento:
+    if metodo_pago == "WOMPI":
+        aviso_anticipo_html = f"""
+        <div style="background-color:#f0fdfa; border:2px solid #0d9488; border-radius:12px; padding:18px 20px; margin:25px 0;">
+          <h3 style="color:#0f766e; margin:0 0 8px; font-size:16px; font-weight:800; display:flex; align-items:center;">
+            💳 PAGO CON TARJETA (WOMPI)
+          </h3>
+          <p style="margin:0; font-size:14px; color:#134e4a; line-height:1.5;">
+            Has elegido pago con tarjeta en línea. Al completar tu pago de forma exitosa, tu anticipo o total queda registrado automáticamente y 
+            <strong>no necesitas pasar a la sucursal a dejar dinero en efectivo</strong>. Te avisaremos cuando el administrador acepte tu reserva.
+          </p>
+        </div>
+        """
+        aviso_anticipo_texto = f"""
+==============================================================
+💳 PAGO CON TARJETA (WOMPI):
+Has seleccionado pago con tarjeta en línea. Al completar tu pago,
+queda registrado digitalmente y no necesitas ir a la sucursal a
+dejar efectivo. Te avisaremos cuando tu reserva sea aceptada.
+==============================================================
+"""
+    elif es_pastel_o_evento:
         aviso_anticipo_html = f"""
         <div style="background-color:#fffaf0; border:2px solid #dd6b20; border-radius:12px; padding:18px 20px; margin:25px 0;">
           <h3 style="color:#c05621; margin:0 0 8px; font-size:16px; font-weight:800; display:flex; align-items:center;">

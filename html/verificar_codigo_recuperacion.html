@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIINS Bakery | Verificar Código de Seguridad</title>
+
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/verificar_correo.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .otp-single-input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 14px;
+            text-align: center;
+            font-family: monospace;
+            color: var(--pink);
+            background: #fff8fa;
+            border: 2px dashed var(--pink);
+            border-radius: 14px;
+            outline: none;
+            box-sizing: border-box;
+            margin: 10px 0 22px 0;
+            transition: all 0.25s ease;
+        }
+
+        .otp-single-input:focus {
+            background: #ffffff;
+            border-style: solid;
+            box-shadow: 0 0 0 4px rgba(243, 38, 112, 0.15);
+        }
+
+        .input-label-custom {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="verify-container">
+
+        <main class="verify-card">
+
+            <div class="top-line"></div>
+
+            <div class="verify-content">
+
+                <!-- ENCABEZADO -->
+                <header class="verify-header">
+                    <a href="{{ url_for('olvide_contrasena') }}" class="back-button" title="Volver al paso anterior" aria-label="Volver al paso anterior">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                    </a>
+
+                    <div class="brand-badge">
+                        <span class="icon-pulse">📩</span>
+                    </div>
+
+                    <h1>Ingresa el código recibido</h1>
+                    <p class="verify-subtitle">
+                        Hemos enviado un código de seguridad de 6 dígitos a:
+                    </p>
+
+                    <div class="email-badge-container">
+                        <span class="email-badge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            <strong id="displayEmail">{{ correo_oculto }}</strong>
+                        </span>
+                    </div>
+                </header>
+
+                <!-- MENSAJES FLASH DEL SERVIDOR -->
+                {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                <div class="server-messages">
+                    {% for categoria, texto in mensajes %}
+                    <div class="alert alert-{{ categoria }}" role="alert">
+                        {{ texto }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <div id="dynamicAlert" class="alert" style="display: none;" role="alert"></div>
+
+                <!-- FORMULARIO DE VERIFICACIÓN DE CÓDIGO -->
+                <form id="codeForm" action="{{ url_for('verificar_codigo_recuperacion') }}" method="POST" autocomplete="off">
+
+                    <label class="input-label-custom" for="codigo">
+                        Código de seguridad (6 dígitos):
+                    </label>
+
+                    <input type="text" id="codigo" name="codigo" class="otp-single-input"
+                        inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="------" required autofocus>
+
+                    <div class="security-note" style="margin-bottom: 22px;">
+                        <span class="shield-icon">🛡️</span>
+                        <span>El código tiene una validez de 15 minutos. Al confirmarlo podrás definir tu nueva contraseña.</span>
+                    </div>
+
+                    <button type="submit" class="primary-verify-button" id="btnVerificarCodigo">
+                        <span>Continuar al cambio de contraseña →</span>
+                    </button>
+                </form>
+
+                <!-- ACCIONES ADICIONALES -->
+                <div class="verify-footer-actions">
+                    <p class="resend-text">
+                        ¿No recibiste el correo?
+                        <button type="button" class="btn-resend" id="btnReenviar" disabled>
+                            Reenviar código (<span id="timerCountdown">45</span>s)
+                        </button>
+                    </p>
+
+                    <div class="links-divider"></div>
+
+                    <div class="bottom-links">
+                        <a href="{{ url_for('olvide_contrasena') }}" class="alt-link">
+                            ✏️ Cambiar correo
+                        </a>
+                        <span style="color: #cbd5e0;">·</span>
+                        <a href="{{ url_for('login') }}" class="alt-link">
+                            Cancelar e ir al login
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        // Cuenta regresiva para reenvío
+        let timeLeft = 45;
+        const countdownEl = document.getElementById("timerCountdown");
+        const btnReenviar = document.getElementById("btnReenviar");
+
+        const timer = setInterval(() => {
+            timeLeft -= 1;
+            if (countdownEl) countdownEl.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                if (btnReenviar) {
+                    btnReenviar.disabled = false;
+                    btnReenviar.textContent = "Reenviar código ahora";
+                }
+            }
+        }, 1000);
+
+        if (btnReenviar) {
+            btnReenviar.addEventListener("click", async function () {
+                btnReenviar.disabled = true;
+                btnReenviar.textContent = "Reenviando...";
+
+                try {
+                    const response = await fetch("{{ url_for('reenviar_codigo_recuperacion') }}", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" }
+                    });
+                    const data = await response.json();
+                    const dynamicAlert = document.getElementById("dynamicAlert");
+                    if (data.ok) {
+                        dynamicAlert.className = "alert alert-success";
+                        dynamicAlert.textContent = data.mensaje || "Nuevo código enviado con éxito a tu correo.";
+                        dynamicAlert.style.display = "block";
+                        timeLeft = 45;
+                        btnReenviar.disabled = true;
+                        btnReenviar.innerHTML = 'Reenviar código (<span id="timerCountdown">45</span>s)';
+                        const newTimer = setInterval(() => {
+                            timeLeft -= 1;
+                            const el = document.getElementById("timerCountdown");
+                            if (el) el.textContent = timeLeft;
+                            if (timeLeft <= 0) {
+                                clearInterval(newTimer);
+                                btnReenviar.disabled = false;
+                                btnReenviar.textContent = "Reenviar código ahora";
+                            }
+                        }, 1000);
+                    } else {
+                        dynamicAlert.className = "alert alert-error";
+                        dynamicAlert.textContent = data.mensaje || "No se pudo reenviar el código.";
+                        dynamicAlert.style.display = "block";
+                        btnReenviar.disabled = false;
+                        btnReenviar.textContent = "Reintentar";
+                    }
+                } catch (e) {
+                    btnReenviar.disabled = false;
+                    btnReenviar.textContent = "Reenviar código ahora";
+                }
+            });
+        }
+
+        // Form submit loading
+        document.getElementById("codeForm").addEventListener("submit", function () {
+            const btn = document.getElementById("btnVerificarCodigo");
+            btn.disabled = true;
+            btn.innerHTML = "<span>Verificando código...</span>";
+        });
+    </script>
+
+</body>
+</html>

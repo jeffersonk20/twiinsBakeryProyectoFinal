@@ -116,7 +116,7 @@
 
                 <!-- RECUPERAR CONTRASEÑA -->
                 <div class="forgot-container">
-                    <a href="#"
+                    <a href="{{ url_for('olvide_contrasena') }}"
                        id="forgotPassword">
                         ¿Olvidaste tu contraseña?
                     </a>
@@ -171,19 +171,6 @@
         }
 
     });
-
-    // Mensaje de recuperación
-    document.getElementById("forgotPassword")
-        .addEventListener("click", function (event) {
-
-            event.preventDefault();
-
-            alert(
-                "¡Hola! 💗\n\n" +
-                "La recuperación de contraseña estará disponible próximamente."
-            );
-
-        });
 
     // Evitar doble envío
     document.getElementById("loginForm")

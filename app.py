@@ -2529,6 +2529,7 @@ def reservar_producto(producto_id):
         cursor = None
         try:
             enlace = crear_enlace_pago(referencia_pago, anticipo, producto["nombre"])
+            id_enlace_wompi = str(enlace["idEnlace"])
             conexion = obtener_conexion()
             cursor = conexion.cursor()
             cursor.execute(
@@ -2537,9 +2538,17 @@ def reservar_producto(producto_id):
                 WHERE referencia = %s AND metodo_pago = 'WOMPI'
                   AND estado = 'PENDIENTE'
                 """,
-                (str(enlace["idEnlace"]), referencia_pago),
+                (id_enlace_wompi, referencia_pago),
             )
             conexion.commit()
+            # Guardar datos clave en sesión para identificar el pago al volver de Wompi
+            # Esto permite actualizar monto_pagado aunque la sesión se renueve
+            session["pago_wompi_pendiente"] = {
+                "referencia_comercio": referencia_pago,
+                "id_enlace": id_enlace_wompi,
+                "codigo_reserva": codigo,
+                "id_cliente": session.get("id_cliente"),
+            }
             return redirect(enlace["urlEnlace"])
         except (requests.RequestException, ValueError, mysql.connector.Error):
             if conexion:
@@ -2700,6 +2709,7 @@ def reintentar_pago_wompi(codigo):
             pago["monto"],
             pago["nombre_producto"],
         )
+        id_enlace_wompi = str(enlace["idEnlace"])
         conexion = obtener_conexion()
         cursor = conexion.cursor()
         cursor.execute(
@@ -2707,13 +2717,20 @@ def reintentar_pago_wompi(codigo):
             UPDATE PAGO SET referencia_wompi = %s
             WHERE id_pago = %s AND estado = 'PENDIENTE'
             """,
-            (str(enlace["idEnlace"]), pago["id_pago"]),
+            (id_enlace_wompi, pago["id_pago"]),
         )
         if cursor.rowcount != 1:
             conexion.rollback()
             flash("El pago ya cambió de estado. Revisa tus reservas.", "error")
             return redirect(url_for("reserva_registrada", codigo=codigo))
         conexion.commit()
+        # Guardar en sesión para identificar el pago al volver de Wompi
+        session["pago_wompi_pendiente"] = {
+            "referencia_comercio": pago["referencia"],
+            "id_enlace": id_enlace_wompi,
+            "codigo_reserva": codigo,
+            "id_cliente": session.get("id_cliente"),
+        }
         return redirect(enlace["urlEnlace"])
     except (requests.RequestException, ValueError, mysql.connector.Error):
         if conexion:
@@ -2779,10 +2796,99 @@ def wompi_confirmar():
 @app.get("/pago/resultado")
 def pago_resultado():
     intento = session.get("intento_reserva")
+    pago_pendiente_cliente = session.get("pago_wompi_pendiente")
     id_transaccion = request.args.get("idTransaccion", "").strip()
     id_enlace = request.args.get("idEnlace", "").strip()
     es_aprobada_raw = request.args.get("esAprobada", "").strip().lower()
     es_aprobada = es_aprobada_raw in ("true", "1") or (id_transaccion and es_aprobada_raw != "false")
+
+    # 1b. SI PROVIENE DE UNA RESERVA DE CLIENTE CON WOMPI (sesión pago_wompi_pendiente):
+    # Cubre el caso en que el cliente ya tenía reserva creada y solo faltaba pagar el anticipo/saldo.
+    if pago_pendiente_cliente and (es_aprobada or id_transaccion):
+        ref_enlace = pago_pendiente_cliente.get("id_enlace") or id_enlace
+        ref_comercio = pago_pendiente_cliente.get("referencia_comercio")
+        codigo_reserva = pago_pendiente_cliente.get("codigo_reserva")
+        conexion = None
+        cursor = None
+        try:
+            conexion = obtener_conexion()
+            cursor = conexion.cursor(dictionary=True)
+            # Buscar el pago exacto por referencia_wompi (id_enlace de Wompi)
+            filtro_params = []
+            filtro_extra = ""
+            if ref_enlace:
+                filtro_extra = "AND p.referencia_wompi = %s"
+                filtro_params.append(ref_enlace)
+            elif ref_comercio:
+                filtro_extra = "AND p.referencia = %s"
+                filtro_params.append(ref_comercio)
+
+            cursor.execute(
+                f"""
+                SELECT p.id_pago, p.id_reserva, p.monto, p.estado, p.referencia,
+                       r.codigo, r.total, r.monto_pagado, r.nombre_cliente, r.anticipo_requerido,
+                       COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo_cliente
+                FROM PAGO p
+                JOIN RESERVA r ON r.id_reserva = p.id_reserva
+                LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+                WHERE p.metodo_pago = 'WOMPI'
+                  AND p.estado = 'PENDIENTE'
+                  {filtro_extra}
+                ORDER BY p.id_pago DESC
+                LIMIT 1
+                """,
+                tuple(filtro_params),
+            )
+            pago_row = cursor.fetchone()
+            if pago_row:
+                conexion.start_transaction()
+                monto_cobrado = Decimal(str(pago_row["monto"])).quantize(Decimal("0.01"))
+                pagado_previo = Decimal(str(pago_row["monto_pagado"] or 0)).quantize(Decimal("0.01"))
+                nuevo_pagado = (pagado_previo + monto_cobrado).quantize(Decimal("0.01"))
+                total_res = Decimal(str(pago_row["total"] or 0)).quantize(Decimal("0.01"))
+
+                cursor.execute(
+                    "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW(), referencia_wompi = %s WHERE id_pago = %s",
+                    (id_enlace or ref_enlace or pago_row.get("referencia"), pago_row["id_pago"]),
+                )
+                cursor.execute(
+                    "UPDATE RESERVA SET monto_pagado = %s WHERE id_reserva = %s",
+                    (nuevo_pagado, pago_row["id_reserva"]),
+                )
+                conexion.commit()
+                session.pop("pago_wompi_pendiente", None)
+
+                correo_cli = pago_row.get("correo_cliente")
+                if correo_cli:
+                    try:
+                        saldo_rest = max(Decimal("0.00"), total_res - nuevo_pagado)
+                        enviar_correo_pago_tarjeta_recibido(
+                            destinatario=correo_cli,
+                            nombre=pago_row["nombre_cliente"],
+                            codigo=pago_row["codigo"],
+                            monto_pagado=monto_cobrado,
+                            referencia_pago=pago_row.get("referencia") or ref_enlace or "",
+                            total=total_res,
+                            saldo_restante=saldo_rest,
+                            nombre_producto=f"Reserva {pago_row['codigo']}",
+                        )
+                    except Exception as err_m:
+                        app.logger.warning("No se pudo enviar correo comprobante cliente: %s", err_m)
+
+                flash(f"¡Pago de ${monto_cobrado:.2f} registrado exitosamente! Tu reserva {pago_row['codigo']} está actualizada.", "success")
+                if codigo_reserva:
+                    return redirect(url_for("reserva_registrada", codigo=codigo_reserva))
+                return render_template("pago_resultado.html", exito=True,
+                    mensaje=f"¡Pago de ${monto_cobrado:.2f} registrado para la reserva {pago_row['codigo']}!")
+        except Exception as err_cp:
+            if conexion:
+                conexion.rollback()
+            app.logger.warning("Error al registrar pago_wompi_pendiente en /pago/resultado: %s", err_cp)
+        finally:
+            if cursor:
+                cursor.close()
+            if conexion and conexion.is_connected():
+                conexion.close()
 
     # 1. SI PROVIENE DE UNA RESERVA NUEVA DEL CLIENTE (intento en sesión):
     if intento:
@@ -2910,30 +3016,25 @@ def pago_resultado():
                 mensaje="El pago no fue completado o fue cancelado en la pasarela. No se ha generado ninguna reserva en el sistema ni se realizó ningún cargo a tu tarjeta."
             )
 
-    # 2. SI PROVIENE DE UN COBRO DE ADMIN (o enlace Wompi general):
-    if es_aprobada or id_transaccion:
+    # 2. SI PROVIENE DE UN COBRO DE ADMIN (enlace Wompi generado desde el panel):
+    # Solo procesar si viene idEnlace en la URL, para no actualizar pagos a ciegas.
+    if (es_aprobada or id_transaccion) and id_enlace:
         conexion = None
         cursor = None
         try:
             conexion = obtener_conexion()
             cursor = conexion.cursor(dictionary=True)
-            # Buscar si hay algún pago de WOMPI pendiente
-            filtro_sql = "p.estado = 'PENDIENTE' AND p.metodo_pago = 'WOMPI'"
-            params = []
-            if id_enlace:
-                filtro_sql += " AND p.referencia_wompi = %s"
-                params.append(id_enlace)
-
             cursor.execute(
-                f"""
+                """
                 SELECT p.id_pago, p.id_reserva, p.monto, p.referencia, r.codigo, r.total, r.monto_pagado
                 FROM PAGO p
                 JOIN RESERVA r ON r.id_reserva = p.id_reserva
-                WHERE {filtro_sql}
+                WHERE p.estado = 'PENDIENTE' AND p.metodo_pago = 'WOMPI'
+                  AND p.referencia_wompi = %s
                 ORDER BY p.id_pago DESC
                 LIMIT 1
                 """,
-                tuple(params),
+                (id_enlace,),
             )
             pago_pend = cursor.fetchone()
             if pago_pend:

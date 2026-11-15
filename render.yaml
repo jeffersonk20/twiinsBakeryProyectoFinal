@@ -70,3 +70,7 @@ services:
         value: "true"
       - key: ADMIN_SETUP_TOKEN
         sync: false
+      - key: WOMPI_CLIENT_ID
+        sync: false
+      - key: WOMPI_CLIENT_SECRET
+        sync: false

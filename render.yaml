@@ -13,15 +13,21 @@ services:
           type: web
           name: twiins-bakery-clientes
           property: host
+      - key: DB_TYPE
+        value: "mysql"
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        value: "3306"
+        sync: false
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_NAME
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
         sync: false
       - key: SECRET_KEY
         generateValue: true
@@ -51,15 +57,21 @@ services:
           type: web
           name: twiins-bakery-clientes
           property: host
+      - key: DB_TYPE
+        value: "mysql"
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        value: "3306"
+        sync: false
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_NAME
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
         sync: false
       - key: SECRET_KEY
         generateValue: true

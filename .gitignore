@@ -32,11 +32,13 @@ env/
 .idea/
 
 # =================================
-# ARCHIVOS TEMPORALES
+# ARCHIVOS TEMPORALES Y BINARIOS
 # =================================
 
 *.log
 *.tmp
+*.exe
+ngrok*
 .DS_Store
 Thumbs.db
 .env

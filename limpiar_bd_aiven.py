@@ -15,12 +15,15 @@ load_dotenv()
 
 
 def inicializar_y_limpiar_aiven():
-    host = os.getenv("DB_HOST", "mysql-259b5fe9-jeffersonk20castillo-ee98.i.aivencloud.com")
-    port = int(os.getenv("DB_PORT", 11537))
-    user = os.getenv("DB_USER", "avnadmin")
+    host = os.getenv("DB_HOST", "")
+    port = int(os.getenv("DB_PORT", "11537"))
+    user = os.getenv("DB_USER", "")
     password = os.getenv("DB_PASSWORD", "")
     database = os.getenv("DB_NAME", "defaultdb")
     ruta_ca = os.path.join(os.path.dirname(__file__), "ca.pem")
+
+    if not host or not user:
+        raise ValueError("Faltan DB_HOST o DB_USER en el archivo .env")
 
     print("\n=======================================================")
     print("  INICIALIZACIÓN Y LIMPIEZA DE AIVEN (PRODUCCIÓN)")

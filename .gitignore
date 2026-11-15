@@ -39,6 +39,7 @@ env/
 *.tmp
 *.exe
 ngrok*
+limpiar_bd_*.py
 .DS_Store
 Thumbs.db
 .env

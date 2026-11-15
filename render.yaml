@@ -9,10 +9,7 @@ services:
       - key: APP_MODE
         value: customer
       - key: URL_BASE_TUWEB
-        fromService:
-          type: web
-          name: twiins-bakery-clientes
-          property: host
+        sync: false
       - key: DB_TYPE
         value: "mysql"
       - key: DB_HOST
@@ -48,15 +45,9 @@ services:
       - key: APP_MODE
         value: admin
       - key: CLIENT_URL
-        fromService:
-          type: web
-          name: twiins-bakery-clientes
-          property: host
+        sync: false
       - key: URL_BASE_TUWEB
-        fromService:
-          type: web
-          name: twiins-bakery-clientes
-          property: host
+        sync: false
       - key: DB_TYPE
         value: "mysql"
       - key: DB_HOST

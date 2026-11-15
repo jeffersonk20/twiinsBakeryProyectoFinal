@@ -655,9 +655,9 @@ def _sembrar_datos_iniciales(cursor):
             INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
             VALUES (1, %s, %s, %s)
             """,
-            ("Administrador Twins", "admin@twinsbakery.com", generate_password_hash("admin1234")),
+            ("Administrador Twins", "adminbakery@gmail.com", generate_password_hash("admin1234")),
         )
-        print(" -> Administrador inicial verificado: admin@twinsbakery.com / clave: admin1234")
+        print(" -> Administrador inicial verificado: adminbakery@gmail.com / clave: admin1234")
 
     # 2. Solicitudes de ejemplo para panel administrativo de eventos si está vacía
     cursor.execute("SELECT COUNT(*) FROM SOLICITUD_PLANIFICACION")
@@ -744,7 +744,7 @@ def inicializar_base_datos():
         print(f"")
         print(f"  Acceso Administrador por defecto:")
         print(f"    - URL:   /admin/login")
-        print(f"    - Email: admin@twinsbakery.com")
+        print(f"    - Email: adminbakery@gmail.com")
         print(f"    - Clave: admin1234")
         print(f"=======================================================\n")
 

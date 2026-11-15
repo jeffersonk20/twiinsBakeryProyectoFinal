@@ -170,7 +170,7 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
     except Exception as e:
         logger.exception("Error al enviar correo a %s: %s", destinatario, str(e))
         try:
-            print(f"[ERROR CORREO] No se pudo enviar correo a {destinatario}: {e}")
+            print(f"[ERROR CORREO] No se pudo enviar correo a {destinatario}: {e}", flush=True)
         except Exception:
             pass
         return False

@@ -3008,10 +3008,9 @@ def api_admin_dashboard():
         estados = {row["estado"]: row["total"] for row in cursor.fetchall()}
 
         # Reservas de hoy
-        cursor.execute("""
-            SELECT COUNT(*) AS total FROM RESERVA
-            WHERE DATE(fecha_reserva) = DATE('now')
-        """)
+        es_sqlite = isinstance(conexion, SQLiteConnectionWrapper) or "sqlite" in type(conexion).__name__.lower()
+        filtro_hoy = "DATE(fecha_reserva) = DATE('now')" if es_sqlite else "DATE(fecha_reserva) = CURDATE()"
+        cursor.execute(f"SELECT COUNT(*) AS total FROM RESERVA WHERE {filtro_hoy}")
         row_hoy = cursor.fetchone()
         reservas_hoy = row_hoy["total"] if row_hoy else 0
 
@@ -3021,10 +3020,11 @@ def api_admin_dashboard():
         productos_activos = row_prod["total"] if row_prod else 0
 
         # Reservas de los últimos 7 días (para la gráfica)
-        cursor.execute("""
+        filtro_7dias = "fecha_reserva >= DATE('now', '-6 days')" if es_sqlite else "fecha_reserva >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+        cursor.execute(f"""
             SELECT DATE(fecha_reserva) AS dia, COUNT(*) AS total
             FROM RESERVA
-            WHERE fecha_reserva >= DATE('now', '-6 days')
+            WHERE {filtro_7dias}
             GROUP BY DATE(fecha_reserva)
             ORDER BY dia ASC
         """)
@@ -4660,6 +4660,8 @@ def registrar_cliente():
         )
 
         conexion.commit()
+
+        print(f"\n[OTP REGISTRO] Código de verificación generado para {correo}: {codigo_otp}\n", flush=True)
 
         # Enviar correo de verificación asíncrono con el código
         try:

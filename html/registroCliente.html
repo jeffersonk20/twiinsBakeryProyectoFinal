@@ -22,9 +22,19 @@
 
         <main class="register-card">
 
-          
-
             <div class="top-line"></div>
+
+            <!-- PANEL DE MARCA CON LOGO (MISMO QUE INICIO DE SESIÓN) -->
+            <aside class="register-brand-panel">
+                <div class="logo-container">
+                    <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+                </div>
+                <div class="brand-panel-text">
+                    <h1>Endulzamos</h1>
+                    <h2>tus momentos especiales</h2>
+                    <p>Postres, pasteles y más... con mucho amor.</p>
+                </div>
+            </aside>
 
             <!-- CONTENIDO -->
             <div class="register-content">

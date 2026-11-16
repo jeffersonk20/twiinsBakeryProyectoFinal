@@ -4,7 +4,8 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     overflow-x: hidden;
     max-width: 100%;
 }
@@ -57,10 +58,8 @@ body {
     height: 100%;
     background: #ef5979e6;
     z-index: 0;
-    
 }
 
-/* LOGO */
 /* LOGO */
 .logo-container {
     grid-column: 1;
@@ -81,8 +80,8 @@ body {
     height: 260px;
     object-fit: contain;
 
-    /* Baja un poco la imagen */
-    transform: translateY(25px);
+    /* Baja la imagen hacia el centro */
+    transform: translateY(100px);
 }
 
 
@@ -100,7 +99,7 @@ body {
     padding: 0 25px 45px;
 
     /* Baja todo el texto */
-    transform: translateY(25px);
+    transform: translateY(100px);
 }
 
 .login-header h1 {

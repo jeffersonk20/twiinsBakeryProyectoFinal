@@ -15,7 +15,7 @@ from flask import (
 
 from werkzeug.security import generate_password_hash, check_password_hash
 # pyrefly: ignore[missing-import]
-from conexion import obtener_conexion
+from conexion import obtener_conexion, SQLiteConnectionWrapper
 from dotenv import load_dotenv
 import os
 import re

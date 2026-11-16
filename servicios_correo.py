@@ -9,6 +9,7 @@ import smtplib
 import ssl
 import threading
 import logging
+import requests
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -30,6 +31,7 @@ NOMBRE_REMITENTE = "TWINS Bakery"
 
 def _obtener_configuracion_correo():
     """Obtiene la configuración usando las variables del código o el .env si existe."""
+    brevo_api_key = os.getenv("BREVO_API_KEY", "").strip()
     servidor = os.getenv("MAIL_SERVER", "smtp.gmail.com").strip()
     puerto_raw = os.getenv("MAIL_PORT", "587").strip()
     try:
@@ -51,6 +53,7 @@ def _obtener_configuracion_correo():
         remitente = f"{NOMBRE_REMITENTE} <notificaciones@twinsbakery.com>"
 
     return {
+        "brevo_api_key": brevo_api_key,
         "servidor": servidor,
         "puerto": puerto,
         "usar_tls": usar_tls,
@@ -58,6 +61,40 @@ def _obtener_configuracion_correo():
         "contrasena": contrasena,
         "remitente": remitente,
     }
+
+
+def _enviar_por_brevo_api(destinatario, asunto, cuerpo_html, cuerpo_texto, api_key, remitente_email, remitente_nombre="TWINS Bakery"):
+    """Envía el correo directamente a través de la API REST HTTPS de Brevo (puerto 443)."""
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+        }
+        payload = {
+            "sender": {
+                "name": remitente_nombre,
+                "email": remitente_email,
+            },
+            "to": [{"email": destinatario}],
+            "subject": asunto,
+            "htmlContent": cuerpo_html,
+            "textContent": cuerpo_texto,
+        }
+        respuesta = requests.post(url, json=payload, headers=headers, timeout=12)
+        if respuesta.status_code in (200, 201, 202):
+            logger.info("Correo enviado exitosamente vía Brevo API a %s: %s", destinatario, asunto)
+            print(f"[OK CORREO ENVIADO VIA BREVO API] A: {destinatario} | Asunto: {asunto}", flush=True)
+            return True
+        else:
+            logger.error("Error respuesta Brevo API: %s - %s", respuesta.status_code, respuesta.text)
+            print(f"[ERROR BREVO API] Status {respuesta.status_code}: {respuesta.text}", flush=True)
+            return False
+    except Exception as err_api:
+        logger.exception("Excepción al conectar con Brevo API para %s: %s", destinatario, err_api)
+        print(f"[ERROR BREVO API CONEXION] {err_api}", flush=True)
+        return False
 
 
 def _plantilla_base_html(titulo_cabecera, subtitulo_cabecera, contenido_html):
@@ -115,6 +152,23 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
         return False
 
     config = _obtener_configuracion_correo()
+
+    # Si se configuró la API Key de Brevo, enviar directamente por HTTPS (puerto 443)
+    if config.get("brevo_api_key"):
+        remitente_correo = (
+            config["usuario"]
+            or os.getenv("MAIL_USERNAME")
+            or "jeffersonk20castillo@gmail.com"
+        ).strip()
+        return _enviar_por_brevo_api(
+            destinatario=destinatario,
+            asunto=asunto,
+            cuerpo_html=cuerpo_html,
+            cuerpo_texto=cuerpo_texto,
+            api_key=config["brevo_api_key"],
+            remitente_email=remitente_correo,
+            remitente_nombre=NOMBRE_REMITENTE,
+        )
 
     # Si aún no se configuraron credenciales en el archivo .env
     if not config["usuario"] or not config["contrasena"]:

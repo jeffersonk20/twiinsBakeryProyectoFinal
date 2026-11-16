@@ -34,6 +34,8 @@ services:
         sync: false
       - key: WOMPI_CLIENT_SECRET
         sync: false
+      - key: BREVO_API_KEY
+        sync: false
 
   - type: web
     name: twiins-bakery-admin
@@ -73,4 +75,6 @@ services:
       - key: WOMPI_CLIENT_ID
         sync: false
       - key: WOMPI_CLIENT_SECRET
+        sync: false
+      - key: BREVO_API_KEY
         sync: false

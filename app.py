@@ -4762,8 +4762,6 @@ def registrar_cliente():
 
         conexion.commit()
 
-        print(f"\n[OTP REGISTRO] Código de verificación generado para {correo}: {codigo_otp}\n", flush=True)
-
         # Enviar correo de verificación asíncrono con el código
         try:
             enviar_correo_codigo_verificacion(correo, nombre, codigo_otp)

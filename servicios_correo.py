@@ -26,7 +26,7 @@ logger = logging.getLogger("twins_bakery_correo")
 # ==============================================================================
 CORREO_EMISOR = ""       # Escribe aquí tu correo: "ejemplo@gmail.com"
 PASSWORD_EMISOR = ""     # Escribe aquí la contraseña de aplicación: "abcd efgh ijkl mnop"
-NOMBRE_REMITENTE = "TWINS Bakery"
+NOMBRE_REMITENTE = "TWIINS Bakery"
 
 
 def _obtener_configuracion_correo():
@@ -158,7 +158,7 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
         remitente_correo = (
             config["usuario"]
             or os.getenv("MAIL_USERNAME")
-            or "jeffersonk20castillo@gmail.com"
+            or "twiinsbakery01@gmail.com"
         ).strip()
         return _enviar_por_brevo_api(
             destinatario=destinatario,

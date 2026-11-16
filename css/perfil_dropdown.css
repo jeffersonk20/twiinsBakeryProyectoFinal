@@ -439,7 +439,6 @@
 .detail-nav a.active-tab {
     color: var(--pink, #f23271) !important;
     font-weight: 700;
-    border-bottom: 3px solid var(--pink, #f23271);
 }
 
 /* En resoluciones móviles (max-width: 768px), fijar el Tabnav original en la parte inferior */

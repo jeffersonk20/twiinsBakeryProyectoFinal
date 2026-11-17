@@ -786,10 +786,8 @@ def consultar_estado_enlace_wompi(id_enlace):
         token = obtener_token()
         url = f"{WOMPI_PAYMENT_LINK_URL}/{id_enlace}"
         res = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-        app.logger.info("Wompi EnlacePago GET %s -> Status %s", url, res.status_code)
         if res.ok:
             datos = res.json()
-            app.logger.info("Wompi EnlacePago %s respuesta: %s", id_enlace, datos)
 
             # Desempaquetar si viene envuelto
             if isinstance(datos, dict) and "data" in datos and isinstance(datos["data"], dict):

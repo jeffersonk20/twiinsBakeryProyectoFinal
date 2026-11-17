@@ -16,6 +16,8 @@ from flask import (
 from werkzeug.security import generate_password_hash, check_password_hash
 # pyrefly: ignore[missing-import]
 from conexion import obtener_conexion, SQLiteConnectionWrapper
+# pyrefly: ignore[missing-import]
+from inicializar_bd import inicializar_base_datos
 from dotenv import load_dotenv
 import os
 import re
@@ -333,6 +335,14 @@ try:
     _asegurar_esquema_perfil_y_carrusel()
 except Exception:
     pass
+
+# Inicializar automáticamente las tablas y el admin en la base de datos si no existen
+try:
+    app.logger.info("Verificando e inicializando estructura de la base de datos...")
+    inicializar_base_datos()
+    app.logger.info("Base de datos verificada e inicializada con éxito.")
+except Exception as _err_bd_init:
+    app.logger.warning("Aviso durante la inicialización de la base de datos: %s", _err_bd_init)
 
 
 # Dominios de correo autorizados para evitar correos ficticios

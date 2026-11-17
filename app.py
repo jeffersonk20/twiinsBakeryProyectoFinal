@@ -2851,7 +2851,10 @@ def pago_resultado():
             )
             pago_row = cursor.fetchone()
             if pago_row:
-                conexion.start_transaction()
+                try:
+                    conexion.start_transaction()
+                except Exception:
+                    pass
                 monto_cobrado = Decimal(str(pago_row["monto"])).quantize(Decimal("0.01"))
                 pagado_previo = Decimal(str(pago_row["monto_pagado"] or 0)).quantize(Decimal("0.01"))
                 nuevo_pagado = (pagado_previo + monto_cobrado).quantize(Decimal("0.01"))
@@ -3048,7 +3051,10 @@ def pago_resultado():
             )
             pago_pend = cursor.fetchone()
             if pago_pend:
-                conexion.start_transaction()
+                try:
+                    conexion.start_transaction()
+                except Exception:
+                    pass
                 monto_pagado = Decimal(str(pago_pend["monto"])).quantize(Decimal("0.01"))
                 pagado_previo = Decimal(str(pago_pend["monto_pagado"] or 0)).quantize(Decimal("0.01"))
                 nuevo_pagado = (pagado_previo + monto_pagado).quantize(Decimal("0.01"))

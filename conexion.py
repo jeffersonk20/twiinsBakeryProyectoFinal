@@ -434,10 +434,18 @@ class ConnectionWrapper:
         return self._conn.is_connected()
 
     def start_transaction(self):
-        if hasattr(self._conn, "start_transaction"):
-            self._conn.start_transaction()
-        elif hasattr(self._conn, "begin"):
-            self._conn.begin()
+        try:
+            if hasattr(self._conn, "in_transaction") and self._conn.in_transaction:
+                return
+            if hasattr(self._conn, "start_transaction"):
+                self._conn.start_transaction()
+            elif hasattr(self._conn, "begin"):
+                self._conn.begin()
+        except Exception as e_tx:
+            # Si MySQL Connector reporta que ya hay una transacción activa, ignorar
+            if "already in progress" in str(e_tx).lower():
+                return
+            raise
 
     def __getattr__(self, name):
         return getattr(self._conn, name)
@@ -490,7 +498,7 @@ def obtener_conexion():
     if _verificar_conectividad(db_host, db_port, timeout=connection_timeout):
         conn = _intentar_mysql_connector(config, connection_timeout)
         if conn:
-            return conn
+            return ConnectionWrapper(conn, driver="mysql-connector")
 
         conn = _intentar_pymysql(config)
         if conn:

@@ -4796,7 +4796,7 @@ def registrar_cliente():
     except Exception as e:
         if conexion:
             conexion.rollback()
-        print("Error al registrar cliente:", e)
+        app.logger.error("Error al registrar cliente: %s", e)
         flash(
             "No se pudo completar el registro. Intenta nuevamente.",
             "error"
@@ -4964,7 +4964,7 @@ def verificar_codigo():
     except Exception as e:
         if conexion:
             conexion.rollback()
-        print("Error al verificar código:", e)
+        app.logger.error("Error al verificar código: %s", e)
         msg = "Ocurrió un problema al procesar la verificación. Intenta nuevamente."
         if request.is_json:
             return jsonify({"ok": False, "mensaje": msg}), 500
@@ -5045,7 +5045,7 @@ def reenviar_codigo():
     except Exception as e:
         if conexion:
             conexion.rollback()
-        print("Error al reenviar código:", e)
+        app.logger.error("Error al reenviar código: %s", e)
         return jsonify({
             "ok": False,
             "mensaje": "No se pudo reenviar el código. Intenta nuevamente."
@@ -5152,8 +5152,7 @@ def iniciar_sesion():
         return redirect(url_for("login"))
 
     except Exception as e:
-
-        print("Error al iniciar sesión:", e)
+        app.logger.error("Error al iniciar sesión: %s", e)
 
         flash(
             "Ocurrió un problema al verificar tus datos.",

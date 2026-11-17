@@ -111,7 +111,6 @@ def _migrar_detalle_producto_mysql(cursor):
 
 def _inicializar_sqlite(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis nativa de SQLite."""
-    print("Configurando esquema para SQLite...")
 
     # 1. CLIENTE
     cursor.execute("""
@@ -385,7 +384,6 @@ def _inicializar_sqlite(conexion, cursor):
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
-    print("Configurando esquema para MySQL...")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS CLIENTE (
@@ -657,7 +655,6 @@ def _sembrar_datos_iniciales(cursor):
             """,
             ("Administrador Twins Bakery", "twiinsbakery01@gmail.com", generate_password_hash("bakeryTnt2006")),
         )
-        print(" -> Administrador inicial verificado: twiinsbakery01@gmail.com / clave: bakeryTnt2006")
 
     # 2. Solicitudes de ejemplo para panel administrativo de eventos si está vacía
     cursor.execute("SELECT COUNT(*) FROM SOLICITUD_PLANIFICACION")
@@ -709,7 +706,7 @@ def _sembrar_datos_iniciales(cursor):
                     """,
                     (c_id, tipo, inv, pres, fec, lug, serv, est),
                 )
-        print(" -> Solicitudes iniciales de eventos agregadas según diseño.")
+
 
 
 
@@ -733,25 +730,9 @@ def inicializar_base_datos():
 
         conexion.commit()
 
-        motor = "SQLite local (twins_bakery.db)" if es_sqlite else "MySQL / Aiven"
-        print(f"\n=======================================================")
-        print(f"  ¡Base de datos inicializada correctamente en {motor}!")
-        print(f"=======================================================")
-        print(f"  Tablas creadas y verificadas:")
-        print(f"    - CLIENTE, ADMINISTRADOR, PRODUCTO, RESERVA")
-        print(f"    - DETALLE_RESERVA, PAGO, INVENTARIO, MOVIMIENTO_INVENTARIO")
-        print(f"    - CHAT, MENSAJE, VISTA PASTEL, DASHBOARD")
-        print(f"")
-        print(f"  Acceso Administrador por defecto:")
-        print(f"    - URL:   /admin/login")
-        print(f"    - Email: twiinsbakery01@gmail.com")
-        print(f"    - Clave: bakeryTnt2006")
-        print(f"=======================================================\n")
-
     except Exception as e:
         if conexion:
             conexion.rollback()
-        print(f"\nError al inicializar la base de datos: {e}")
         raise
 
     finally:

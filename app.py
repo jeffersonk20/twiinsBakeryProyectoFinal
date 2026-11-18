@@ -99,7 +99,12 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
 )
+
+@app.before_request
+def _asegurar_sesion_permanente():
+    session.permanent = True
 
 # ==============================================================================
 # INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
@@ -2835,6 +2840,7 @@ def pago_resultado():
                 f"""
                 SELECT p.id_pago, p.id_reserva, p.monto, p.estado, p.referencia,
                        r.codigo, r.total, r.monto_pagado, r.nombre_cliente, r.anticipo_requerido,
+                       r.id_cliente,
                        COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo_cliente
                 FROM PAGO p
                 JOIN RESERVA r ON r.id_reserva = p.id_reserva
@@ -2868,6 +2874,15 @@ def pago_resultado():
                 )
                 conexion.commit()
                 session.pop("pago_wompi_pendiente", None)
+
+                # Garantizar que la sesión del cliente esté activa tras el regreso de Wompi
+                id_cli = pago_row.get("id_cliente") or (pago_pendiente_cliente.get("id_cliente") if pago_pendiente_cliente else None)
+                if id_cli and not session.get("id_cliente"):
+                    session["id_cliente"] = id_cli
+                    if pago_row.get("nombre_cliente"):
+                        session["nombre_cliente"] = pago_row["nombre_cliente"]
+                    if pago_row.get("correo_cliente"):
+                        session["correo_cliente"] = pago_row["correo_cliente"]
 
                 correo_cli = pago_row.get("correo_cliente")
                 if correo_cli:
@@ -3005,6 +3020,15 @@ def pago_resultado():
                         app.logger.warning("No se pudo enviar correo de comprobante de pago: %s", err_p)
 
                 session.pop("intento_reserva", None)
+
+                # Garantizar que la sesión del cliente permanezca activa
+                if intento.get("id_cliente") and not session.get("id_cliente"):
+                    session["id_cliente"] = intento["id_cliente"]
+                    if intento.get("nombre_cliente"):
+                        session["nombre_cliente"] = intento["nombre_cliente"]
+                    if correo_cliente:
+                        session["correo_cliente"] = correo_cliente
+
                 flash("¡Pago con tarjeta completado con éxito! Tu reserva ha sido registrada.", "success")
                 return redirect(url_for("reserva_registrada", codigo=codigo))
 
@@ -3712,7 +3736,10 @@ def api_admin_verificar_pago_wompi(reserva_id):
 
         resultado_wompi = consultar_estado_enlace_wompi(id_enlace)
         if resultado_wompi.get("pagado"):
-            conexion.start_transaction()
+            try:
+                conexion.start_transaction()
+            except Exception:
+                pass
             monto_cobrado = Decimal(str(pago["monto"])).quantize(Decimal("0.01"))
             pagado_actual = Decimal(str(pago["monto_pagado"] or 0)).quantize(Decimal("0.01"))
             nuevo_pagado = (pagado_actual + monto_cobrado).quantize(Decimal("0.01"))

@@ -84,16 +84,13 @@ def _enviar_por_brevo_api(destinatario, asunto, cuerpo_html, cuerpo_texto, api_k
         }
         respuesta = requests.post(url, json=payload, headers=headers, timeout=12)
         if respuesta.status_code in (200, 201, 202):
-            logger.info("Correo enviado exitosamente vía Brevo API a %s: %s", destinatario, asunto)
-            print(f"[OK CORREO ENVIADO VIA BREVO API] A: {destinatario} | Asunto: {asunto}", flush=True)
+            logger.info("Correo enviado exitosamente vía Brevo API.")
             return True
         else:
-            logger.error("Error respuesta Brevo API: %s - %s", respuesta.status_code, respuesta.text)
-            print(f"[ERROR BREVO API] Status {respuesta.status_code}: {respuesta.text}", flush=True)
+            logger.error("Error respuesta Brevo API: %s", respuesta.status_code)
             return False
     except Exception as err_api:
-        logger.exception("Excepción al conectar con Brevo API para %s: %s", destinatario, err_api)
-        print(f"[ERROR BREVO API CONEXION] {err_api}", flush=True)
+        logger.error("Error al conectar con Brevo API.")
         return False
 
 
@@ -172,15 +169,7 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
 
     # Si aún no se configuraron credenciales en el archivo .env
     if not config["usuario"] or not config["contrasena"]:
-        logger.info(
-            "Correo no enviado a %s: MAIL_USERNAME o MAIL_PASSWORD no configurados en .env",
-            destinatario
-        )
-        try:
-            print(f"[TWINS BAKERY - CORREO PENDIENTE DE CONFIGURACION] Destinatario: {destinatario} | Asunto: {asunto}")
-            print("[INFO] Para que este correo llegue a la bandeja de entrada, anade MAIL_USERNAME y MAIL_PASSWORD en tu archivo .env")
-        except Exception:
-            pass
+        logger.warning("Credenciales de correo no configuradas.")
         return False
 
     try:
@@ -214,19 +203,11 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
                 servidor.login(config["usuario"], config["contrasena"])
                 servidor.sendmail(config["usuario"], destinatario, mensaje.as_string())
 
-        logger.info("Correo enviado exitosamente a %s: %s", destinatario, asunto)
-        try:
-            print(f"[OK CORREO ENVIADO] A: {destinatario} | Asunto: {asunto}")
-        except Exception:
-            pass
+        logger.info("Correo enviado exitosamente.")
         return True
 
     except Exception as e:
-        logger.exception("Error al enviar correo a %s: %s", destinatario, str(e))
-        try:
-            print(f"[ERROR CORREO] No se pudo enviar correo a {destinatario}: {e}", flush=True)
-        except Exception:
-            pass
+        logger.error("Error al enviar correo por SMTP.")
         return False
 
 

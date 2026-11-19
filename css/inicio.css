@@ -43,7 +43,7 @@ a { color: inherit; text-decoration: none; }
     font-weight: 800;
     letter-spacing: .06em;
 }
-.brand img { width: 46px; height: 46px; object-fit: contain; }
+.brand img { width: 46px; height: 46px; border-radius: 50%; object-fit: contain; }
 .brand small { display: block; color: var(--teal); font-size: 9px; letter-spacing: .16em; }
 .desktop-nav { display: flex; align-items: center; gap: 36px; color: #52666b; font-size: 13px; }
 .desktop-nav a {

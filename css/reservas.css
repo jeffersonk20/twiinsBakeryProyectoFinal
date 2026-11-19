@@ -85,6 +85,7 @@ button, input { font: inherit; }
 .reservation-form-card { padding: clamp(20px, 3vw, 34px); }
 .reservation-form-card h2 { margin: 0 0 20px; font-size: 19px; letter-spacing: -.03em; }
 .form-row { display: grid; grid-template-columns: .65fr 1fr; gap: 13px; }
+.form-row > .field { align-self: start; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { color: #37565d; font-size: 10px; font-weight: 600; }
 .field input { width: 100%; min-height: 41px; padding: 0 11px; border: 1px solid #eee6e1; border-radius: 8px; outline: none; color: var(--ink); background: #fff; font-size: 11px; }

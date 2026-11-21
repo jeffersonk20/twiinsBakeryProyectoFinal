@@ -1,0 +1,748 @@
+/* ==============================================================================
+   MÓDULO DE FIDELIDAD - CLIENTE - TWIINS BAKERY
+   Diseño fiel a la línea gráfica: Poppins, Playfair Display, #f23271, #153e49
+   ============================================================================== */
+
+:root {
+    --pink: #f23271;
+    --pink-dark: #d91f5b;
+    --pink-light: #fff0f5;
+    --pink-border: #fed7e2;
+    --teal: #20b7b2;
+    --teal-dark: #17938f;
+    --ink: #153e49;
+    --muted: #718187;
+    --cream: #fff8ef;
+    --card-bg: #ffffff;
+    --gold: #f59e0b;
+    --gold-light: #fef3c7;
+    --success: #16a34a;
+}
+
+body {
+    background-color: var(--cream);
+    color: var(--ink);
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.fidelidad-container {
+    max-width: 1200px;
+    margin: 30px auto 60px;
+    padding: 0 20px;
+}
+
+/* ── 1. TARJETA DE PERFIL DEL CLIENTE ── */
+.profile-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 26px 30px;
+    box-shadow: 0 6px 24px rgba(21, 62, 73, 0.06);
+    border: 1px solid #fae8df;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 30px;
+}
+
+.profile-main-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.profile-avatar-wrap {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    border: 3px solid var(--pink);
+    overflow: hidden;
+    background: var(--pink-light);
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.2);
+    flex-shrink: 0;
+}
+
+.profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-details h2 {
+    margin: 0 0 4px;
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.profile-email {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.verified-pill {
+    background: #dcfce7;
+    color: var(--success);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+
+.profile-meta-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.profile-meta-item {
+    background: #faf6f2;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #f2e9e2;
+}
+
+.profile-meta-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.profile-meta-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* ── 2. SECCIÓN PRINCIPAL DEL PROGRAMA DE FIDELIDAD ── */
+.fidelity-hero {
+    background: var(--card-bg);
+    border-radius: 22px;
+    padding: 40px 32px;
+    box-shadow: 0 10px 35px rgba(21, 62, 73, 0.08);
+    border: 1px solid #f6e6dc;
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+}
+
+.fidelity-hero-header .eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .15em;
+    color: var(--pink);
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.fidelity-hero-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    margin: 0 0 10px;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.fidelity-hero-header p.subtitle {
+    max-width: 620px;
+    margin: 0 auto 32px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* ── INDICADOR CIRCULAR CENTRAL DE PROGRESO ── */
+.radial-progress-container {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radial-svg {
+    transform: rotate(-90deg);
+    width: 260px;
+    height: 260px;
+}
+
+.radial-track {
+    fill: none;
+    stroke: #f1eae4;
+    stroke-width: 14;
+}
+
+.radial-fill {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+}
+
+/* Colores atenuados / opacos cuando tiene menos de 50 puntos */
+.state-muted .radial-fill {
+    stroke: #d1b5c2;
+}
+
+.state-muted .progress-points-val {
+    color: #8c7682;
+}
+
+.state-muted .cake-center-icon {
+    filter: grayscale(40%) opacity(0.85);
+}
+
+/* Colores llamativos y vivos cuando alcanza o supera 50 puntos */
+.state-unlocked .radial-fill {
+    stroke: url(#vibrantGradient);
+}
+
+.state-unlocked .progress-points-val {
+    color: var(--pink);
+    text-shadow: 0 2px 10px rgba(242, 50, 113, 0.25);
+}
+
+.state-unlocked .radial-progress-container::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    box-shadow: 0 0 35px rgba(242, 50, 113, 0.25);
+    pointer-events: none;
+    animation: pulseRing 3s infinite ease-in-out;
+}
+
+@keyframes pulseRing {
+    0%, 100% { opacity: 0.3; transform: scale(0.98); }
+    50% { opacity: 0.7; transform: scale(1.02); }
+}
+
+.radial-content {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.cake-center-icon {
+    font-size: 38px;
+    line-height: 1;
+    margin-bottom: 4px;
+    transition: transform 0.3s ease;
+}
+
+.cake-center-icon:hover {
+    transform: scale(1.15) rotate(-5deg);
+}
+
+.progress-points-val {
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-family: 'Poppins', sans-serif;
+    transition: color 0.4s ease;
+}
+
+.progress-points-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--ink);
+    margin-top: 4px;
+}
+
+.progress-target-info {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* ── MENSAJE MOTIVACIONAL Y DE ELEGIBILIDAD ── */
+.loyalty-banner-message {
+    max-width: 660px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    border-radius: 14px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    transition: all 0.4s ease;
+}
+
+.state-muted .loyalty-banner-message {
+    background: #fbf7f4;
+    border: 1px dashed #e4d7cf;
+    color: #66757b;
+}
+
+.state-unlocked .loyalty-banner-message {
+    background: linear-gradient(135deg, #fff0f5 0%, #fff8e7 100%);
+    border: 1.5px solid var(--pink-border);
+    color: #9d174d;
+    font-weight: 500;
+    box-shadow: 0 4px 18px rgba(242, 50, 113, 0.12);
+}
+
+.loyalty-banner-message strong {
+    color: var(--pink-dark);
+}
+
+/* ── 3. VITRINA DE CANJE (PRODUCTOS CANJEABLES) ── */
+.canje-section {
+    margin-bottom: 50px;
+}
+
+.section-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.section-title-wrap h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    margin: 0;
+    color: var(--ink);
+}
+
+.section-title-wrap p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.products-canje-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 22px;
+}
+
+.canje-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    border: 1px solid #f3e5dc;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(21, 62, 73, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    position: relative;
+}
+
+.canje-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(21, 62, 73, 0.1);
+}
+
+.canje-card-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--pink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(242, 50, 113, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+}
+
+.canje-card-media {
+    width: 100%;
+    height: 175px;
+    background: #fbf5ef;
+    position: relative;
+    overflow: hidden;
+}
+
+.canje-card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.canje-card:hover .canje-card-media img {
+    transform: scale(1.05);
+}
+
+.canje-media-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #e5d8cf;
+}
+
+.canje-card-body {
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.canje-card-cat {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.canje-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 19px;
+    margin: 0 0 8px;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.canje-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin: 0 0 16px;
+    flex-grow: 1;
+}
+
+.canje-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #f6eee8;
+    padding-top: 14px;
+}
+
+.canje-cost {
+    display: flex;
+    flex-direction: column;
+}
+
+.canje-cost-num {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--pink-dark);
+}
+
+.canje-cost-label {
+    font-size: 9.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+
+.btn-canjear-action {
+    background: var(--pink);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-canjear-action:hover:not(:disabled) {
+    background: var(--pink-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.3);
+}
+
+.btn-canjear-action:disabled {
+    background: #e2d9d4;
+    color: #8c827c;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ── 4. HISTORIAL DE MOVIMIENTOS DE FIDELIDAD ── */
+.history-section {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 6px 24px rgba(21, 62, 73, 0.06);
+    border: 1px solid #f2e4dc;
+}
+
+.history-table-wrap {
+    overflow-x: auto;
+    margin-top: 16px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+}
+
+.history-table th {
+    padding: 12px 14px;
+    background: #faf5f0;
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom: 2px solid #eddcd2;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.history-table td {
+    padding: 14px;
+    border-bottom: 1px solid #f6eee8;
+    color: var(--ink);
+}
+
+.history-table tr:hover td {
+    background: #fffcf9;
+}
+
+.pts-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.pts-badge.pts-add {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.pts-badge.pts-sub {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.history-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+}
+
+.history-empty-icon {
+    font-size: 42px;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* ── 5. MODALES INTERACTIVOS (CONFIRMACIÓN Y DETALLE DE CANJE) ── */
+.fidelity-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(18, 63, 73, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.fidelity-modal-overlay.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.fidelity-modal-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 32px 30px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.2);
+    position: relative;
+    transform: translateY(20px);
+    transition: transform 0.25s ease;
+}
+
+.fidelity-modal-overlay.is-visible .fidelity-modal-card {
+    transform: translateY(0);
+}
+
+.modal-header-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.modal-header-icon.confirm-icon {
+    background: #fff0f5;
+    color: var(--pink);
+}
+
+.modal-header-icon.success-icon {
+    background: #dcfce7;
+    color: var(--success);
+}
+
+.modal-header-icon.error-icon {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.fidelity-modal-card h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    margin: 0 0 10px;
+    text-align: center;
+    color: var(--ink);
+}
+
+.fidelity-modal-card p.modal-desc {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+    text-align: center;
+    margin: 0 0 20px;
+}
+
+.canje-summary-box {
+    background: #faf6f2;
+    border-radius: 14px;
+    border: 1px solid #eedfd4;
+    padding: 16px;
+    margin-bottom: 22px;
+}
+
+.canje-summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e7d8cd;
+}
+
+.canje-summary-row:last-child {
+    border-bottom: none;
+    font-weight: 700;
+    color: var(--pink-dark);
+}
+
+.canje-summary-label {
+    color: var(--muted);
+}
+
+.canje-summary-val {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.modal-form-field {
+    margin-bottom: 18px;
+    text-align: left;
+}
+
+.modal-form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+}
+
+.modal-form-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d8ccc4;
+    font-family: inherit;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.modal-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.modal-btn-cancel {
+    background: #f0e6df;
+    color: var(--ink);
+}
+
+.modal-btn-cancel:hover {
+    background: #e3d7cf;
+}
+
+.modal-btn-confirm {
+    background: var(--pink);
+    color: #fff;
+}
+
+.modal-btn-confirm:hover {
+    background: var(--pink-dark);
+}
+
+@media (max-width: 768px) {
+    .profile-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .radial-progress-container {
+        width: 220px;
+        height: 220px;
+    }
+    .radial-svg {
+        width: 220px;
+        height: 220px;
+    }
+    .progress-points-val {
+        font-size: 38px;
+    }
+}

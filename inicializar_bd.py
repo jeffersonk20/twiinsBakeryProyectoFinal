@@ -381,6 +381,123 @@ def _inicializar_sqlite(conexion, cursor):
     except Exception:
         pass
 
+    # 17. PROGRAMA DE FIDELIDAD (SQLite)
+    # Columnas en CLIENTE
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN puntos_fidelidad INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+
+    # Columnas en PRODUCTO
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN canjeable_puntos BOOLEAN NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN puntos_canje INT NULL DEFAULT 50;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN genera_puntos BOOLEAN NOT NULL DEFAULT 1;")
+    except Exception:
+        pass
+
+    # Columnas en RESERVA
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN es_canje_fidelidad BOOLEAN NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN puntos_usados INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN puntos_otorgados INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN fecha_puntos TIMESTAMP NULL;")
+    except Exception:
+        pass
+
+    # Tabla HISTORIAL_PUNTOS
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS HISTORIAL_PUNTOS (
+        id_historial INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_cliente INT NOT NULL,
+        id_reserva INT NULL,
+        tipo TEXT NOT NULL DEFAULT 'ACUMULACION',
+        puntos INT NOT NULL,
+        descripcion TEXT NOT NULL DEFAULT '',
+        saldo_resultante INT NOT NULL,
+        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        motivo TEXT NULL,
+        tipo_movimiento TEXT NULL,
+        id_producto INT NULL,
+        FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE SET NULL
+    );
+    """)
+    # Columnas de compatibilidad en caso de que la tabla ya existiera previamente
+    for col_alter in [
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN tipo TEXT NOT NULL DEFAULT 'ACUMULACION';",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN descripcion TEXT NULL;",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN motivo TEXT NULL;",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN tipo_movimiento TEXT NULL;",
+        "ALTER TABLE HISTORIAL_PUNTOS ADD COLUMN id_producto INT NULL;"
+    ]:
+        try:
+            cursor.execute(col_alter)
+        except Exception:
+            pass
+
+    # Tabla CANJE_FIDELIDAD
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CANJE_FIDELIDAD (
+        id_canje INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_cliente INT NOT NULL,
+        id_producto INT NOT NULL,
+        id_reserva INT NOT NULL,
+        puntos_usados INT NOT NULL,
+        fecha_canje TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        estado TEXT NOT NULL DEFAULT 'SOLICITADO',
+        fecha_entrega TIMESTAMP NULL,
+        FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        FOREIGN KEY (id_producto) REFERENCES PRODUCTO(id_producto) ON DELETE CASCADE,
+        FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE
+    );
+    """)
+
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_historial_cliente ON HISTORIAL_PUNTOS (id_cliente);")
+    except Exception:
+        pass
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_historial_fecha ON HISTORIAL_PUNTOS (fecha);")
+    except Exception:
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_historial_fecha ON HISTORIAL_PUNTOS (fecha_registro);")
+        except Exception:
+            pass
+
+    # Tabla CONFIGURACION_FIDELIDAD
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CONFIGURACION_FIDELIDAD (
+        id INTEGER PRIMARY KEY,
+        puntos_por_dolar INT NOT NULL DEFAULT 1,
+        meta_minima_canje INT NOT NULL DEFAULT 50,
+        programa_activo BOOLEAN NOT NULL DEFAULT 1,
+        fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("""
+    INSERT OR IGNORE INTO CONFIGURACION_FIDELIDAD (id, puntos_por_dolar, meta_minima_canje, programa_activo)
+    VALUES (1, 1, 50, 1);
+    """)
+
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
@@ -639,6 +756,97 @@ def _inicializar_mysql(conexion, cursor):
     ) ENGINE=InnoDB;
     """)
 
+    # 17. PROGRAMA DE FIDELIDAD (MySQL)
+    # Columnas en CLIENTE
+    try:
+        cursor.execute("ALTER TABLE CLIENTE ADD COLUMN puntos_fidelidad INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+
+    # Columnas en PRODUCTO
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN canjeable_puntos BOOLEAN NOT NULL DEFAULT FALSE;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN puntos_canje INT NULL DEFAULT 50;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN genera_puntos BOOLEAN NOT NULL DEFAULT TRUE;")
+    except Exception:
+        pass
+
+    # Columnas en RESERVA
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN es_canje_fidelidad BOOLEAN NOT NULL DEFAULT FALSE;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN puntos_usados INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN puntos_otorgados INT NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE RESERVA ADD COLUMN fecha_puntos DATETIME NULL;")
+    except Exception:
+        pass
+
+    # Tabla HISTORIAL_PUNTOS
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS HISTORIAL_PUNTOS (
+        id_historial INT AUTO_INCREMENT PRIMARY KEY,
+        id_cliente INT NOT NULL,
+        id_reserva INT NULL,
+        tipo VARCHAR(40) NOT NULL DEFAULT 'ACUMULACION',
+        puntos INT NOT NULL,
+        descripcion VARCHAR(255) NOT NULL DEFAULT '',
+        saldo_resultante INT NOT NULL,
+        fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+        fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+        motivo VARCHAR(255) NULL,
+        tipo_movimiento VARCHAR(40) NULL,
+        id_producto INT NULL,
+        INDEX idx_historial_cliente (id_cliente),
+        INDEX idx_historial_fecha (fecha),
+        CONSTRAINT fk_historial_cliente FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        CONSTRAINT fk_historial_reserva FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE SET NULL
+    ) ENGINE=InnoDB;
+    """)
+
+    # Tabla CANJE_FIDELIDAD
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CANJE_FIDELIDAD (
+        id_canje INT AUTO_INCREMENT PRIMARY KEY,
+        id_cliente INT NOT NULL,
+        id_producto INT NOT NULL,
+        id_reserva INT NOT NULL,
+        puntos_usados INT NOT NULL,
+        fecha_canje DATETIME DEFAULT CURRENT_TIMESTAMP,
+        estado VARCHAR(30) NOT NULL DEFAULT 'SOLICITADO',
+        fecha_entrega DATETIME NULL,
+        INDEX idx_canje_cliente (id_cliente),
+        INDEX idx_canje_reserva (id_reserva),
+        CONSTRAINT fk_canje_cliente FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente) ON DELETE CASCADE,
+        CONSTRAINT fk_canje_producto FOREIGN KEY (id_producto) REFERENCES PRODUCTO(id_producto) ON DELETE CASCADE,
+        CONSTRAINT fk_canje_reserva FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+    """)
+
+    # Tabla CONFIGURACION_FIDELIDAD
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS CONFIGURACION_FIDELIDAD (
+        id INT PRIMARY KEY,
+        puntos_por_dolar INT NOT NULL DEFAULT 1,
+        meta_minima_canje INT NOT NULL DEFAULT 50,
+        programa_activo BOOLEAN NOT NULL DEFAULT TRUE,
+        fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+    """)
+
 
 def _sembrar_datos_iniciales(cursor):
     """Inserta el administrador por defecto y datos iniciales de solicitudes si no existen."""
@@ -706,6 +914,21 @@ def _sembrar_datos_iniciales(cursor):
                     """,
                     (c_id, tipo, inv, pres, fec, lug, serv, est),
                 )
+
+    # 3. Configuración inicial de Fidelidad
+    try:
+        cursor.execute("SELECT COUNT(*) FROM CONFIGURACION_FIDELIDAD WHERE id = 1")
+        fila_cfg = cursor.fetchone()
+        conteo_cfg = fila_cfg[0] if isinstance(fila_cfg, (list, tuple)) else fila_cfg.get("COUNT(*)", 0)
+        if conteo_cfg == 0:
+            cursor.execute(
+                """
+                INSERT INTO CONFIGURACION_FIDELIDAD (id, puntos_por_dolar, meta_minima_canje, programa_activo)
+                VALUES (1, 1, 50, 1)
+                """
+            )
+    except Exception:
+        pass
 
 
 

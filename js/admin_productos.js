@@ -36,6 +36,9 @@
         formData.append("stock", String(producto.stock));
         formData.append("disponible", String(producto.disponible));
         formData.append("en_vitrina", String(producto.en_vitrina));
+        formData.append("canjeable_puntos", String(producto.canjeable_puntos));
+        formData.append("puntos_canje", String(producto.puntos_canje));
+        formData.append("genera_puntos", String(producto.genera_puntos));
         if (imageFile) formData.append("imagen", imageFile);
 
         const isEditing = Boolean(producto.id);
@@ -91,7 +94,7 @@
             <td>${window.ProductStore.escapeHtml(product.categoria || "Sin categoría")}</td>
             <td>${window.ProductStore.formatPrice(product.precio)}</td>
             <td>${product.stock}</td>
-            <td>${product.en_vitrina ? '<span class="status available">Sí</span>' : '<span class="status unavailable">No</span>'}</td>
+            <td>${product.en_vitrina ? '<span class="status available">Sí</span>' : '<span class="status unavailable">No</span>'}${product.canjeable_puntos ? `<br><small style="color:#db2777;font-weight:600;display:inline-block;margin-top:4px;">🎁 ${product.puntos_canje || 50} pts</small>` : ''}</td>
             <td><span class="status ${product.disponible && product.stock > 0 && product.categoria && product.tiene_imagen ? "available" : "unavailable"}">${product.stock === 0 || !product.disponible ? "Agotado" : product.categoria && product.tiene_imagen ? "Activo" : "Completar"}</span></td>
             <td><div class="row-actions"><button type="button" data-edit="${product.id}">Editar</button><button class="delete-action" type="button" data-delete="${product.id}">Eliminar</button></div></td>
         </tr>`).join("");
@@ -120,6 +123,11 @@
         imageError.hidden = true;
         message.hidden = true;
         setPreview("");
+        if (form.elements.canjeable_puntos) form.elements.canjeable_puntos.checked = false;
+        if (form.elements.puntos_canje) form.elements.puntos_canje.value = 50;
+        if (form.elements.genera_puntos) form.elements.genera_puntos.checked = true;
+        const fieldCanje = document.getElementById("field-puntos-canje");
+        if (fieldCanje) fieldCanje.style.display = "none";
     }
 
     function editProduct(id) {
@@ -136,6 +144,19 @@
         form.elements.stock.value = product.stock;
         form.elements.disponible.value = String(product.disponible);
         form.elements.en_vitrina.checked = Boolean(product.en_vitrina);
+        if (form.elements.canjeable_puntos) {
+            form.elements.canjeable_puntos.checked = Boolean(product.canjeable_puntos);
+        }
+        if (form.elements.puntos_canje) {
+            form.elements.puntos_canje.value = product.puntos_canje || 50;
+        }
+        if (form.elements.genera_puntos) {
+            form.elements.genera_puntos.checked = product.genera_puntos !== undefined ? Boolean(product.genera_puntos) : true;
+        }
+        const fieldCanje = document.getElementById("field-puntos-canje");
+        if (fieldCanje) {
+            fieldCanje.style.display = product.canjeable_puntos ? "block" : "none";
+        }
         fileInput.value = "";
         fileInput.required = !product.tiene_imagen;
         document.querySelector("[data-form-heading]").textContent = "Editar producto";
@@ -180,6 +201,17 @@
             return;
         }
 
+        const canjeable = form.elements.canjeable_puntos ? form.elements.canjeable_puntos.checked : false;
+        let puntosCanje = 50;
+        if (canjeable) {
+            puntosCanje = Number(form.elements.puntos_canje ? form.elements.puntos_canje.value : 50);
+            if (puntosCanje < 50) {
+                showMessage("La cantidad mínima para configurar un producto canjeable es de 50 puntos.", true);
+                return;
+            }
+        }
+        const generaPuntos = form.elements.genera_puntos ? form.elements.genera_puntos.checked : true;
+
         const producto = {
             id: form.elements.id.value,
             nombre: form.elements.nombre.value.trim(),
@@ -188,7 +220,10 @@
             descripcion: form.elements.descripcion.value.trim(),
             stock: Number(form.elements.stock.value),
             disponible: form.elements.disponible.value === "true",
-            en_vitrina: form.elements.en_vitrina.checked
+            en_vitrina: form.elements.en_vitrina.checked,
+            canjeable_puntos: canjeable,
+            puntos_canje: puntosCanje,
+            genera_puntos: generaPuntos
         };
         const saveButton = document.querySelector("[data-save-button]");
         saveButton.disabled = true;
@@ -236,6 +271,34 @@
     document.querySelectorAll("[data-reset-form]").forEach((button) => {
         button.addEventListener("click", resetForm);
     });
+
+    const inputCanjeable = document.getElementById("input-canjeable-puntos");
+    const fieldPuntosCanje = document.getElementById("field-puntos-canje");
+    if (inputCanjeable && fieldPuntosCanje) {
+        inputCanjeable.addEventListener("change", () => {
+            fieldPuntosCanje.style.display = inputCanjeable.checked ? "block" : "none";
+            const numInput = document.getElementById("product-puntos-canje");
+            if (numInput) {
+                numInput.required = inputCanjeable.checked;
+                if (inputCanjeable.checked && (!numInput.value || Number(numInput.value) < 50)) {
+                    numInput.value = 50;
+                }
+            }
+        });
+    }
+
+    const categorySelect = document.getElementById("product-category");
+    const generaCheck = document.getElementById("input-genera-puntos");
+    if (categorySelect && generaCheck) {
+        categorySelect.addEventListener("change", () => {
+            if (categorySelect.value === "Bebidas" || categorySelect.value === "Eventos") {
+                // Por regla del negocio, las bebidas individuales y eventos no acumulan puntos por defecto
+                generaCheck.checked = false;
+            } else {
+                generaCheck.checked = true;
+            }
+        });
+    }
 
     resetForm();
     loadProducts();

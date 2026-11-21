@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Puntos | TWIINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-fidelidad data-section="historial" data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR PERSISTENTE E INMUTABLE ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWIINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a class="active active-tab" href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" id="adminLogoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="button" id="btnAdminLogout" class="admin-logout-trigger">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL: HISTORIAL DE PUNTOS ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWIINS Bakery · Módulo de Fidelidad</p>
+                    <h1>Historial de Puntos</h1>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a class="catalog-link primary" href="{{ url_for('admin_fidelidad_canjes') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">🎁 Ver Canjes</a>
+                    <a class="catalog-link" href="{{ url_for('admin_fidelidad') }}">← Volver al Panel Fidelidad</a>
+                </div>
+            </header>
+
+            <!-- ── NAVEGACIÓN INDEPENDIENTE ENTRE SECCIONES DE FIDELIDAD ── -->
+            <nav class="fidelidad-subnav" aria-label="Secciones de Fidelidad">
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad') }}">📊 Resumen General</a>
+                <a class="subnav-tab active" href="{{ url_for('admin_fidelidad_historial') }}">📜 Historial de Puntos</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_canjes') }}">🎁 Canjes de Fidelidad</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_configuracion') }}">⚙ Configuración de Fidelidad</a>
+            </nav>
+
+            <section class="reservations-panel">
+                <div class="list-heading">
+                    <div>
+                        <p class="eyebrow">Auditoría del Programa</p>
+                        <h2>Movimientos de puntos de todos los clientes</h2>
+                    </div>
+                    <div class="filters">
+                        <label class="search-field">
+                            <span aria-hidden="true">⌕</span>
+                            <input type="search" id="historialSearchInput" placeholder="Buscar cliente, correo o pedido..." aria-label="Buscar en historial">
+                        </label>
+                        <select id="historialTipoFilter" aria-label="Filtrar por tipo de movimiento">
+                            <option value="">Todos los movimientos</option>
+                            <option value="ACUMULACION">Acumulaciones (+ puntos)</option>
+                            <option value="CANJE">Canjes (- puntos)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Fecha y hora</th>
+                                <th>Motivo / Operación</th>
+                                <th>Puntos</th>
+                                <th>Saldo resultante</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialAllTableBody">
+                            <tr><td colspan="5" style="text-align:center;padding:24px;">Cargando historial de puntos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <p class="admin-footnote" style="margin-top: 24px;">Este historial registra con absoluta transparencia cada punto otorgado por reservas liquidadas y cada punto descontado por canjes.</p>
+        </main>
+    </div>
+
+    <!-- Modal Logout Admin -->
+    <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="admin-logout-modal-card">
+            <div class="admin-logout-icon">🔒</div>
+            <h3>¿Estás seguro de cerrar sesión?</h3>
+            <p>Se cerrará tu sesión administrativa.</p>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-modal-btn admin-modal-cancel" id="btnAdminLogoutCancel">NO</button>
+                <button type="button" class="admin-modal-btn admin-modal-confirm" id="btnAdminLogoutConfirm">SÍ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_fidelidad.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

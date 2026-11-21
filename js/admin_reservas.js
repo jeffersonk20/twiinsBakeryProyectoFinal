@@ -173,7 +173,12 @@
                 : "Confirmar reserva tras recibir el anticipo en tienda y avisar al cliente";
 
             return `<tr>
-                <td><div class="reservation-id"><strong>${escapeHtml(reservation.codigo)}</strong><span>${escapeHtml(reservation.cliente)}</span><span>${escapeHtml(reservation.correo)}</span></div></td>
+                <td><div class="reservation-id">
+                    <strong>${escapeHtml(reservation.codigo)}</strong>
+                    ${reservation.es_canje_fidelidad ? `<span style="background:#fdf2f8;color:#db2777;border:1px solid #fbcfe8;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;display:inline-block;margin:2px 0;">🎁 Canje Fidelidad (-${reservation.puntos_usados || 0} pts)</span>` : ''}
+                    <span>${escapeHtml(reservation.cliente)}</span>
+                    <span>${escapeHtml(reservation.correo)}</span>
+                </div></td>
                 <td><div class="product-cell"><strong>${escapeHtml(reservation.producto)}</strong><span>${reservation.cantidad} unidad(es) · ${formatPrice(reservation.precio_unitario)} c/u</span></div></td>
                 <td>${displayDate(reservation.fecha_retiro)}</td>
                 <td><div class="amount-cell">

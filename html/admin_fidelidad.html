@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Fidelidad | TWIINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-fidelidad data-section="dashboard" data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR PERSISTENTE E INMUTABLE ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWIINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a class="active active-tab" href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" id="adminLogoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="button" id="btnAdminLogout" class="admin-logout-trigger">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL: FIDELIDAD DASHBOARD ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWIINS Bakery · Panel administrativo</p>
+                    <h1>Programa de Fidelidad</h1>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a class="catalog-link primary" href="{{ url_for('admin_fidelidad_canjes') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">🎁 Ver Canjes</a>
+                    <a class="catalog-link" href="{{ url_for('admin_fidelidad_configuracion') }}">⚙ Configurar Fidelidad</a>
+                </div>
+            </header>
+
+            <!-- ── NAVEGACIÓN INDEPENDIENTE ENTRE SECCIONES DE FIDELIDAD ── -->
+            <nav class="fidelidad-subnav" aria-label="Secciones de Fidelidad">
+                <a class="subnav-tab active" href="{{ url_for('admin_fidelidad') }}">📊 Resumen General</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_historial') }}">📜 Historial de Puntos</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_canjes') }}">🎁 Canjes de Fidelidad</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_configuracion') }}">⚙ Configuración de Fidelidad</a>
+            </nav>
+
+            <!-- ── TARJETAS DE ESTADÍSTICAS GENERALES ── -->
+            <section class="summary-grid" aria-label="Estadísticas de Fidelidad">
+                <article class="summary-card">
+                    <span>Puntos emitidos</span>
+                    <strong>{{ stats.total_puntos_emitidos or 0 }}</strong>
+                    <small>Puntos ganados por compras</small>
+                </article>
+                <article class="summary-card pending">
+                    <span>Puntos canjeados</span>
+                    <strong style="color: var(--pink);">{{ stats.total_puntos_canjeados or 0 }}</strong>
+                    <small>Utilizados en postres</small>
+                </article>
+                <article class="summary-card confirmed">
+                    <span>Canjes realizados</span>
+                    <strong>{{ stats.total_canjes or 0 }}</strong>
+                    <small>{{ stats.canjes_pendientes or 0 }} pendientes de entrega</small>
+                </article>
+                <article class="summary-card ready">
+                    <span>Clientes con puntos</span>
+                    <strong>{{ stats.clientes_con_puntos or 0 }}</strong>
+                    <small>Participando en el programa</small>
+                </article>
+            </section>
+
+            <!-- ── ACCESOS RÁPIDOS A LAS PANTALLAS INDEPENDIENTES ── -->
+            <section class="fidelidad-quick-grid" aria-label="Accesos directos">
+                <a href="{{ url_for('admin_fidelidad_historial') }}" class="quick-card">
+                    <span class="quick-card-icon">📜</span>
+                    <h3>Historial de Puntos</h3>
+                    <p>Audita cada movimiento de acumulación y descuento de puntos de todos los clientes con fecha, pedido y saldo.</p>
+                    <span class="quick-card-cta">Consultar historial completo ↗</span>
+                </a>
+                <a href="{{ url_for('admin_fidelidad_canjes') }}" class="quick-card">
+                    <span class="quick-card-icon">🎁</span>
+                    <h3>Canjes de Fidelidad</h3>
+                    <p>Administra exclusivamente los pedidos especiales generados por canjes de postres y actualiza su estado de entrega.</p>
+                    <span class="quick-card-cta">Gestionar órdenes de canje ↗</span>
+                </a>
+                <a href="{{ url_for('admin_fidelidad_configuracion') }}" class="quick-card">
+                    <span class="quick-card-icon">⚙</span>
+                    <h3>Configuración de Fidelidad</h3>
+                    <p>Ajusta el valor por dólar, la meta mínima de canje y los productos habilitados para canjear y generar puntos.</p>
+                    <span class="quick-card-cta">Modificar reglas y productos ↗</span>
+                </a>
+            </section>
+
+            <!-- ── RESUMEN RECIENTE DE ACTIVIDAD ── -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+                <!-- Últimos Canjes -->
+                <section class="reservations-panel" style="padding: 22px;">
+                    <div class="list-heading" style="margin-bottom: 14px;">
+                        <div>
+                            <p class="eyebrow">Órdenes especiales</p>
+                            <h2 style="font-size: 16px;">Últimos canjes solicitados</h2>
+                        </div>
+                        <a href="{{ url_for('admin_fidelidad_canjes') }}" style="font-size: 12px; color: var(--pink); font-weight: 600; text-decoration: none;">Ver todos</a>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Cliente</th>
+                                    <th>Producto</th>
+                                    <th>Puntos</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if ultimos_canjes %}
+                                    {% for c in ultimos_canjes %}
+                                    <tr>
+                                        <td><span class="badge-canje-fidelidad">🎁 {{ c.codigo }}</span></td>
+                                        <td><strong>{{ c.cliente }}</strong></td>
+                                        <td>{{ c.producto }}</td>
+                                        <td><span class="badge-pts-loss">-{{ c.puntos_usados }} pts</span></td>
+                                        <td><span class="status-pill {% if c.estado == 'ENTREGADA' %}delivered{% elif c.estado == 'LISTA' %}ready{% else %}confirmed{% endif %}">{{ c.estado }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--admin-muted);">No hay canjes recientes registrados.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Últimos Movimientos -->
+                <section class="reservations-panel" style="padding: 22px;">
+                    <div class="list-heading" style="margin-bottom: 14px;">
+                        <div>
+                            <p class="eyebrow">Movimientos del programa</p>
+                            <h2 style="font-size: 16px;">Últimos puntos otorgados</h2>
+                        </div>
+                        <a href="{{ url_for('admin_fidelidad_historial') }}" style="font-size: 12px; color: var(--pink); font-weight: 600; text-decoration: none;">Ver historial</a>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Concepto</th>
+                                    <th>Puntos</th>
+                                    <th>Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if ultimos_movimientos %}
+                                    {% for m in ultimos_movimientos %}
+                                    <tr>
+                                        <td><strong>{{ m.cliente }}</strong></td>
+                                        <td><small>{{ m.motivo }}</small></td>
+                                        <td>
+                                            {% if m.puntos > 0 %}
+                                            <span class="badge-pts-gain">+{{ m.puntos }} pts</span>
+                                            {% else %}
+                                            <span class="badge-pts-loss">{{ m.puntos }} pts</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><strong>{{ m.saldo_resultante }} pts</strong></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--admin-muted);">No hay movimientos de puntos todavía.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <p class="admin-footnote" style="margin-top: 30px;">El programa de fidelidad de TWIINS Bakery acredita 1 punto por cada $1 dólar gastado al liquidar completamente el pedido.</p>
+        </main>
+    </div>
+
+    <!-- Modal Logout Admin -->
+    <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="admin-logout-modal-card">
+            <div class="admin-logout-icon">🔒</div>
+            <h3>¿Estás seguro de cerrar sesión?</h3>
+            <p>Se cerrará tu sesión administrativa.</p>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-modal-btn admin-modal-cancel" id="btnAdminLogoutCancel">NO</button>
+                <button type="button" class="admin-modal-btn admin-modal-confirm" id="btnAdminLogoutConfirm">SÍ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_fidelidad.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

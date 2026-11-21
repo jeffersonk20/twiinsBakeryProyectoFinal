@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Programa de Fidelidad de TWIINS Bakery. Acumula puntos con tus compras y canjea exquisitos postres artesanales.">
+    <title>Programa de Fidelidad | TWIINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/inicio.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- ── HEADER DE NAVEGACIÓN PRINCIPAL ── -->
+    <header class="catalog-header site-header">
+        <a class="brand" href="{{ url_for('inicio') }}" aria-label="TWIINS Bakery, inicio">
+            <img src="/static/img/logo.png" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+            <span>TWIINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            <a href="{{ url_for('inicio') }}">Inicio</a>
+            <a href="{{ url_for('catalogo') }}">Catálogo</a>
+            <a href="{{ url_for('vitrina') }}">Vitrina</a>
+            <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
+            <a href="{{ url_for('eventos') }}">Eventos</a>
+            <a href="{{ url_for('chat_general') }}">Chat</a>
+            <a class="active active-tab" href="{{ url_for('fidelidad') }}">Fidelidad</a>
+        </nav>
+        {% if session.get('id_cliente') %}
+        <div class="user-profile-menu" id="userProfileMenu">
+            <button type="button" class="profile-toggle-btn" id="profileToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Menú de perfil">
+                <div class="avatar-circle" id="headerAvatarContainer">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
+                </div>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar-wrap" id="dropdownAvatarTrigger" title="Haz clic para cambiar foto">
+                        <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="dropdown-avatar-img" id="dropdownAvatarImg" onerror="this.src='/img/logo.png'">
+                        <span class="avatar-edit-badge">Cambiar</span>
+                    </div>
+                    <span class="avatar-upload-hint" id="avatarUploadHint">Cambiar foto de perfil</span>
+                    <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" aria-label="Subir foto de perfil">
+                    <div class="dropdown-user-info">
+                        <strong>{{ session.get('nombre_cliente', 'Cliente') }}</strong>
+                        <small>{{ session.get('correo_cliente', '') }}</small>
+                    </div>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item" id="btnCerrarSesionPerfil">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Cerrar sesión</span>
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <a class="header-action" href="{{ url_for('catalogo') }}">Ver catálogo <span aria-hidden="true">→</span></a>
+        {% endif %}
+    </header>
+
+    <main class="fidelidad-container" id="fidelidadRoot" data-puntos="{{ cliente.puntos_fidelidad or 0 }}" data-meta-minima="50" data-csrf-token="{{ csrf_token }}">
+        
+        <!-- ── 1. INFORMACIÓN DEL PERFIL DEL CLIENTE ── -->
+        <section class="profile-card" aria-label="Información de perfil">
+            <div class="profile-main-info">
+                <div class="profile-avatar-wrap">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="{{ cliente.nombre }}" class="profile-avatar-img" onerror="this.src='/img/logo.png'">
+                </div>
+                <div class="profile-details">
+                    <h2>{{ cliente.nombre }}</h2>
+                    <p class="profile-email">
+                        <span>{{ cliente.correo }}</span>
+                        {% if cliente.correo_verificado %}
+                        <span class="verified-pill">✓ Verificado</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="profile-meta-grid">
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Teléfono</span>
+                    <span class="profile-meta-value">{{ cliente.telefono or 'No registrado' }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Miembro desde</span>
+                    <span class="profile-meta-value">{{ cliente.fecha_registro or '2026' }}</span>
+                </div>
+                <div class="profile-meta-item">
+                    <span class="profile-meta-label">Nivel de fidelidad</span>
+                    <span class="profile-meta-value" style="color: var(--pink);">{% if cliente.puntos_fidelidad >= 50 %}★ Cliente Distinguido{% else %}Cliente Dulce{% endif %}</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── 2. SECCIÓN PRINCIPAL DEL PROGRAMA DE FIDELIDAD ── -->
+        <section class="fidelity-hero {% if cliente.puntos_fidelidad >= 50 %}state-unlocked{% else %}state-muted{% endif %}" id="fidelityHeroContainer" aria-label="Programa de Fidelidad">
+            <header class="fidelity-hero-header">
+                <p class="eyebrow">Programa de Fidelidad TWIINS Bakery</p>
+                <h1>Tus Puntos Dulces</h1>
+                <p class="subtitle">Acumula 1 punto por cada $1 dólar gastado en productos participantes al completar el pago de tus reservas.</p>
+            </header>
+
+            <!-- Indicador Circular Interactivo de Progreso -->
+            <div class="radial-progress-container" role="progressbar" aria-valuenow="{{ cliente.puntos_fidelidad or 0 }}" aria-valuemin="0" aria-valuemax="50" aria-label="Progreso hacia meta de canje">
+                <svg class="radial-svg" viewBox="0 0 260 260">
+                    <defs>
+                        <linearGradient id="vibrantGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#f23271" />
+                            <stop offset="50%" stop-color="#fb7185" />
+                            <stop offset="100%" stop-color="#f59e0b" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="radial-track" cx="130" cy="130" r="110" />
+                    <circle class="radial-fill" id="progressCircleFill" cx="130" cy="130" r="110" />
+                </svg>
+                <div class="radial-content">
+                    <span class="cake-center-icon" aria-hidden="true">🎂</span>
+                    <div class="progress-points-val" id="pointsNumberDisplay">{{ cliente.puntos_fidelidad or 0 }}</div>
+                    <span class="progress-points-label">Puntos Acumulados</span>
+                    <span class="progress-target-info">Meta mínima: 50 pts</span>
+                </div>
+            </div>
+
+            <!-- Mensaje Motivacional y de Elegibilidad Dinámico -->
+            <div class="loyalty-banner-message" id="motivationMessageDisplay" role="status" aria-live="polite">
+                {% if cliente.puntos_fidelidad >= 50 %}
+                    <strong>¡Felicidades!</strong> Ya has alcanzado la cantidad mínima de puntos para canjear un postre de vitrina. También puedes seguir acumulando más puntos para obtener mayores beneficios y realizar más canjes en el futuro.
+                {% elif cliente.puntos_fidelidad == 0 %}
+                    Comienza hoy a acumular puntos y obtén tu primer postre gratis de nuestra vitrina.
+                {% else %}
+                    Tienes <strong>{{ cliente.puntos_fidelidad }}</strong> de <strong>50</strong> puntos. Te faltan <strong>{{ 50 - cliente.puntos_fidelidad }}</strong> puntos adicionales para obtener tu primer postre gratis de nuestra vitrina.
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- ── 3. VITRINA DE CANJE: POSTRES DISPONIBLES ── -->
+        <section class="canje-section" aria-labelledby="canje-heading">
+            <div class="section-title-wrap">
+                <div>
+                    <h2 id="canje-heading">Vitrina de Canje</h2>
+                    <p>Postres artesanales de vitrina que puedes obtener gratuitamente canjeando tus puntos.</p>
+                </div>
+            </div>
+
+            {% if productos_canjeables %}
+            <div class="products-canje-grid">
+                {% for prod in productos_canjeables %}
+                <article class="canje-card">
+                    <span class="canje-card-badge">🎁 Canjeable</span>
+                    <div class="canje-card-media">
+                        {% if prod.tiene_imagen %}
+                        <img src="{{ prod.imagen }}" alt="{{ prod.nombre }}">
+                        {% else %}
+                        <div class="canje-media-placeholder">🍰</div>
+                        {% endif %}
+                    </div>
+                    <div class="canje-card-body">
+                        <span class="canje-card-cat">{{ prod.categoria or 'Vitrina' }}</span>
+                        <h3 class="canje-card-title">{{ prod.nombre }}</h3>
+                        <p class="canje-card-desc">{{ prod.descripcion }}</p>
+                        <div class="canje-card-footer">
+                            <div class="canje-cost">
+                                <span class="canje-cost-num">{{ prod.puntos_canje }} pts</span>
+                                <span class="canje-cost-label">Requeridos</span>
+                            </div>
+                            {% if cliente.puntos_fidelidad >= prod.puntos_canje %}
+                            <button type="button" class="btn-canjear-action" 
+                                    data-canjear-btn 
+                                    data-producto-id="{{ prod.id }}" 
+                                    data-producto-nombre="{{ prod.nombre }}" 
+                                    data-puntos-requeridos="{{ prod.puntos_canje }}">
+                                Canjear postre
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn-canjear-action" 
+                                    data-canjear-btn 
+                                    data-producto-id="{{ prod.id }}" 
+                                    data-producto-nombre="{{ prod.nombre }}" 
+                                    data-puntos-requeridos="{{ prod.puntos_canje }}"
+                                    disabled
+                                    title="Te faltan {{ prod.puntos_canje - cliente.puntos_fidelidad }} puntos adicionales">
+                                Faltan {{ prod.puntos_canje - cliente.puntos_fidelidad }} pts
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px; background: #fff; border-radius: 16px; border: 1px dashed #ebdcd2;">
+                <span style="font-size: 40px; display: block; margin-bottom: 8px;">🍰</span>
+                <h3 style="margin: 0 0 6px;">Próximamente más postres canjeables</h3>
+                <p style="margin: 0; color: var(--muted); font-size: 13.5px;">El administrador está actualizando los productos canjeables de la vitrina. ¡Sigue acumulando puntos!</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- ── 4. HISTORIAL DE FIDELIDAD ── -->
+        <section class="history-section" aria-labelledby="history-heading">
+            <div class="section-title-wrap">
+                <div>
+                    <h2 id="history-heading">Historial de Fidelidad</h2>
+                    <p>Consulta todas tus actividades, compras completadas y canjes de puntos realizados.</p>
+                </div>
+            </div>
+
+            <div class="history-table-wrap">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Movimiento / Concepto</th>
+                            <th>Puntos</th>
+                            <th>Saldo resultante</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historialPuntosBody">
+                        {% if movimientos %}
+                            {% for mov in movimientos %}
+                            <tr>
+                                <td><strong>{{ mov.fecha }}</strong></td>
+                                <td>{{ mov.motivo }}</td>
+                                <td>
+                                    {% if mov.puntos > 0 %}
+                                    <span class="pts-badge pts-add">+{{ mov.puntos }} pts</span>
+                                    {% else %}
+                                    <span class="pts-badge pts-sub">{{ mov.puntos }} pts</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ mov.saldo_resultante }} pts</strong></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr id="historialEmptyRow">
+                                <td colspan="4" class="history-empty">
+                                    <span class="history-empty-icon">📜</span>
+                                    <p>Aún no posees movimientos de fidelidad registrados.</p>
+                                    <small>Cuando completes el pago de tus reservas de pasteles, aquí verás tus puntos acumulados.</small>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ── FOOTER DEL SITIO ── -->
+    <footer class="site-footer">
+        <a class="brand footer-brand" href="{{ url_for('inicio') }}">TWIINS <small>BAKERY</small></a>
+        <span class="footer-artesanal">pastelería artesanal, hecha con amor</span>
+    </footer>
+
+    <!-- ── MODAL: CONFIRMACIÓN DE CANJE ── -->
+    <div class="fidelity-modal-overlay" id="modalConfirmarCanje" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="fidelity-modal-card">
+            <div class="modal-header-icon confirm-icon">🎁</div>
+            <h3>¿Deseas canjear este postre?</h3>
+            <p class="modal-desc">Verifica los detalles de tu canje antes de confirmar la solicitud.</p>
+            
+            <div class="canje-summary-box">
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Producto a canjear:</span>
+                    <span class="canje-summary-val" id="confirmProdNombre">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Puntos a descontar:</span>
+                    <span class="canje-summary-val" id="confirmPuntosReq" style="color:var(--pink);">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Tu saldo actual:</span>
+                    <span class="canje-summary-val" id="confirmSaldoActual">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Saldo restante tras el canje:</span>
+                    <span class="canje-summary-val" id="confirmSaldoRestante">—</span>
+                </div>
+            </div>
+
+            <div class="modal-form-field">
+                <label for="canjeFechaRetiro">Fecha programada para retirar en tienda:</label>
+                <input type="date" id="canjeFechaRetiro" required>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-cancel" id="btnCancelarCanje">Cancelar</button>
+                <button type="button" class="modal-btn modal-btn-confirm" id="btnConfirmarCanjeAction">Confirmar canje</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL: CONFIRMACIÓN EXITOSA DE CANJE (Muestra los 4 datos requeridos) ── -->
+    <div class="fidelity-modal-overlay" id="modalExitoCanje" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="fidelity-modal-card">
+            <div class="modal-header-icon success-icon">✓</div>
+            <h3>¡Canje realizado con éxito!</h3>
+            <p class="modal-desc">Se ha generado tu orden de canje especial en tienda. Presenta tu código al retirar.</p>
+
+            <div class="canje-summary-box">
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Código de canje:</span>
+                    <span class="canje-summary-val" id="successCodigoCanje" style="color:var(--teal-dark); font-weight:700;">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Producto canjeado:</span>
+                    <span class="canje-summary-val" id="successProdNombre">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Puntos utilizados:</span>
+                    <span class="canje-summary-val" id="successPuntosUsados" style="color:#b91c1c;">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Puntos restantes:</span>
+                    <span class="canje-summary-val" id="successPuntosRestantes" style="color:var(--success);">—</span>
+                </div>
+                <div class="canje-summary-row">
+                    <span class="canje-summary-label">Fecha del canje:</span>
+                    <span class="canje-summary-val" id="successFechaCanje">—</span>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-confirm" id="btnCerrarExitoCanje">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL: ERROR / PUNTOS INSUFICIENTES ── -->
+    <div class="fidelity-modal-overlay" id="modalErrorCanje" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="fidelity-modal-card">
+            <div class="modal-header-icon error-icon">✕</div>
+            <h3 id="errorModalTitulo">Puntos insuficientes</h3>
+            <p class="modal-desc" id="errorModalDesc">No tienes puntos suficientes para realizar este canje.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-confirm" id="btnCerrarErrorCanje">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar cierre de sesión -->
+    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="custom-modal-card">
+            <div class="modal-icon-wrap">🔒</div>
+            <h3>¿Estás seguro de cerrar sesión?</h3>
+            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y puntos.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/fidelidad.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

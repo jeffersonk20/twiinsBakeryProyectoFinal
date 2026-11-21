@@ -534,6 +534,8 @@ def _normalizar_reserva(registro):
         "estado": registro["estado"],
         "metodo_pago": registro["metodo_pago"],
         "pago_estado": registro["pago_estado"],
+        "es_canje_fidelidad": bool(registro.get("es_canje_fidelidad", False)),
+        "puntos_usados": int(registro.get("puntos_usados", 0) or 0),
     }
 
 
@@ -843,6 +845,145 @@ def consultar_estado_enlace_wompi(id_enlace):
     return {"pagado": False, "transacciones": []}
 
 
+def _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, reserva_id):
+    """
+    Calcula y acredita puntos de fidelidad para una reserva completamente pagada o entregada.
+    Reglas:
+    - 1 punto por cada $1 dólar gastado (sólo parte entera, ej. $20.99 -> 20 pts, $1.50 -> 1 pt).
+    - Excluye pedidos de Eventos y bebidas individuales sin promoción.
+    - Se acredita una única vez por pedido (evita duplicidades comprobando puntos_otorgados).
+    - Los canjes de fidelidad (es_canje_fidelidad = 1) no generan puntos.
+    """
+    try:
+        cursor.execute(
+            """
+            SELECT id_reserva, codigo, id_cliente, correo, total, monto_pagado,
+                   estado, COALESCE(es_canje_fidelidad, 0) AS es_canje_fidelidad,
+                   COALESCE(puntos_otorgados, 0) AS puntos_otorgados
+            FROM RESERVA
+            WHERE id_reserva = %s
+            """,
+            (reserva_id,),
+        )
+        res = cursor.fetchone()
+        if not res:
+            return 0
+
+        # Si ya se otorgaron puntos, evitar duplicidad
+        puntos_otorgados = res.get("puntos_otorgados") if isinstance(res, dict) else res[8]
+        if puntos_otorgados:
+            return 0
+
+        # Si es un canje de fidelidad, no acumula puntos
+        es_canje = res.get("es_canje_fidelidad") if isinstance(res, dict) else res[7]
+        if es_canje:
+            return 0
+
+        total = Decimal(str((res.get("total") if isinstance(res, dict) else res[4]) or 0))
+        pagado = Decimal(str((res.get("monto_pagado") if isinstance(res, dict) else res[5]) or 0))
+        estado = str((res.get("estado") if isinstance(res, dict) else res[6]) or "")
+
+        # Debe estar 100% pagada o entregada con pago total
+        if pagado < total and estado != "ENTREGADA":
+            return 0
+
+        # Obtener o resolver id_cliente
+        id_cliente = res.get("id_cliente") if isinstance(res, dict) else res[2]
+        correo_res = res.get("correo") if isinstance(res, dict) else res[3]
+        if not id_cliente and correo_res:
+            cursor.execute(
+                "SELECT id_cliente FROM CLIENTE WHERE LOWER(correo) = LOWER(%s) LIMIT 1",
+                (str(correo_res).strip(),),
+            )
+            cli_row = cursor.fetchone()
+            if cli_row:
+                id_cliente = cli_row["id_cliente"] if isinstance(cli_row, dict) else cli_row[0]
+                cursor.execute("UPDATE RESERVA SET id_cliente = %s WHERE id_reserva = %s", (id_cliente, reserva_id))
+
+        if not id_cliente:
+            return 0
+
+        # Calcular subtotal de productos participantes
+        cursor.execute(
+            """
+            SELECT d.precio_unitario, d.cantidad, d.nombre_producto,
+                   p.categoria, COALESCE(p.genera_puntos, 1) AS genera_puntos
+            FROM DETALLE_RESERVA d
+            LEFT JOIN PRODUCTO p ON d.id_pastel = p.id_producto
+            WHERE d.id_reserva = %s
+            """,
+            (reserva_id,),
+        )
+        detalles = cursor.fetchall() or []
+
+        subtotal_valido = Decimal("0.00")
+        if detalles:
+            for item in detalles:
+                cat = str((item.get("categoria") if isinstance(item, dict) else item[3]) or "").upper()
+                gen = item.get("genera_puntos") if isinstance(item, dict) else item[4]
+                es_bebida = any(b in cat for b in ["BEBIDA", "SODA", "REFRESCO", "ENLATADA", "EMBOTELLADA"])
+                es_evento = "EVENTO" in cat or "EVENTOS" in cat
+
+                if es_evento:
+                    continue
+                if es_bebida and not gen:
+                    continue
+                if gen is False or gen == 0:
+                    continue
+
+                pu = Decimal(str((item.get("precio_unitario") if isinstance(item, dict) else item[0]) or 0))
+                cant = int((item.get("cantidad") if isinstance(item, dict) else item[1]) or 1)
+                subtotal_valido += pu * cant
+        else:
+            subtotal_valido = total
+
+        monto_para_puntos = min(subtotal_valido, pagado)
+        puntos_ganados = int(monto_para_puntos)
+
+        if puntos_ganados <= 0:
+            cursor.execute("UPDATE RESERVA SET puntos_otorgados = 1 WHERE id_reserva = %s", (reserva_id,))
+            return 0
+
+        cursor.execute(
+            "SELECT COALESCE(puntos_fidelidad, 0) AS puntos_fidelidad FROM CLIENTE WHERE id_cliente = %s",
+            (id_cliente,),
+        )
+        cli = cursor.fetchone()
+        saldo_actual = (cli.get("puntos_fidelidad") or 0) if isinstance(cli, dict) else (cli[0] if cli else 0)
+        nuevo_saldo = int(saldo_actual) + puntos_ganados
+
+        cursor.execute(
+            "UPDATE CLIENTE SET puntos_fidelidad = %s WHERE id_cliente = %s",
+            (nuevo_saldo, id_cliente),
+        )
+
+        cursor.execute(
+            "UPDATE RESERVA SET puntos_otorgados = 1, fecha_puntos = NOW() WHERE id_reserva = %s",
+            (reserva_id,),
+        )
+
+        codigo_res = res.get("codigo") if isinstance(res, dict) else res[1]
+        desc = f"Compra completada: +{puntos_ganados} puntos (Pedido #{codigo_res})"
+        cursor.execute(
+            """
+            INSERT INTO HISTORIAL_PUNTOS (
+                id_cliente, id_reserva, tipo, puntos, descripcion, saldo_resultante,
+                fecha_registro, fecha, motivo, tipo_movimiento
+            ) VALUES (%s, %s, 'ACUMULACION', %s, %s, %s, NOW(), NOW(), %s, 'ACUMULACION')
+            """,
+            (id_cliente, reserva_id, puntos_ganados, desc, nuevo_saldo, desc),
+        )
+
+        app.logger.info(
+            "Puntos acreditados con éxito: +%d puntos a cliente %s por reserva %s (Nuevo saldo: %d)",
+            puntos_ganados, id_cliente, codigo_res, nuevo_saldo
+        )
+        return puntos_ganados
+    except Exception as e:
+        app.logger.warning("No se pudieron acreditar puntos de fidelidad para reserva %s: %s", reserva_id, e)
+        return 0
+
+
 def _marcar_pago_aprobado(datos_webhook):
     enlace = datos_webhook.get("EnlacePago")
     if not isinstance(enlace, dict):
@@ -917,6 +1058,7 @@ def _marcar_pago_aprobado(datos_webhook):
             """,
             (pago["monto"], pago["monto"], pago["id_reserva"]),
         )
+        _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, pago["id_reserva"])
         conexion.commit()
         _notificar_reserva_confirmada(pago["id_reserva"])
         return True
@@ -1780,15 +1922,22 @@ def api_admin_eliminar_usuario():
 
 
 def _producto_publico(registro, incluir_stock=False):
-    tiene_imagen = bool(registro["tiene_imagen"])
+    tiene_imagen = bool(
+        registro.get("tiene_imagen")
+        if "tiene_imagen" in registro
+        else (registro.get("imagen") and registro.get("tipo_imagen"))
+    )
     producto = {
         "id": registro["id_producto"],
         "nombre": registro["nombre"],
         "categoria": registro["categoria"] or "",
         "precio": float(registro["precio"]),
-        "descripcion": registro["descripcion"],
-        "disponible": bool(registro["disponible"]),
-        "en_vitrina": bool(registro["en_vitrina"]),
+        "descripcion": registro.get("descripcion", ""),
+        "disponible": bool(registro.get("disponible", True)),
+        "en_vitrina": bool(registro.get("en_vitrina", False)),
+        "canjeable_puntos": bool(registro.get("canjeable_puntos", False) or registro.get("es_canjeable", False)),
+        "puntos_canje": int(registro.get("puntos_canje") or 50),
+        "genera_puntos": bool(registro.get("genera_puntos", True) if registro.get("genera_puntos") is not None else True),
         "tiene_imagen": tiene_imagen,
         "imagen": (
             url_for("imagen_producto", producto_id=registro["id_producto"])
@@ -1797,7 +1946,7 @@ def _producto_publico(registro, incluir_stock=False):
         ),
     }
     if incluir_stock:
-        producto["stock"] = int(registro["stock"])
+        producto["stock"] = int(registro.get("stock", 0))
     return producto
 
 
@@ -1809,6 +1958,9 @@ def _obtener_productos(solo_disponibles, incluir_stock=False):
         consulta = """
             SELECT p.id_producto, p.nombre, p.categoria, p.precio, p.descripcion,
                    p.disponible, p.en_vitrina,
+                   COALESCE(p.canjeable_puntos, p.es_canjeable, 0) AS canjeable_puntos,
+                   COALESCE(p.puntos_canje, 50) AS puntos_canje,
+                   COALESCE(p.genera_puntos, 1) AS genera_puntos,
                    COALESCE(i.stock, CASE WHEN p.disponible = TRUE THEN 1 ELSE 0 END) AS stock,
                    (p.imagen IS NOT NULL AND p.tipo_imagen IS NOT NULL) AS tiene_imagen
             FROM PRODUCTO p
@@ -1871,6 +2023,21 @@ def _validar_producto_formulario():
     if stock > 2_147_483_647:
         raise ValueError("La cantidad disponible es demasiado grande.")
 
+    canjeable_puntos_texto = request.form.get("canjeable_puntos", "false")
+    puntos_canje_texto = request.form.get("puntos_canje", "50").strip()
+    genera_puntos_texto = request.form.get("genera_puntos", "true")
+
+    canjeable_puntos = canjeable_puntos_texto.lower() in ("true", "1", "yes", "on")
+    genera_puntos = genera_puntos_texto.lower() in ("true", "1", "yes", "on")
+    puntos_canje = 50
+    if canjeable_puntos:
+        try:
+            puntos_canje = int(puntos_canje_texto)
+            if puntos_canje < 50:
+                raise ValueError("La cantidad mínima permitida para configurar un producto canjeable es de 50 puntos.")
+        except (ValueError, TypeError) as error:
+            raise ValueError("Los puntos requeridos para canje deben ser al menos 50.") from error
+
     try:
         precio = Decimal(precio_texto)
     except InvalidOperation as error:
@@ -1900,6 +2067,9 @@ def _validar_producto_formulario():
         "descripcion": descripcion,
         "disponible": disponible_texto == "true",
         "en_vitrina": en_vitrina_texto == "true",
+        "canjeable_puntos": canjeable_puntos,
+        "puntos_canje": puntos_canje,
+        "genera_puntos": genera_puntos,
         "stock": stock,
         "imagen": contenido_imagen,
         "tipo_imagen": tipo_imagen,
@@ -2218,8 +2388,9 @@ def api_admin_productos():
             """
             INSERT INTO PRODUCTO
                 (nombre, categoria, precio, descripcion, disponible, en_vitrina,
+                 canjeable_puntos, puntos_canje, genera_puntos,
                  imagen, tipo_imagen, id_admin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 producto["nombre"],
@@ -2228,6 +2399,9 @@ def api_admin_productos():
                 producto["descripcion"],
                 producto["disponible"],
                 producto["en_vitrina"],
+                producto["canjeable_puntos"],
+                producto["puntos_canje"],
+                producto["genera_puntos"],
                 producto["imagen"],
                 producto["tipo_imagen"],
                 session.get("id_admin"),
@@ -2286,7 +2460,9 @@ def api_admin_producto(producto_id):
             """
             UPDATE PRODUCTO
             SET nombre = %s, categoria = %s, precio = %s, descripcion = %s,
-                disponible = %s, en_vitrina = %s, imagen = %s, tipo_imagen = %s
+                disponible = %s, en_vitrina = %s,
+                canjeable_puntos = %s, puntos_canje = %s, genera_puntos = %s,
+                imagen = %s, tipo_imagen = %s
             WHERE id_producto = %s
             """,
             (
@@ -2296,6 +2472,9 @@ def api_admin_producto(producto_id):
                 producto["descripcion"],
                 producto["disponible"],
                 producto["en_vitrina"],
+                producto["canjeable_puntos"],
+                producto["puntos_canje"],
+                producto["genera_puntos"],
                 imagen,
                 tipo_imagen,
                 producto_id,
@@ -3210,7 +3389,9 @@ def api_admin_reservas():
                    d.nombre_producto, d.cantidad, d.precio_unitario,
                    r.total, r.anticipo_requerido, r.monto_pagado,
                    r.fecha_retiro, r.estado, p.metodo_pago,
-                   p.estado AS pago_estado
+                   p.estado AS pago_estado,
+                   COALESCE(r.es_canje_fidelidad, 0) AS es_canje_fidelidad,
+                   COALESCE(r.puntos_usados, 0) AS puntos_usados
             FROM RESERVA r
             LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
             JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
@@ -3372,6 +3553,14 @@ def api_admin_reserva(reserva_id):
                 f"UPDATE RESERVA SET {', '.join(asignaciones)} WHERE id_reserva = %s",
                 tuple(valores),
             )
+        if "estado" in datos:
+            try:
+                cursor.execute("UPDATE CANJE_FIDELIDAD SET estado = %s WHERE id_reserva = %s", (estado, reserva_id))
+                if estado == "ENTREGADA":
+                    cursor.execute("UPDATE CANJE_FIDELIDAD SET fecha_entrega = NOW() WHERE id_reserva = %s", (reserva_id,))
+            except Exception:
+                pass
+        _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, reserva_id)
         conexion.commit()
 
         # Notificaciones por correo según el cambio de estado
@@ -3764,6 +3953,7 @@ def api_admin_verificar_pago_wompi(reserva_id):
                 """,
                 (nuevo_pagado, reserva_id),
             )
+            _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, reserva_id)
             conexion.commit()
 
             correo_cli = pago.get("correo_cliente")
@@ -3895,6 +4085,7 @@ def api_admin_marcar_cobro_tarjeta_manual(reserva_id):
             """,
             (nuevo_pagado, reserva_id),
         )
+        _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, reserva_id)
         conexion.commit()
 
         correo_cli = reserva.get("correo_cliente")
@@ -3998,6 +4189,7 @@ def api_admin_liquidar_pago(reserva_id):
             """,
             (total, reserva_id),
         )
+        _acreditar_puntos_fidelidad_si_corresponde(cursor, conexion, reserva_id)
         conexion.commit()
 
         # Enviar comprobante al cliente si tiene correo registrado
@@ -5594,6 +5786,821 @@ def restablecer_contrasena():
         app.logger.exception("Error al restablecer contraseña: %s", e)
         flash("Error al procesar el cambio de contraseña.", "error")
         return redirect(url_for("restablecer_contrasena"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ==========================================
+# MÓDULO DE FIDELIDAD DEL CLIENTE Y ADMINISTRACIÓN
+# ==========================================
+
+@app.route("/fidelidad")
+@cliente_requerido
+def fidelidad():
+    """Pantalla principal de Fidelidad para clientes con progreso circular, vitrina de canje e historial."""
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    id_cliente = session.get("id_cliente")
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        # 1. Obtener datos del cliente
+        cursor.execute(
+            """
+            SELECT id_cliente, nombre, correo, COALESCE(telefono, '') AS telefono,
+                   COALESCE(correo_verificado, 1) AS correo_verificado,
+                   fecha_registro, COALESCE(puntos_fidelidad, 0) AS puntos_fidelidad
+            FROM CLIENTE
+            WHERE id_cliente = %s
+            """,
+            (id_cliente,),
+        )
+        cliente_row = cursor.fetchone()
+        if not cliente_row:
+            flash("Cliente no encontrado.", "error")
+            return redirect(url_for("inicio"))
+
+        cliente = {
+            "id": cliente_row["id_cliente"],
+            "nombre": cliente_row["nombre"],
+            "correo": cliente_row["correo"],
+            "telefono": cliente_row["telefono"] or "No registrado",
+            "correo_verificado": bool(cliente_row.get("correo_verificado", True)),
+            "fecha_registro": str(cliente_row.get("fecha_registro") or "2026")[:10],
+            "puntos_fidelidad": int(cliente_row.get("puntos_fidelidad", 0) or 0),
+        }
+
+        # 2. Obtener productos de vitrina canjeables
+        cursor.execute(
+            """
+            SELECT id_producto, nombre, descripcion, categoria, precio,
+                   canjeable_puntos, COALESCE(puntos_canje, 50) AS puntos_canje,
+                   genera_puntos, imagen, tipo_imagen
+            FROM PRODUCTO
+            WHERE canjeable_puntos = 1 AND disponible = 1
+            ORDER BY puntos_canje ASC, nombre ASC
+            """
+        )
+        productos_canjeables = [_producto_publico(p) for p in cursor.fetchall()]
+
+        # 3. Obtener historial de movimientos del cliente
+        cursor.execute(
+            """
+            SELECT id_historial,
+                   COALESCE(fecha, fecha_registro) AS fecha,
+                   COALESCE(motivo, descripcion) AS motivo,
+                   puntos, saldo_resultante,
+                   COALESCE(tipo_movimiento, tipo) AS tipo_movimiento
+            FROM HISTORIAL_PUNTOS
+            WHERE id_cliente = %s
+            ORDER BY id_historial DESC
+            LIMIT 100
+            """,
+            (id_cliente,),
+        )
+        movimientos_raw = cursor.fetchall() or []
+        movimientos = []
+        for m in movimientos_raw:
+            f = m.get("fecha")
+            if hasattr(f, "strftime"):
+                fecha_str = f.strftime("%d/%m/%Y %H:%M")
+            else:
+                fecha_str = str(f)[:16] if f else ""
+            movimientos.append({
+                "fecha": fecha_str,
+                "motivo": m.get("motivo") or ("Acumulación de puntos" if m["puntos"] > 0 else "Canje de producto"),
+                "puntos": int(m.get("puntos") or 0),
+                "saldo_resultante": int(m.get("saldo_resultante") or 0),
+            })
+
+        return render_template(
+            "fidelidad.html",
+            cliente=cliente,
+            productos_canjeables=productos_canjeables,
+            movimientos=movimientos,
+            csrf_token=session["csrf_token"],
+        )
+    except mysql.connector.Error as error:
+        _error_base_datos(error, "No se pudo cargar la pantalla de fidelidad.")
+        flash("Ocurrió un error al cargar tu información de fidelidad.", "error")
+        return redirect(url_for("inicio"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/fidelidad/canjear", methods=["POST"])
+@cliente_requerido
+def api_fidelidad_canjear():
+    """Procesa el canje de un producto por puntos, descuenta el saldo y genera orden Canje por Fidelidad."""
+    if not _csrf_valido():
+        return jsonify({"ok": False, "error": "La sesión de seguridad venció. Recarga la página."}), 403
+
+    id_cliente = session.get("id_cliente")
+    datos = request.get_json(silent=True) or {}
+    producto_id = datos.get("producto_id")
+    fecha_retiro_str = datos.get("fecha_retiro")
+
+    if not producto_id:
+        return jsonify({"ok": False, "error": "Debes seleccionar un producto válido para canjear."}), 400
+
+    try:
+        producto_id = int(producto_id)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Identificador de producto no válido."}), 400
+
+    ahora = datetime.now()
+    if fecha_retiro_str:
+        try:
+            fecha_retiro = datetime.fromisoformat(fecha_retiro_str)
+            if fecha_retiro < ahora:
+                fecha_retiro = ahora + timedelta(days=1)
+        except Exception:
+            fecha_retiro = ahora + timedelta(days=1)
+    else:
+        fecha_retiro = ahora + timedelta(days=1)
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+
+        # 1. Validar y bloquear al cliente
+        cursor.execute(
+            """
+            SELECT id_cliente, nombre, correo, telefono, COALESCE(puntos_fidelidad, 0) AS puntos_fidelidad
+            FROM CLIENTE
+            WHERE id_cliente = %s
+            FOR UPDATE
+            """,
+            (id_cliente,),
+        )
+        cliente = cursor.fetchone()
+        if not cliente:
+            conexion.rollback()
+            return jsonify({"ok": False, "error": "Cliente no encontrado."}), 404
+
+        saldo_actual = int(cliente.get("puntos_fidelidad") or 0)
+
+        # 2. Validar y bloquear el producto
+        cursor.execute(
+            """
+            SELECT id_producto, nombre, descripcion, categoria, precio,
+                   canjeable_puntos, COALESCE(puntos_canje, 50) AS puntos_canje, disponible
+            FROM PRODUCTO
+            WHERE id_producto = %s
+            FOR UPDATE
+            """,
+            (producto_id,),
+        )
+        producto = cursor.fetchone()
+        if not producto or not producto.get("canjeable_puntos") or not producto.get("disponible"):
+            conexion.rollback()
+            return jsonify({"ok": False, "error": "Este producto no está disponible para canje por puntos."}), 400
+
+        puntos_requeridos = max(50, int(producto.get("puntos_canje") or 50))
+
+        # 3. Verificar si posee suficientes puntos
+        if saldo_actual < puntos_requeridos:
+            faltan = puntos_requeridos - saldo_actual
+            conexion.rollback()
+            return jsonify({
+                "ok": False,
+                "error": f"Puntos insuficientes. Posees {saldo_actual} puntos y necesitas {puntos_requeridos}. Te faltan {faltan} puntos adicionales para canjear este postre."
+            }), 400
+
+        # 4. Descontar puntos al cliente
+        nuevo_saldo = saldo_actual - puntos_requeridos
+        cursor.execute(
+            "UPDATE CLIENTE SET puntos_fidelidad = %s WHERE id_cliente = %s",
+            (nuevo_saldo, id_cliente),
+        )
+
+        # 5. Generar orden especial "Canje por Fidelidad" en RESERVA
+        codigo_reserva = f"CJ-{secrets.token_hex(3).upper()}"
+        cursor.execute(
+            """
+            INSERT INTO RESERVA (
+                codigo, id_cliente, fecha_reserva, fecha_retiro, estado,
+                nombre_cliente, correo, telefono, total, anticipo_requerido,
+                monto_pagado, es_canje_fidelidad, puntos_usados, puntos_otorgados
+            ) VALUES (
+                %s, %s, %s, %s, 'CONFIRMADA',
+                %s, %s, %s, 0.00, 0.00,
+                0.00, 1, %s, 1
+            )
+            """,
+            (
+                codigo_reserva, id_cliente, ahora, fecha_retiro,
+                cliente["nombre"], cliente["correo"], cliente.get("telefono") or "7000-0000",
+                puntos_requeridos
+            ),
+        )
+        id_reserva = cursor.lastrowid
+
+        # 6. Detalle de reserva
+        cursor.execute(
+            """
+            INSERT INTO DETALLE_RESERVA (
+                id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad
+            ) VALUES (%s, %s, %s, 0.00, 1)
+            """,
+            (id_reserva, producto["id_producto"], f"🎁 [Canje Fidelidad] {producto['nombre']}"),
+        )
+
+        # 7. Registrar pago simbólico liquidado
+        ref_pago = f"CANJE-{codigo_reserva}"
+        cursor.execute(
+            """
+            INSERT INTO PAGO (
+                id_reserva, metodo_pago, monto, fecha_pago, estado, referencia
+            ) VALUES (%s, 'FIDELIDAD', 0.00, NOW(), 'PAGADO', %s)
+            """,
+            (id_reserva, ref_pago),
+        )
+
+        # 8. Descontar inventario si existe registro
+        cursor.execute(
+            "SELECT id_inventario, stock FROM INVENTARIO WHERE id_pastel = %s FOR UPDATE",
+            (producto["id_producto"],),
+        )
+        inv = cursor.fetchone()
+        if inv and inv.get("stock", 0) > 0:
+            cursor.execute(
+                "UPDATE INVENTARIO SET stock = stock - 1 WHERE id_inventario = %s",
+                (inv["id_inventario"],),
+            )
+            cursor.execute(
+                """
+                INSERT INTO MOVIMIENTO_INVENTARIO (id_inventario, cantidad, tipo_movimiento)
+                VALUES (%s, -1, 'CANJE_FIDELIDAD')
+                """,
+                (inv["id_inventario"],),
+            )
+
+        # 9. Registrar en CANJE_FIDELIDAD
+        cursor.execute(
+            """
+            INSERT INTO CANJE_FIDELIDAD (
+                id_cliente, id_producto, id_reserva, puntos_usados, fecha_canje, estado
+            ) VALUES (%s, %s, %s, %s, NOW(), 'CONFIRMADA')
+            """,
+            (id_cliente, producto["id_producto"], id_reserva, puntos_requeridos),
+        )
+
+        # 10. Registrar en HISTORIAL_PUNTOS
+        motivo_canje = f"Canje de producto: -{puntos_requeridos} puntos ({producto['nombre']})"
+        cursor.execute(
+            """
+            INSERT INTO HISTORIAL_PUNTOS (
+                id_cliente, id_reserva, id_producto, tipo, puntos, descripcion,
+                saldo_resultante, fecha_registro, fecha, motivo, tipo_movimiento
+            ) VALUES (
+                %s, %s, %s, 'CANJE', %s, %s,
+                %s, NOW(), NOW(), %s, 'CANJE'
+            )
+            """,
+            (
+                id_cliente, id_reserva, producto["id_producto"],
+                -puntos_requeridos, motivo_canje,
+                nuevo_saldo, motivo_canje
+            ),
+        )
+
+        conexion.commit()
+
+        fecha_canje_str = ahora.strftime("%d/%m/%Y %H:%M")
+        return jsonify({
+            "ok": True,
+            "producto": producto["nombre"],
+            "puntos_utilizados": puntos_requeridos,
+            "puntos_restantes": nuevo_saldo,
+            "fecha_canje": fecha_canje_str,
+            "codigo_reserva": codigo_reserva,
+            "mensaje": f"¡Felicidades! Has canjeado con éxito {producto['nombre']}.",
+        })
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al procesar canje de fidelidad: %s", e)
+        return jsonify({"ok": False, "error": f"No se pudo completar el canje: {str(e)}"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/fidelidad/movimientos", methods=["GET"])
+@cliente_requerido
+def api_fidelidad_movimientos():
+    """Consulta los movimientos de puntos del cliente autenticado."""
+    id_cliente = session.get("id_cliente")
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_historial,
+                   COALESCE(fecha, fecha_registro) AS fecha,
+                   COALESCE(motivo, descripcion) AS motivo,
+                   puntos, saldo_resultante,
+                   COALESCE(tipo_movimiento, tipo) AS tipo_movimiento
+            FROM HISTORIAL_PUNTOS
+            WHERE id_cliente = %s
+            ORDER BY id_historial DESC
+            """,
+            (id_cliente,),
+        )
+        filas = cursor.fetchall() or []
+        movimientos = []
+        for f in filas:
+            dt = f.get("fecha")
+            fecha_str = dt.strftime("%d/%m/%Y %H:%M") if hasattr(dt, "strftime") else str(dt)[:16]
+            movimientos.append({
+                "id": f["id_historial"],
+                "fecha": fecha_str,
+                "motivo": f.get("motivo") or ("Acumulación" if f["puntos"] > 0 else "Canje"),
+                "puntos": int(f.get("puntos") or 0),
+                "saldo_resultante": int(f.get("saldo_resultante") or 0),
+                "tipo_movimiento": f.get("tipo_movimiento") or ("ACUMULACION" if f["puntos"] > 0 else "CANJE"),
+            })
+        return jsonify({"ok": True, "movimientos": movimientos})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+# ── PANTALLAS INDEPENDIENTES DE ADMINISTRACIÓN: FIDELIDAD ──
+
+@app.route("/admin/fidelidad")
+@administrador_requerido
+def admin_fidelidad():
+    """Panel principal de Fidelidad con métricas y accesos rápidos a pantallas independientes."""
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    conexion = None
+    cursor = None
+    stats = {
+        "total_puntos_emitidos": 0,
+        "total_puntos_canjeados": 0,
+        "total_canjes": 0,
+        "canjes_pendientes": 0,
+        "clientes_con_puntos": 0,
+    }
+    ultimos_canjes = []
+    ultimos_movimientos = []
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN puntos > 0 THEN puntos ELSE 0 END), 0) AS emitidos,
+                COALESCE(SUM(CASE WHEN puntos < 0 THEN ABS(puntos) ELSE 0 END), 0) AS canjeados
+            FROM HISTORIAL_PUNTOS
+            """
+        )
+        row_p = cursor.fetchone()
+        if row_p:
+            stats["total_puntos_emitidos"] = int(row_p.get("emitidos") or 0)
+            stats["total_puntos_canjeados"] = int(row_p.get("canjeados") or 0)
+
+        cursor.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN estado != 'ENTREGADA' AND estado != 'CANCELADA' THEN 1 ELSE 0 END) AS pendientes
+            FROM CANJE_FIDELIDAD
+            """
+        )
+        row_c = cursor.fetchone()
+        if row_c:
+            stats["total_canjes"] = int(row_c.get("total") or 0)
+            stats["canjes_pendientes"] = int(row_c.get("pendientes") or 0)
+
+        cursor.execute("SELECT COUNT(*) AS total FROM CLIENTE WHERE puntos_fidelidad > 0")
+        row_cl = cursor.fetchone()
+        if row_cl:
+            stats["clientes_con_puntos"] = int(row_cl.get("total") or 0)
+
+        # Últimos canjes
+        cursor.execute(
+            """
+            SELECT c.id_canje, r.codigo, cl.nombre AS cliente, p.nombre AS producto,
+                   c.puntos_usados, c.estado
+            FROM CANJE_FIDELIDAD c
+            JOIN RESERVA r ON r.id_reserva = c.id_reserva
+            JOIN CLIENTE cl ON cl.id_cliente = c.id_cliente
+            JOIN PRODUCTO p ON p.id_producto = c.id_producto
+            ORDER BY c.id_canje DESC
+            LIMIT 5
+            """
+        )
+        ultimos_canjes = cursor.fetchall() or []
+
+        # Últimos movimientos
+        cursor.execute(
+            """
+            SELECT h.id_historial, cl.nombre AS cliente,
+                   COALESCE(h.motivo, h.descripcion) AS motivo,
+                   h.puntos, h.saldo_resultante,
+                   COALESCE(h.fecha, h.fecha_registro) AS fecha
+            FROM HISTORIAL_PUNTOS h
+            JOIN CLIENTE cl ON cl.id_cliente = h.id_cliente
+            ORDER BY h.id_historial DESC
+            LIMIT 5
+            """
+        )
+        ultimos_movimientos = cursor.fetchall() or []
+    except Exception as e:
+        app.logger.warning("Error al cargar dashboard de fidelidad: %s", e)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+    return render_template(
+        "admin_fidelidad.html",
+        stats=stats,
+        ultimos_canjes=ultimos_canjes,
+        ultimos_movimientos=ultimos_movimientos,
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+@app.route("/admin/fidelidad/historial")
+@administrador_requerido
+def admin_fidelidad_historial():
+    """Pantalla independiente para auditar la acumulación y descuento de puntos de todos los clientes."""
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "admin_fidelidad_historial.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+@app.route("/admin/fidelidad/canjes")
+@administrador_requerido
+def admin_fidelidad_canjes():
+    """Pantalla independiente para la gestión y entrega de productos canjeados por puntos."""
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "admin_fidelidad_canjes.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+@app.route("/admin/fidelidad/configuracion")
+@administrador_requerido
+def admin_fidelidad_configuracion():
+    """Pantalla independiente para configurar reglas y productos canjeables / acumulables."""
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return render_template(
+        "admin_fidelidad_configuracion.html",
+        csrf_token=session["csrf_token"],
+        admin_email=session.get("admin_email", ""),
+    )
+
+
+# ── APIS ADMINISTRATIVAS: FIDELIDAD ──
+
+@app.route("/api/admin/fidelidad/canjes", methods=["GET"])
+@administrador_requerido
+def api_admin_fidelidad_canjes():
+    """Retorna el listado completo de pedidos especiales de canjes de fidelidad."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT c.id_canje AS id, r.id_reserva, r.codigo, cl.nombre AS cliente,
+                   COALESCE(NULLIF(r.correo, ''), cl.correo, '') AS correo,
+                   COALESCE(NULLIF(r.telefono, ''), cl.telefono, '') AS telefono,
+                   p.nombre AS producto, c.puntos_usados,
+                   c.fecha_canje, c.estado, c.fecha_entrega, r.fecha_retiro
+            FROM CANJE_FIDELIDAD c
+            JOIN RESERVA r ON r.id_reserva = c.id_reserva
+            JOIN CLIENTE cl ON cl.id_cliente = c.id_cliente
+            JOIN PRODUCTO p ON p.id_producto = c.id_producto
+            ORDER BY c.id_canje DESC
+            """
+        )
+        filas = cursor.fetchall() or []
+        canjes = []
+        for f in filas:
+            fc = f.get("fecha_canje")
+            fe = f.get("fecha_entrega")
+            fr = f.get("fecha_retiro")
+            canjes.append({
+                "id": f["id"],
+                "id_reserva": f["id_reserva"],
+                "codigo": f["codigo"],
+                "cliente": f["cliente"],
+                "correo": f["correo"],
+                "telefono": f["telefono"],
+                "producto": f["producto"],
+                "puntos_usados": int(f.get("puntos_usados") or 0),
+                "fecha_canje": fc.strftime("%d/%m/%Y %H:%M") if hasattr(fc, "strftime") else str(fc or "")[:16],
+                "fecha_entrega": fe.strftime("%d/%m/%Y %H:%M") if hasattr(fe, "strftime") else (str(fe or "")[:16] if fe else None),
+                "fecha_retiro": fr.strftime("%d/%m/%Y") if hasattr(fr, "strftime") else str(fr or "")[:10],
+                "estado": f["estado"],
+            })
+        return jsonify({"ok": True, "canjes": canjes})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/fidelidad/canjes/<int:canje_id>/estado", methods=["POST"])
+@administrador_requerido
+def api_admin_fidelidad_canjes_estado(canje_id):
+    """Actualiza el estado de la orden de canje y sincroniza con RESERVA y stock/puntos."""
+    if not _csrf_valido():
+        return jsonify({"ok": False, "error": "Sesión vencida. Recarga la página."}), 403
+
+    datos = request.get_json(silent=True) or {}
+    nuevo_estado = str(datos.get("estado", "")).strip().upper()
+    if nuevo_estado not in ("SOLICITADO", "CONFIRMADA", "EN_PREPARACION", "LISTA", "ENTREGADA", "CANCELADA"):
+        return jsonify({"ok": False, "error": "Estado de orden de canje no válido."}), 400
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT c.id_canje, c.id_reserva, c.id_cliente, c.puntos_usados, c.estado,
+                   p.nombre AS nombre_producto
+            FROM CANJE_FIDELIDAD c
+            JOIN PRODUCTO p ON p.id_producto = c.id_producto
+            WHERE c.id_canje = %s OR c.id_reserva = %s
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (canje_id, canje_id),
+        )
+        canje = cursor.fetchone()
+        if not canje:
+            conexion.rollback()
+            return jsonify({"ok": False, "error": "No se encontró el canje especificado."}), 404
+
+        es_entrega = nuevo_estado == "ENTREGADA"
+        es_cancelacion = nuevo_estado == "CANCELADA" and canje["estado"] != "CANCELADA"
+
+        if es_entrega:
+            cursor.execute(
+                "UPDATE CANJE_FIDELIDAD SET estado = %s, fecha_entrega = NOW() WHERE id_canje = %s",
+                (nuevo_estado, canje["id_canje"]),
+            )
+        else:
+            cursor.execute(
+                "UPDATE CANJE_FIDELIDAD SET estado = %s WHERE id_canje = %s",
+                (nuevo_estado, canje["id_canje"]),
+            )
+
+        cursor.execute(
+            "UPDATE RESERVA SET estado = %s WHERE id_reserva = %s",
+            (nuevo_estado, canje["id_reserva"]),
+        )
+
+        # Si se cancela la orden, reembolsar los puntos al cliente
+        if es_cancelacion:
+            cursor.execute(
+                "SELECT puntos_fidelidad FROM CLIENTE WHERE id_cliente = %s FOR UPDATE",
+                (canje["id_cliente"],),
+            )
+            cli = cursor.fetchone()
+            saldo_act = (cli.get("puntos_fidelidad") or 0) if cli else 0
+            nuevo_saldo = saldo_act + int(canje["puntos_usados"])
+            cursor.execute(
+                "UPDATE CLIENTE SET puntos_fidelidad = %s WHERE id_cliente = %s",
+                (nuevo_saldo, canje["id_cliente"]),
+            )
+            motivo_ref = f"Reembolso por canje cancelado: +{canje['puntos_usados']} pts ({canje['nombre_producto']})"
+            cursor.execute(
+                """
+                INSERT INTO HISTORIAL_PUNTOS (
+                    id_cliente, id_reserva, tipo, puntos, descripcion,
+                    saldo_resultante, fecha_registro, fecha, motivo, tipo_movimiento
+                ) VALUES (
+                    %s, %s, 'ACUMULACION', %s, %s,
+                    %s, NOW(), NOW(), %s, 'REEMBOLSO'
+                )
+                """,
+                (
+                    canje["id_cliente"], canje["id_reserva"], int(canje["puntos_usados"]),
+                    motivo_ref, nuevo_saldo, motivo_ref
+                ),
+            )
+
+        conexion.commit()
+        return jsonify({
+            "ok": True,
+            "mensaje": f"Orden de canje actualizada a '{nuevo_estado}' exitosamente."
+        })
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/fidelidad/historial", methods=["GET"])
+@administrador_requerido
+def api_admin_fidelidad_historial():
+    """Retorna el historial completo de movimientos de puntos de todos los clientes."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT h.id_historial AS id, cl.nombre AS cliente, cl.correo,
+                   COALESCE(h.fecha, h.fecha_registro) AS fecha,
+                   COALESCE(h.motivo, h.descripcion) AS motivo,
+                   h.puntos, h.saldo_resultante,
+                   COALESCE(h.tipo_movimiento, h.tipo) AS tipo_movimiento,
+                   h.id_reserva
+            FROM HISTORIAL_PUNTOS h
+            JOIN CLIENTE cl ON cl.id_cliente = h.id_cliente
+            ORDER BY h.id_historial DESC
+            LIMIT 300
+            """
+        )
+        filas = cursor.fetchall() or []
+        movimientos = []
+        for f in filas:
+            dt = f.get("fecha")
+            movimientos.append({
+                "id": f["id"],
+                "cliente": f["cliente"],
+                "correo": f["correo"],
+                "fecha": dt.strftime("%d/%m/%Y %H:%M") if hasattr(dt, "strftime") else str(dt or "")[:16],
+                "motivo": f.get("motivo") or "",
+                "puntos": int(f.get("puntos") or 0),
+                "saldo_resultante": int(f.get("saldo_resultante") or 0),
+                "tipo_movimiento": f.get("tipo_movimiento") or "ACUMULACION",
+                "id_reserva": f.get("id_reserva"),
+            })
+        return jsonify({"ok": True, "movimientos": movimientos})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/fidelidad/configuracion", methods=["GET", "POST"])
+@administrador_requerido
+def api_admin_fidelidad_configuracion():
+    """Consulta y actualiza las reglas del programa y productos canjeables / acumulables."""
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+
+        if request.method == "POST":
+            if not _csrf_valido():
+                return jsonify({"ok": False, "error": "Sesión vencida. Recarga la página."}), 403
+            datos = request.get_json(silent=True) or {}
+            puntos_dolar = max(1, int(datos.get("puntos_por_dolar") or 1))
+            meta_minima = max(50, int(datos.get("meta_minima_canje") or 50))
+            activo = 1 if datos.get("programa_activo", True) else 0
+
+            cursor.execute(
+                """
+                UPDATE CONFIGURACION_FIDELIDAD
+                SET puntos_por_dolar = %s, meta_minima_canje = %s, programa_activo = %s,
+                    fecha_actualizacion = NOW()
+                WHERE id = 1
+                """,
+                (puntos_dolar, meta_minima, activo),
+            )
+            conexion.commit()
+            return jsonify({"ok": True, "mensaje": "Reglas de fidelidad actualizadas correctamente."})
+
+        # GET: obtener configuración y productos
+        cursor.execute("SELECT puntos_por_dolar, meta_minima_canje, programa_activo FROM CONFIGURACION_FIDELIDAD WHERE id = 1")
+        cfg = cursor.fetchone() or {"puntos_por_dolar": 1, "meta_minima_canje": 50, "programa_activo": 1}
+
+        cursor.execute(
+            """
+            SELECT p.id_producto, p.nombre, p.categoria, p.precio,
+                   COALESCE(p.canjeable_puntos, p.es_canjeable, 0) AS canjeable_puntos,
+                   COALESCE(p.puntos_canje, 50) AS puntos_canje,
+                   COALESCE(p.genera_puntos, 1) AS genera_puntos,
+                   p.imagen, p.tipo_imagen
+            FROM PRODUCTO p
+            ORDER BY p.nombre ASC
+            """
+        )
+        prods_raw = cursor.fetchall() or []
+        productos = []
+        for p in prods_raw:
+            pub = _producto_publico(p)
+            productos.append({
+                "id": pub["id"],
+                "nombre": pub["nombre"],
+                "categoria": pub["categoria"],
+                "precio": pub["precio"],
+                "canjeable_puntos": pub["canjeable_puntos"],
+                "puntos_canje": pub["puntos_canje"],
+                "genera_puntos": pub["genera_puntos"],
+                "tiene_imagen": pub["tiene_imagen"],
+                "imagen": pub["imagen"],
+            })
+
+        return jsonify({
+            "ok": True,
+            "config": {
+                "puntos_por_dolar": int(cfg.get("puntos_por_dolar") or 1),
+                "meta_minima_canje": int(cfg.get("meta_minima_canje") or 50),
+                "programa_activo": bool(cfg.get("programa_activo")),
+            },
+            "productos": productos,
+        })
+    except Exception as e:
+        if conexion and request.method == "POST":
+            conexion.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+
+@app.route("/api/admin/fidelidad/producto/<int:producto_id>", methods=["POST"])
+@administrador_requerido
+def api_admin_fidelidad_producto(producto_id):
+    """Actualiza la configuración de fidelidad de un producto individual."""
+    if not _csrf_valido():
+        return jsonify({"ok": False, "error": "Sesión vencida. Recarga la página."}), 403
+
+    datos = request.get_json(silent=True) or {}
+    canjeable = 1 if datos.get("canjeable_puntos") else 0
+    puntos_canje = int(datos.get("puntos_canje") or 50)
+    genera = 1 if datos.get("genera_puntos", True) else 0
+
+    if canjeable and puntos_canje < 50:
+        return jsonify({"ok": False, "error": "La cantidad mínima requerida para canje es de 50 puntos."}), 400
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        cursor.execute(
+            """
+            UPDATE PRODUCTO
+            SET canjeable_puntos = %s, puntos_canje = %s, genera_puntos = %s
+            WHERE id_producto = %s
+            """,
+            (canjeable, puntos_canje, genera, producto_id),
+        )
+        conexion.commit()
+        return jsonify({"ok": True, "mensaje": "Producto actualizado exitosamente."})
+    except Exception as e:
+        if conexion:
+            conexion.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
     finally:
         if cursor:
             cursor.close()

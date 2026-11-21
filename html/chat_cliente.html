@@ -25,6 +25,7 @@
             <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
             <a href="{{ url_for('eventos') }}">Eventos</a>
             <a class="active active-tab" href="{{ url_for('chat_general') }}">Chat</a>
+            <a href="{{ url_for('fidelidad') }}">Fidelidad</a>
         </nav>
         {% if session.get('id_cliente') %}
         <div class="user-profile-menu" id="userProfileMenu">

@@ -11,7 +11,9 @@ Ejecuta validaciones exhaustivas sobre:
 """
 
 import unittest
+# pyrefly: ignore[missing-import]
 from app import app
+# pyrefly: ignore[missing-import]
 from ia_asistente.ia_cifrado import (
     cifrar_texto,
     descifrar_texto,
@@ -19,11 +21,13 @@ from ia_asistente.ia_cifrado import (
     enmascarar_telefono,
     enmascarar_nombre,
 )
+# pyrefly: ignore[missing-import]
 from ia_asistente.ia_database import (
     obtener_contexto_cliente,
     obtener_contexto_administrador,
     _validar_consulta_solo_lectura,
 )
+# pyrefly: ignore[missing-import]
 from ia_asistente.ia_seguridad import (
     sanitizar_input_usuario,
     detectar_inyecciones,

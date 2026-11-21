@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canjes de Fidelidad | TWIINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-fidelidad data-section="canjes" data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR PERSISTENTE E INMUTABLE ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWIINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a class="active active-tab" href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" id="adminLogoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="button" id="btnAdminLogout" class="admin-logout-trigger">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL: CANJES DE FIDELIDAD ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWIINS Bakery · Módulo de Fidelidad</p>
+                    <h1>Canjes de Fidelidad</h1>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a class="catalog-link primary" href="{{ url_for('admin_fidelidad_configuracion') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">⚙ Configurar Productos Canjeables</a>
+                    <a class="catalog-link" href="{{ url_for('admin_fidelidad') }}">← Volver al Panel Fidelidad</a>
+                </div>
+            </header>
+
+            <!-- ── NAVEGACIÓN INDEPENDIENTE ENTRE SECCIONES DE FIDELIDAD ── -->
+            <nav class="fidelidad-subnav" aria-label="Secciones de Fidelidad">
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad') }}">📊 Resumen General</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_historial') }}">📜 Historial de Puntos</a>
+                <a class="subnav-tab active" href="{{ url_for('admin_fidelidad_canjes') }}">🎁 Canjes de Fidelidad</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_configuracion') }}">⚙ Configuración de Fidelidad</a>
+            </nav>
+
+            <section class="reservations-panel">
+                <div class="list-heading">
+                    <div>
+                        <p class="eyebrow">Órdenes Especiales</p>
+                        <h2>Gestión de productos canjeados por puntos</h2>
+                    </div>
+                    <div class="filters">
+                        <label class="search-field">
+                            <span aria-hidden="true">⌕</span>
+                            <input type="search" id="canjesSearchInput" placeholder="Buscar código, cliente o postre..." aria-label="Buscar canjes">
+                        </label>
+                        <select id="canjesStatusFilter" aria-label="Filtrar por estado">
+                            <option value="">Todos los estados</option>
+                            <option value="CONFIRMADA">Confirmada</option>
+                            <option value="EN_PREPARACION">En preparación</option>
+                            <option value="LISTA">Lista para retirar</option>
+                            <option value="ENTREGADA">Entregada</option>
+                            <option value="CANCELADA">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código de canje</th>
+                                <th>Cliente</th>
+                                <th>Producto canjeado</th>
+                                <th>Puntos usados</th>
+                                <th>Fecha de canje</th>
+                                <th>Fecha de entrega</th>
+                                <th>Estado actual</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="canjesTableBody">
+                            <tr><td colspan="8" style="text-align:center;padding:24px;">Cargando pedidos de canje...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <p class="admin-footnote" style="margin-top: 24px;">Cada canje genera una orden especial identificada como "Canje por Fidelidad" para auditar y controlar operativamente la entrega de postres gratuitos.</p>
+        </main>
+    </div>
+
+    <!-- Modal para Actualizar Estado del Canje -->
+    <dialog class="edit-dialog" id="modalCambiarEstadoCanje" style="max-width: 440px; padding: 24px; border-radius: 14px; border: 1px solid #ebdcd2;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+            <h3 style="margin:0; font-size: 18px; color: var(--admin-ink);">Actualizar orden de canje</h3>
+            <button type="button" id="btnCerrarModalCanje" class="icon-close" style="background:none; border:none; font-size:20px; cursor:pointer;">×</button>
+        </div>
+        <p style="font-size: 13px; color: var(--admin-muted); margin: 0 0 16px;">
+            Canje <strong id="editCanjeCodigo"></strong> para <strong id="editCanjeCliente"></strong> (<span id="editCanjeProducto"></span>).
+        </p>
+        <form id="formCambiarEstadoCanje">
+            <input type="hidden" id="editCanjeId">
+            <div class="field" style="margin-bottom: 18px;">
+                <label for="selectCanjeEstado" style="display:block; margin-bottom: 6px; font-weight:600; font-size: 12px;">Nuevo estado de entrega:</label>
+                <select id="selectCanjeEstado" required style="width:100%; padding: 10px; border-radius: 8px; border: 1px solid #d8ccc4; font-family: inherit;">
+                    <option value="CONFIRMADA">Confirmada (en cola)</option>
+                    <option value="EN_PREPARACION">En preparación</option>
+                    <option value="LISTA">Lista para retirar en vitrina</option>
+                    <option value="ENTREGADA">Entregada al cliente</option>
+                    <option value="CANCELADA">Cancelada (anulación)</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="button-secondary" onclick="document.getElementById('modalCambiarEstadoCanje').classList.remove('is-visible');" style="padding: 10px 16px; border-radius: 8px; border: 1px solid #ddd; background: #f0e6df; cursor:pointer;">Cancelar</button>
+                <button type="submit" class="button-primary" style="padding: 10px 18px; border-radius: 8px; border: none; background: var(--pink); color:#fff; font-weight:600; cursor:pointer;">Guardar estado</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Modal Logout Admin -->
+    <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="admin-logout-modal-card">
+            <div class="admin-logout-icon">🔒</div>
+            <h3>¿Estás seguro de cerrar sesión?</h3>
+            <p>Se cerrará tu sesión administrativa.</p>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-modal-btn admin-modal-cancel" id="btnAdminLogoutCancel">NO</button>
+                <button type="button" class="admin-modal-btn admin-modal-confirm" id="btnAdminLogoutConfirm">SÍ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_fidelidad.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

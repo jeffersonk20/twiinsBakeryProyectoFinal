@@ -1,0 +1,222 @@
+/* ==============================================================================
+   ADMIN FIDELIDAD - TWIINS BAKERY ADMIN
+   Estilo idéntico a admin_reservas.css y admin_sidebar.css
+   ============================================================================== */
+
+:root {
+    --admin-pink: #f23271;
+    --admin-pink-dark: #d91f5b;
+    --admin-teal: #20b7b2;
+    --admin-ink: #123f49;
+    --admin-sidebar-bg: #123f49;
+    --admin-cream: #fff8ef;
+    --admin-card-bg: #ffffff;
+    --admin-border: #f0e6de;
+    --admin-muted: #728186;
+    --admin-success: #15803d;
+    --admin-gold: #b45309;
+}
+
+.fidelidad-subnav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.subnav-tab {
+    padding: 10px 18px;
+    border-radius: 9px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--admin-ink);
+    background: #ffffff;
+    border: 1px solid #ebdcd2;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.subnav-tab:hover {
+    background: #fbf5f0;
+    border-color: var(--admin-pink);
+    color: var(--admin-pink);
+}
+
+.subnav-tab.active {
+    background: var(--admin-pink);
+    color: #ffffff;
+    border-color: var(--admin-pink);
+    font-weight: 600;
+    box-shadow: 0 3px 12px rgba(242, 50, 113, 0.25);
+}
+
+/* ── CARDS DE ACCESO RÁPIDO EN ADMIN FIDELIDAD ── */
+.fidelidad-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.quick-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid var(--admin-border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 16px rgba(18, 63, 73, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.quick-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(18, 63, 73, 0.08);
+    border-color: #e5cfc3;
+}
+
+.quick-card-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
+.quick-card h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    color: var(--admin-ink);
+}
+
+.quick-card p {
+    margin: 0 0 16px;
+    font-size: 12.5px;
+    color: var(--admin-muted);
+    line-height: 1.45;
+    flex-grow: 1;
+}
+
+.quick-card-cta {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--admin-pink);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ── BADGES Y DISTINTIVOS ESPECIALES ── */
+.badge-canje-fidelidad {
+    background: #fdf2f8;
+    color: #db2777;
+    border: 1px solid #fbcfe8;
+    padding: 3px 10px;
+    border-radius: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.badge-pts-gain {
+    background: #dcfce7;
+    color: #15803d;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 11.5px;
+}
+
+.badge-pts-loss {
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 11.5px;
+}
+
+/* ── CONFIGURACIÓN DE FIDELIDAD ── */
+.config-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid var(--admin-border);
+    padding: 26px 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(18, 63, 73, 0.04);
+}
+
+.config-card h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: var(--admin-ink);
+}
+
+.config-card p.config-desc {
+    margin: 0 0 20px;
+    font-size: 13px;
+    color: var(--admin-muted);
+}
+
+.config-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.config-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--admin-ink);
+}
+
+.config-field input,
+.config-field select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d8ccc4;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+}
+
+.config-field small {
+    font-size: 11px;
+    color: var(--admin-muted);
+}
+
+.switch-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.switch-toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--admin-pink);
+}
+
+/* ── TABLA DE PRODUCTOS EN CONFIGURACIÓN ── */
+.table-product-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: #fbf5ef;
+}

@@ -23,6 +23,7 @@
                 <a href="{{ url_for('admin_eventos') }}">Eventos</a>
                 <a href="{{ url_for('admin_chat') }}">Chat</a>
                 <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
             </nav>
             <div class="sidebar-footer">
                 <span>{{ admin_email or 'Administrador' }}</span>
@@ -49,6 +50,23 @@
                         <div class="field"><label for="product-stock">Cantidad disponible</label><input id="product-stock" name="stock" type="number" min="0" max="2147483647" step="1" value="0" required><small class="image-help">Actualiza esta cantidad después de cada venta; al llegar a cero, el producto se oculta de la tienda.</small></div>
                         <div class="field"><label for="product-status">Disponibilidad</label><select id="product-status" name="disponible"><option value="true">Activo · visible en tienda</option><option value="false">Agotado · oculto en tienda</option></select></div>
                         <label class="vitrine-option" id="vitrina-option"><input name="en_vitrina" type="checkbox"><span><strong>Agregar a Vitrina</strong><small>Mostrar este postre fijo en la sección Vitrina del cliente.</small></span></label>
+                        
+                        <!-- Configuración de Fidelidad para el Producto -->
+                        <div style="margin: 14px 0; padding: 14px; background: #fff5f8; border: 1px solid #fed7e2; border-radius: 8px;">
+                            <label class="vitrine-option" id="canjeable-option" style="margin-bottom: 8px;">
+                                <input name="canjeable_puntos" id="input-canjeable-puntos" type="checkbox">
+                                <span><strong>¿Producto canjeable por puntos?</strong><small>Permitir que el cliente canjee este producto de vitrina con sus puntos acumulados.</small></span>
+                            </label>
+                            <div class="field" id="field-puntos-canje" style="display: none; margin-top: 10px;">
+                                <label for="product-puntos-canje">Puntos requeridos para canje (mínimo 50) <span style="color:#e53e3e;">*</span></label>
+                                <input id="product-puntos-canje" name="puntos_canje" type="number" min="50" step="1" value="50" placeholder="50">
+                                <small class="image-help">Cantidad mínima de puntos requerida para que el cliente obtenga el producto gratis (mín. 50 puntos).</small>
+                            </div>
+                            <label class="vitrine-option" id="genera-puntos-option" style="margin-top: 10px;">
+                                <input name="genera_puntos" id="input-genera-puntos" type="checkbox" checked>
+                                <span><strong>¿Participa en acumulación de puntos al comprar?</strong><small>Suma 1 punto por cada $1 gastado. Las bebidas individuales se excluyen si se desmarca; para combos/promociones con postre puede mantenerse activo.</small></span>
+                            </label>
+                        </div>
                         <div class="form-actions"><button class="save-button" type="submit" data-save-button>Guardar producto</button><button class="cancel-button" type="button" data-reset-form>Cancelar</button></div>
                     </form>
                 </section>

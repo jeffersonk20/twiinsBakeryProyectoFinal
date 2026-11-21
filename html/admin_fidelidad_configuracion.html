@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Fidelidad | TWIINS Bakery Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-shell" data-admin-fidelidad data-section="configuracion" data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR PERSISTENTE E INMUTABLE ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWIINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a class="active active-tab" href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" id="adminLogoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="button" id="btnAdminLogout" class="admin-logout-trigger">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL: CONFIGURACIÓN DE FIDELIDAD ── -->
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWIINS Bakery · Módulo de Fidelidad</p>
+                    <h1>Configuración del Programa</h1>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <a class="catalog-link primary" href="{{ url_for('admin_fidelidad_canjes') }}" style="background: var(--pink); color: #fff; border-color: var(--pink); font-weight: 600;">🎁 Ver Canjes</a>
+                    <a class="catalog-link" href="{{ url_for('admin_fidelidad') }}">← Volver al Panel Fidelidad</a>
+                </div>
+            </header>
+
+            <!-- ── NAVEGACIÓN INDEPENDIENTE ENTRE SECCIONES DE FIDELIDAD ── -->
+            <nav class="fidelidad-subnav" aria-label="Secciones de Fidelidad">
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad') }}">📊 Resumen General</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_historial') }}">📜 Historial de Puntos</a>
+                <a class="subnav-tab" href="{{ url_for('admin_fidelidad_canjes') }}">🎁 Canjes de Fidelidad</a>
+                <a class="subnav-tab active" href="{{ url_for('admin_fidelidad_configuracion') }}">⚙ Configuración de Fidelidad</a>
+            </nav>
+
+            <!-- ── 1. REGLAS GENERALES DEL PROGRAMA ── -->
+            <section class="config-card">
+                <h2>Reglas de acumulación y canje</h2>
+                <p class="config-desc">Define los parámetros base con los que opera el sistema de fidelidad de TWIINS Bakery.</p>
+                <form id="formReglasFidelidad">
+                    <div class="config-form-grid">
+                        <div class="config-field">
+                            <label for="inputPuntosPorDolar">Equivalencia: Puntos otorgados por cada $1 gastado</label>
+                            <input type="number" id="inputPuntosPorDolar" min="1" max="100" value="1" required>
+                            <small>Solo se toman en cuenta valores enteros ignorando decimales (ej. $20.99 = 20 pts).</small>
+                        </div>
+                        <div class="config-field">
+                            <label for="inputMetaMinima">Meta mínima de canje (Puntos)</label>
+                            <input type="number" id="inputMetaMinima" min="50" step="1" value="50" required>
+                            <small>Cantidad mínima permitida para habilitar postres canjeables (mínimo 50 puntos).</small>
+                        </div>
+                        <div class="config-field" style="justify-content: flex-end;">
+                            <label class="switch-toggle-label" style="margin-top: 10px;">
+                                <input type="checkbox" id="checkProgramaActivo" checked>
+                                <span><strong>Programa de Fidelidad Activo</strong><br><small style="color:var(--admin-muted);">Permite a los clientes ver y canjear sus puntos</small></span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="button-primary" style="padding: 10px 22px; border-radius: 8px; border:none; background:var(--pink); color:#fff; font-weight:600; cursor:pointer;">Guardar reglas generales</button>
+                </form>
+            </section>
+
+            <!-- ── 2. PRODUCTOS HABILITADOS PARA CANJE Y ACUMULACIÓN ── -->
+            <section class="reservations-panel">
+                <div class="list-heading">
+                    <div>
+                        <p class="eyebrow">Catálogo y Vitrina</p>
+                        <h2>Productos habilitados para el programa</h2>
+                    </div>
+                    <div class="filters">
+                        <label class="search-field">
+                            <span aria-hidden="true">⌕</span>
+                            <input type="search" id="configProdSearch" placeholder="Buscar por nombre o categoría..." aria-label="Buscar productos">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>¿Canjeable por puntos?</th>
+                                <th>Puntos requeridos (Mín. 50)</th>
+                                <th>¿Participa en acumulación?</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="configProductosTableBody">
+                            <tr><td colspan="5" style="text-align:center;padding:24px;">Cargando productos de la tienda...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <p class="admin-footnote" style="margin-top: 24px;">Las bebidas individuales no acumulan puntos por regla del negocio. Si una bebida es parte de un combo o postre principal, puedes marcar "Sí" en acumulación.</p>
+        </main>
+    </div>
+
+    <!-- Modal Logout Admin -->
+    <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="admin-logout-modal-card">
+            <div class="admin-logout-icon">🔒</div>
+            <h3>¿Estás seguro de cerrar sesión?</h3>
+            <p>Se cerrará tu sesión administrativa.</p>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-modal-btn admin-modal-cancel" id="btnAdminLogoutCancel">NO</button>
+                <button type="button" class="admin-modal-btn admin-modal-confirm" id="btnAdminLogoutConfirm">SÍ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_fidelidad.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

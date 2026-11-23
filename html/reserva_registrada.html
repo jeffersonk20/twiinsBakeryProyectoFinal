@@ -7,6 +7,7 @@
     <title>Reserva {{ reserva.codigo }} | TWIINS Bakery</title>
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -114,7 +115,7 @@
             </div>
 
             {% if reserva.estado == "CANCELADA" %}
-                <p class="payment-progress">No hay devoluciones por cancelación. Pagado hasta el momento: ${{ "%.2f"|format(reserva.monto_pagado) }} USD. Si necesitas ayuda, comunícate con TWIINS Bakery.</p>
+                <p class="payment-progress">Pedido cancelado. Según nuestra <a href="{{ url_for('politica_retiro_reembolsos') }}" style="color: #f23271; text-decoration: underline;">política de reembolsos</a>, si notificaste con al menos 48 horas de anticipación a la fecha de retiro, puedes coordinar tu reembolso escribiendo a twiinsbakery01@gmail.com con tu código de reserva.</p>
             {% elif reserva.estado == "PENDIENTE_PAGO" %}
                 {% if reserva.metodo_pago == "EFECTIVO_TIENDA" %}
                     <p class="payment-progress">Forma de pago: efectivo en tienda. Acércate a TWIINS Bakery y presenta el código para pagar el anticipo del 50%.</p>
@@ -146,6 +147,17 @@
             </div>
         </section>
     </main>
+
+    <footer class="site-footer" style="text-align: center; padding: 24px 20px; border-top: 1px solid #eadbd8; margin-top: 40px; background: #fff;">
+        <a class="brand footer-brand" href="{{ url_for('inicio') }}">TWIINS <small>BAKERY</small></a>
+        <div style="margin-top: 8px; font-size: 11px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;">
+            <a href="{{ url_for('terminos_condiciones') }}" style="color: #64748b; text-decoration: none;">Términos y Condiciones</a>
+            <a href="{{ url_for('politica_privacidad') }}" style="color: #64748b; text-decoration: none;">Política de Privacidad</a>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}" style="color: #64748b; text-decoration: none;">Retiro y Reembolsos</a>
+            <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();" style="color: #64748b; text-decoration: none;">Cookies</a>
+        </div>
+    </footer>
+
     <!-- Modal personalizado para confirmar cierre de sesión -->
     <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
         <div class="custom-modal-card">
@@ -158,6 +170,7 @@
             </div>
         </div>
     </div>
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
 </body>

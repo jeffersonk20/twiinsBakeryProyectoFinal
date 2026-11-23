@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/inicio.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/fidelidad.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -256,6 +257,12 @@
     <footer class="site-footer">
         <a class="brand footer-brand" href="{{ url_for('inicio') }}">TWIINS <small>BAKERY</small></a>
         <span class="footer-artesanal">pastelería artesanal, hecha con amor</span>
+        <div style="margin-top: 8px; font-size: 11px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;">
+            <a href="{{ url_for('terminos_condiciones') }}" style="color: var(--muted, #64748b); text-decoration: none;">Términos y Condiciones</a>
+            <a href="{{ url_for('politica_privacidad') }}" style="color: var(--muted, #64748b); text-decoration: none;">Política de Privacidad</a>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}" style="color: var(--muted, #64748b); text-decoration: none;">Retiro y Reembolsos</a>
+            <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();" style="color: var(--muted, #64748b); text-decoration: none;">Cookies</a>
+        </div>
     </footer>
 
     <!-- ── MODAL: CONFIRMACIÓN DE CANJE ── -->
@@ -357,6 +364,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/fidelidad.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>

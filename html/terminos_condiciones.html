@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Términos y Condiciones de Uso y Venta | TWIINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/legal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="legal-page-body">
+    <header class="catalog-header">
+        <a class="brand" href="{{ url_for('inicio') if session.get('id_cliente') else url_for('index') }}">
+            <img src="/static/img/logo.png" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+            <span>TWIINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            {% if session.get('id_cliente') %}
+                <a href="{{ url_for('inicio') }}">Inicio</a>
+                <a href="{{ url_for('catalogo') }}">Catálogo</a>
+                <a href="{{ url_for('vitrina') }}">Vitrina</a>
+                <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
+                <a href="{{ url_for('eventos') }}">Eventos</a>
+                <a href="{{ url_for('chat_general') }}">Chat</a>
+                <a href="{{ url_for('fidelidad') }}">Fidelidad</a>
+            {% else %}
+                <a href="{{ url_for('index') }}">Inicio</a>
+                <a href="{{ url_for('login') }}">Catálogo</a>
+                <a href="{{ url_for('login') }}">Vitrina</a>
+                <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                <a href="{{ url_for('registro') }}">Crear cuenta</a>
+            {% endif %}
+        </nav>
+        {% if session.get('id_cliente') %}
+        <div class="user-profile-menu" id="userProfileMenu">
+            <button type="button" class="profile-toggle-btn" id="profileToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Menú de perfil">
+                <div class="avatar-circle" id="headerAvatarContainer">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
+                </div>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar-wrap" id="dropdownAvatarTrigger" title="Haz clic para cambiar foto">
+                        <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="dropdown-avatar-img" id="dropdownAvatarImg" onerror="this.src='/img/logo.png'">
+                        <span class="avatar-edit-badge">Cambiar</span>
+                    </div>
+                    <span class="avatar-upload-hint" id="avatarUploadHint">Cambiar foto de perfil</span>
+                    <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" aria-label="Subir foto de perfil">
+                    <div class="dropdown-user-info">
+                        <strong>{{ session.get('nombre_cliente', 'Cliente') }}</strong>
+                        <small>{{ session.get('correo_cliente', '') }}</small>
+                    </div>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item" id="btnCerrarSesionPerfil">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Cerrar sesión</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </header>
+
+    <main class="legal-container">
+        <!-- Navegación entre documentos legales -->
+        <nav class="legal-nav-tabs" aria-label="Documentos legales">
+            <a href="{{ url_for('politica_privacidad') }}" class="legal-nav-tab">
+                <span>🛡️</span> Política de Privacidad
+            </a>
+            <a href="{{ url_for('terminos_condiciones') }}" class="legal-nav-tab active">
+                <span>📜</span> Términos y Condiciones
+            </a>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}" class="legal-nav-tab">
+                <span>🏪</span> Retiro, Cancelaciones y Reembolsos
+            </a>
+        </nav>
+
+        <article class="legal-document-card">
+            <header class="legal-doc-header">
+                <span class="legal-badge">Condiciones Contractuales</span>
+                <h1 class="legal-title">Términos y Condiciones de Uso y Venta</h1>
+                <p class="legal-subtitle">
+                    Vigentes en la República de El Salvador &middot; TWIINS Bakery.
+                </p>
+            </header>
+
+            <!-- Sección 1 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">1</span>
+                    Aceptación y uso del sitio web
+                </h2>
+                <p class="legal-paragraph">
+                    El registro, navegación, cotización de eventos o confirmación de reservas en el sitio web de <strong>TWIINS Bakery</strong> implica la aceptación plena de los presentes Términos y Condiciones.
+                </p>
+                <p class="legal-paragraph">
+                    El usuario se compromete a proporcionar información fidedigna y vigente, a resguardar la confidencialidad de sus credenciales de acceso y a no realizar acciones fraudulentas, reservas falsas ni intentos de vulneración a la seguridad informática de la plataforma o de su asistente virtual.
+                </p>
+            </section>
+
+            <!-- Sección 2 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">2</span>
+                    Precios, moneda e impuestos
+                </h2>
+                <p class="legal-paragraph">
+                    Todos los precios mostrados en el catálogo, vitrina y cotizaciones están expresados en <strong>dólares de los Estados Unidos de América (USD)</strong>, moneda de curso legal en la República de El Salvador.
+                </p>
+                <div class="legal-highlight-box emerald">
+                    Salvo indicación expresa en contrario, los precios incluyen el correspondiente <strong>Impuesto a la Transferencia de Bienes Muebles y a la Prestación de Servicios (IVA)</strong>.
+                </div>
+            </section>
+
+            <!-- Sección 3 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">3</span>
+                    Naturaleza artesanal y especificaciones de los productos
+                </h2>
+                <p class="legal-paragraph">
+                    Todos los productos de TWIINS Bakery son de <strong>elaboración artesanal y horneados bajo pedido</strong>.
+                </p>
+                <p class="legal-paragraph">
+                    Las fotografías mostradas en el catálogo, en la vitrina virtual y en los modelos 3D son de carácter ilustrativo y referencial. 
+                    Al tratarse de repostería manual, pueden existir sutiles variaciones en tonalidades de cobertura, matices de color, 
+                    detalles de rotulado y acabados decorativos finales, sin que esto altere el sabor, el peso ni la calidad pactada.
+                </p>
+            </section>
+
+            <!-- Sección 4 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">4</span>
+                    Condiciones de reserva y modalidades de pago
+                </h2>
+                <ol class="legal-list">
+                    <li>
+                        <strong>Anticipación obligatoria:</strong> Las reservas de productos y pasteles de catálogo deben realizarse con un mínimo de <strong>5 días calendario de anticipación</strong> a la fecha programada de retiro.
+                    </li>
+                    <li>
+                        <strong>Anticipo requerido del 50%:</strong> Toda reserva generada entra en estado <em>"Pendiente de pago"</em>. La reserva solo queda en firme y programada para horneado cuando el cliente abona como mínimo el <strong>50% de anticipo requerido</strong>, ya sea mediante la pasarela en línea Wompi o presencialmente en efectivo en nuestra tienda.
+                    </li>
+                    <li>
+                        <strong>Liquidación del saldo:</strong> El 50% restante del valor total del pedido debe liquidarse en su totalidad al momento de retirar el producto en tienda física (efectivo o tarjeta), a menos que el cliente haya optado por abonar el 100% por adelantado a través de Wompi.
+                    </li>
+                    <li>
+                        <strong>Código de reserva:</strong> El sistema genera un código único de reserva (ejemplo: <code>TB-XXXX</code>). Es requisito indispensable presentar este código para consultar el pedido o retirarlo en sucursal.
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Sección 5 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">5</span>
+                    Advertencia sobre alérgenos alimentarios
+                </h2>
+                <div class="legal-highlight-box amber">
+                    <p style="margin: 0 0 8px;"><strong>Aviso importante de salud:</strong></p>
+                    <p style="margin: 0;">
+                        Nuestros productos se elaboran en un obrador donde se manipulan ingredientes que contienen o pueden contener trazas de <strong>gluten (trigo), derivados lácteos (leche, mantequilla, queso), huevos, soya, maní y frutos secos (nueces, almendras)</strong>. Es responsabilidad exclusiva del cliente verificar la descripción del producto o consultar previamente con nuestro equipo antes de realizar su pedido en caso de padecer alergias o intolerancias alimentarias severas.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Sección 6 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">6</span>
+                    Propiedad intelectual
+                </h2>
+                 <p class="legal-paragraph">
+                    El nombre comercial, la marca <strong>TWIINS Bakery</strong>, logotipos, imágenes, fotografías, ilustraciones, 
+                    textos, recetas y el software de esta aplicación son propiedad de TWIINS Bakery 
+                    o se utilizan bajo licencia de sus respectivos titulares.
+                </p>
+
+                <p class="legal-paragraph">
+                    Queda prohibida la reproducción, distribución, modificación o explotación comercial 
+                    no autorizada de los contenidos y elementos protegidos de esta aplicación, 
+                    salvo en los casos permitidos por la legislación aplicable o con la autorización previa y por escrito de sus titulares.
+                </p>
+            </section>
+
+            <div class="legal-contact-card">
+                <h4>¿Tienes dudas sobre los términos o tu pedido?</h4>
+                <p>Escríbenos directamente y nuestro equipo te atenderá con gusto.</p>
+                <a href="mailto:twiinsbakery01@gmail.com" class="legal-contact-email">
+                    ✉️ twiinsbakery01@gmail.com
+                </a>
+            </div>
+        </article>
+    </main>
+
+    <footer class="legal-footer">
+        <div class="legal-footer-links">
+            <a href="{{ url_for('terminos_condiciones') }}">Términos y Condiciones</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_privacidad') }}">Política de Privacidad</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}">Retiro, Cancelaciones y Reembolsos</a>
+            <span>&middot;</span>
+            <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();">Cookies</a>
+        </div>
+        <p>&copy; 2026 TWIINS Bakery. Todos los derechos reservados. Prolongación Segunda C Puente, Ereguayquín, Usulután, El Salvador.</p>
+    </footer>
+
+    <!-- Modal personalizado para confirmar cierre de sesión -->
+    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+        <div class="custom-modal-card">
+            <div class="modal-icon-wrap">🔒</div>
+            <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
+            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
+</body>
+</html>

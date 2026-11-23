@@ -114,11 +114,23 @@
     phoneInput.addEventListener("input", formatPhone);
     updateAvailableTimes();
 
+    const consentWrap = document.getElementById("consentWrap") || page.querySelector(".consent-checkbox-wrap");
+    const consentCheck = document.getElementById("acepto_terminos_reserva");
+
     paymentMethods.forEach((method) => {
         method.addEventListener("change", () => {
             const isWompi = method.value === "WOMPI";
             if (wompiBox) {
                 wompiBox.style.display = isWompi ? "block" : "none";
+            }
+            if (consentWrap) {
+                consentWrap.style.display = isWompi ? "none" : "flex";
+            }
+            if (consentCheck) {
+                consentCheck.required = !isWompi;
+                if (isWompi) {
+                    consentCheck.setCustomValidity("");
+                }
             }
             updateSubmitButtonText();
         });
@@ -146,6 +158,22 @@
             return;
         } else {
             date.setCustomValidity("");
+        }
+
+        const selectedMethod = page.querySelector('input[name="metodo_pago"]:checked');
+        const isWompi = selectedMethod && selectedMethod.value === "WOMPI";
+
+
+        // Para pago con Wompi
+        if (isWompi) {
+            return;
+        }
+
+        // ── PAGO EN EFECTIVO (Presencial en tienda) ──
+        if (consentCheck && !consentCheck.checked) {
+            consentCheck.reportValidity();
+            event.preventDefault();
+            return;
         }
 
         if (isSubmittingReserva) return;

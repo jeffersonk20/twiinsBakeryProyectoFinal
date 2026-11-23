@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Política de Retiro en Tienda, Cancelaciones y Reembolsos | TWIINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/legal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="legal-page-body">
+    <header class="catalog-header">
+        <a class="brand" href="{{ url_for('inicio') if session.get('id_cliente') else url_for('index') }}">
+            <img src="/static/img/logo.png" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+            <span>TWIINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            {% if session.get('id_cliente') %}
+                <a href="{{ url_for('inicio') }}">Inicio</a>
+                <a href="{{ url_for('catalogo') }}">Catálogo</a>
+                <a href="{{ url_for('vitrina') }}">Vitrina</a>
+                <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
+                <a href="{{ url_for('eventos') }}">Eventos</a>
+                <a href="{{ url_for('chat_general') }}">Chat</a>
+                <a href="{{ url_for('fidelidad') }}">Fidelidad</a>
+            {% else %}
+                <a href="{{ url_for('index') }}">Inicio</a>
+                <a href="{{ url_for('login') }}">Catálogo</a>
+                <a href="{{ url_for('login') }}">Vitrina</a>
+                <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                <a href="{{ url_for('registro') }}">Crear cuenta</a>
+            {% endif %}
+        </nav>
+        {% if session.get('id_cliente') %}
+        <div class="user-profile-menu" id="userProfileMenu">
+            <button type="button" class="profile-toggle-btn" id="profileToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Menú de perfil">
+                <div class="avatar-circle" id="headerAvatarContainer">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
+                </div>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar-wrap" id="dropdownAvatarTrigger" title="Haz clic para cambiar foto">
+                        <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="dropdown-avatar-img" id="dropdownAvatarImg" onerror="this.src='/img/logo.png'">
+                        <span class="avatar-edit-badge">Cambiar</span>
+                    </div>
+                    <span class="avatar-upload-hint" id="avatarUploadHint">Cambiar foto de perfil</span>
+                    <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" aria-label="Subir foto de perfil">
+                    <div class="dropdown-user-info">
+                        <strong>{{ session.get('nombre_cliente', 'Cliente') }}</strong>
+                        <small>{{ session.get('correo_cliente', '') }}</small>
+                    </div>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item" id="btnCerrarSesionPerfil">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Cerrar sesión</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </header>
+
+    <main class="legal-container">
+        <!-- Navegación entre documentos legales -->
+        <nav class="legal-nav-tabs" aria-label="Documentos legales">
+            <a href="{{ url_for('politica_privacidad') }}" class="legal-nav-tab">
+                <span>🛡️</span> Política de Privacidad
+            </a>
+            <a href="{{ url_for('terminos_condiciones') }}" class="legal-nav-tab">
+                <span>📜</span> Términos y Condiciones
+            </a>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}" class="legal-nav-tab active">
+                <span>🏪</span> Retiro, Cancelaciones y Reembolsos
+            </a>
+        </nav>
+
+        <article class="legal-document-card">
+            <header class="legal-doc-header">
+                <span class="legal-badge">Entregas y Devoluciones</span>
+                <h1 class="legal-title">Política de Retiro en Tienda, Cancelaciones y Reembolsos</h1>
+                <p class="legal-subtitle">
+                    Condiciones aplicables para pasteles, repostería y celebraciones en TWIINS Bakery.
+                </p>
+            </header>
+
+            <!-- Sección 1 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">1</span>
+                    Modalidad de entrega: Exclusivamente retiro en tienda (Sin envíos a domicilio)
+                </h2>
+                <p class="legal-paragraph">
+                    <strong>TWIINS Bakery opera exclusivamente bajo la modalidad de retiro presencial en tienda física.</strong> No realizamos envíos a domicilio para garantizar la frescura, integridad estructural y temperatura adecuada de nuestros pasteles y postres.
+                </p>
+                <div class="legal-highlight-box pink">
+                    <p style="margin: 0 0 8px;"><strong>📍 Dirección de retiro en tienda física:</strong></p>
+                    <p style="margin: 0;">
+                        Prolongación Segunda C Puente, Ereguayquín, Departamento de Usulután, El Salvador.
+                    </p>
+                </div>
+                <p class="legal-paragraph"><strong>🕒 Horarios de atención para retiro:</strong></p>
+                <ul class="legal-list">
+                    <li><strong>Lunes:</strong> 2:00 p. m. a 6:00 p. m.</li>
+                    <li><strong>Martes a Sábado:</strong> 10:00 a. m. a 6:00 p. m.</li>
+                    <li><strong>Domingo:</strong> Cerrado.</li>
+                </ul>
+                <p class="legal-paragraph">
+                    <strong>Requisitos para la entrega:</strong> Presentar el código único de reserva emitido por la web (<code>TB-XXXX</code>) y haber liquidado cualquier saldo pendiente del pedido.
+                </p>
+            </section>
+
+            <!-- Sección 2 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">2</span>
+                    Plazos mínimos de anticipación
+                </h2>
+                <ul class="legal-list">
+                    <li>
+                        <strong>Pasteles y productos de catálogo / vitrina:</strong> Deben reservarse con al menos <strong>5 días calendario de anticipación</strong>.
+                    </li>
+                    <li>
+                        <strong>Pasteles para eventos especiales:</strong> Deben planificarse y cotizarse a través del módulo de eventos con suficiente margen previo (mínimo 5 días) y quedan sujetos a confirmación y disponibilidad de agenda por parte de la administración.
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Sección 3 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">3</span>
+                    Cancelaciones y reembolsos
+                </h2>
+                <p class="legal-paragraph">
+                    Por tratarse de productos alimenticios perecederos, sensibles al tiempo y elaborados bajo personalización exclusiva, aplican las siguientes reglas:
+                </p>
+
+                <div class="legal-highlight-box emerald">
+                    <h3 style="margin: 0 0 6px; font-size: 15px; color: #166534;">✓ Cancelación con reembolso (Con al menos 48 horas de anticipación):</h3>
+                    <p style="margin: 0;">
+                        Se admitirá la cancelación de la reserva con derecho al reembolso del anticipo pagado <strong>únicamente si el cliente notifica la cancelación con al menos 48 horas de anticipación</strong> a la fecha y hora acordadas para el retiro del pedido. Dicha notificación debe realizarse por correo a <a href="mailto:twiinsbakery01@gmail.com" style="color: #166534; font-weight: 700; text-decoration: underline;">twiinsbakery01@gmail.com</a> o por los canales directos de la pastelería indicando el código de reserva.
+                    </p>
+                </div>
+
+                <div class="legal-highlight-box amber">
+                    <h3 style="margin: 0 0 6px; font-size: 15px; color: #9a3412;">⚠️ Cancelación fuera de plazo (Menos de 48 horas):</h3>
+                    <p style="margin: 0;">
+                        Si la cancelación se solicita con <strong>menos de 48 horas de anticipación al retiro, no habrá reembolso del anticipo pagado</strong>, dado que los insumos específicos, preparación de bases, horneado y tiempo de trabajo artesanal ya habrán sido destinados a tu pedido.
+                    </p>
+                </div>
+
+                <p class="legal-paragraph">
+                    <strong>Revisión y conformidad al momento del retiro:</strong><br>
+                    El cliente o la persona designada debe inspeccionar visualmente el pastel o postre en el momento del retiro en tienda. Una vez el producto ha sido entregado, revisado y retirado a conformidad del establecimiento, no se aceptan devoluciones ni solicitudes de reembolso, salvo que exista un error evidente, sustancial y comprobable atribuible a TWIINS Bakery (como la entrega de un sabor o diseño radicalmente distinto a lo solicitado en la orden).
+                </p>
+
+                <p class="legal-paragraph">
+                    <strong>No retiro de pedidos:</strong><br>
+                    Si el cliente no se presenta a retirar su pedido dentro del horario y fecha pactada o durante el día hábil inmediato siguiente, el producto será desechado por razones sanitarias y de caducidad alimentaria, perdiendo el cliente el derecho a cualquier reclamo o devolución.
+                </p>
+            </section>
+
+            <div class="legal-contact-card">
+                <h4>Atención al cliente para cancelaciones o cambios</h4>
+                <p>Indica tu código de reserva (TB-XXXX) para atenderte a la mayor brevedad.</p>
+                <a href="mailto:twiinsbakery01@gmail.com" class="legal-contact-email">
+                    ✉️ twiinsbakery01@gmail.com
+                </a>
+            </div>
+        </article>
+    </main>
+
+    <footer class="legal-footer">
+        <div class="legal-footer-links">
+            <a href="{{ url_for('terminos_condiciones') }}">Términos y Condiciones</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_privacidad') }}">Política de Privacidad</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}">Retiro, Cancelaciones y Reembolsos</a>
+            <span>&middot;</span>
+            <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();">Cookies</a>
+        </div>
+        <p>&copy; 2026 TWIINS Bakery. Todos los derechos reservados. Prolongación Segunda C Puente, Ereguayquín, Usulután, El Salvador.</p>
+    </footer>
+
+    <!-- Modal personalizado para confirmar cierre de sesión -->
+    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+        <div class="custom-modal-card">
+            <div class="modal-icon-wrap">🔒</div>
+            <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
+            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
+</body>
+</html>

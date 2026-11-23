@@ -7,6 +7,8 @@
     <title>Reservar producto | TWIINS Bakery</title>
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/legal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -248,7 +250,16 @@
                         </div>
                     </fieldset>
 
-                    <p class="reservation-terms">La reserva se debe solicitar con 5 días de anticipación y queda pendiente hasta recibir el anticipo del 50%. Si cancelas el pedido, no hay devolución de los pagos realizados. Conserva el código de reserva para retirar tu pedido.</p>
+                    <p class="reservation-terms">La reserva se debe solicitar con 5 días de anticipación y queda pendiente hasta recibir el anticipo del 50%. Consulta nuestra política de retiro y reembolsos para cancelaciones con 48h de antelación. Conserva el código de reserva para retirar tu pedido.</p>
+
+                    <!-- Casilla obligatoria de selección tipo checkbox -->
+                    <label class="consent-checkbox-wrap" id="consentWrap" for="acepto_terminos_reserva">
+                        <input type="checkbox" id="acepto_terminos_reserva" name="acepto_terminos_reserva" required>
+                        <span>
+                            He leído y acepto los <a href="{{ url_for('terminos_condiciones') }}" target="_blank">Términos y Condiciones</a>, la <a href="{{ url_for('politica_privacidad') }}" target="_blank">Política de Privacidad</a> y la <a href="{{ url_for('politica_retiro_reembolsos') }}" target="_blank">Política de Retiro en Tienda, Cancelaciones y Reembolsos</a> de TWIINS Bakery.
+                        </span>
+                    </label>
+
                     <button class="primary-button" type="submit" data-payment-submit>Confirmar reserva <span aria-hidden="true">→</span></button>
                 </form>
             </section>
@@ -266,6 +277,7 @@
             </div>
         </div>
     </div>
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/productos.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/reservar_producto.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>

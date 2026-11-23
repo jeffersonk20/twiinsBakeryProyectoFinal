@@ -9,6 +9,8 @@
 
     <link rel="stylesheet"
           href="{{ url_for('static_files', filename='css/login.css') }}">
+    <link rel="stylesheet"
+          href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -148,6 +150,13 @@
                 <span class="heart">♥</span>
                 <span>por TWIINS Bakery</span>
             </div>
+            <div style="margin-top: 10px; font-size: 11px; text-align: center; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <a href="{{ url_for('terminos_condiciones') }}" style="color: #64748b; text-decoration: none;">Términos</a>
+                <span style="color: #cbd5e1;">·</span>
+                <a href="{{ url_for('politica_privacidad') }}" style="color: #64748b; text-decoration: none;">Privacidad</a>
+                <span style="color: #cbd5e1;">·</span>
+                <a href="{{ url_for('politica_retiro_reembolsos') }}" style="color: #64748b; text-decoration: none;">Reembolsos</a>
+            </div>
 
         </div>
 
@@ -186,5 +195,6 @@
    
 </script>
 
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
 </body>
 </html>

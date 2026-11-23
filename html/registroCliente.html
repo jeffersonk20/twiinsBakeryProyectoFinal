@@ -8,6 +8,7 @@
     <title>TWIINS Bakery | Crear cuenta</title>
 
     <link rel="stylesheet" href="{{ url_for('static_files', filename='css/registroCliente.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -168,8 +169,7 @@
                         <input type="checkbox" id="terminos" name="terminos" required>
 
                         <label for="terminos">
-                            Acepto los términos y condiciones
-                            de TWIINS Bakery.
+                            Acepto los <a href="{{ url_for('terminos_condiciones') }}" target="_blank" style="color: #f23271; text-decoration: underline;">términos y condiciones</a> y la <a href="{{ url_for('politica_privacidad') }}" target="_blank" style="color: #f23271; text-decoration: underline;">política de privacidad</a> de TWIINS Bakery.
                         </label>
                     </div>
 
@@ -338,7 +338,7 @@
 
        
     </script>
-
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
 </body>
 
 </html>

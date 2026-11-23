@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#153e49">
+    <title>Política de Privacidad | TWIINS Bakery</title>
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/reservas.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/perfil_dropdown.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/legal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/cookies_banner.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="legal-page-body">
+    <header class="catalog-header">
+        <a class="brand" href="{{ url_for('inicio') if session.get('id_cliente') else url_for('index') }}">
+            <img src="/static/img/logo.png" alt="TWIINS Bakery" onerror="this.onerror=null;this.src='/img/logo.png'">
+            <span>TWIINS <small>BAKERY</small></span>
+        </a>
+        <nav class="desktop-nav" aria-label="Navegación principal">
+            {% if session.get('id_cliente') %}
+                <a href="{{ url_for('inicio') }}">Inicio</a>
+                <a href="{{ url_for('catalogo') }}">Catálogo</a>
+                <a href="{{ url_for('vitrina') }}">Vitrina</a>
+                <a href="{{ url_for('mis_reservas') }}">Mis reservas</a>
+                <a href="{{ url_for('eventos') }}">Eventos</a>
+                <a href="{{ url_for('chat_general') }}">Chat</a>
+                <a href="{{ url_for('fidelidad') }}">Fidelidad</a>
+            {% else %}
+                <a href="{{ url_for('index') }}">Inicio</a>
+                <a href="{{ url_for('login') }}">Catálogo</a>
+                <a href="{{ url_for('login') }}">Vitrina</a>
+                <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                <a href="{{ url_for('registro') }}">Crear cuenta</a>
+            {% endif %}
+        </nav>
+        {% if session.get('id_cliente') %}
+        <div class="user-profile-menu" id="userProfileMenu">
+            <button type="button" class="profile-toggle-btn" id="profileToggleBtn" aria-expanded="false" aria-haspopup="true" aria-label="Menú de perfil">
+                <div class="avatar-circle" id="headerAvatarContainer">
+                    <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
+                </div>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar-wrap" id="dropdownAvatarTrigger" title="Haz clic para cambiar foto">
+                        <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="dropdown-avatar-img" id="dropdownAvatarImg" onerror="this.src='/img/logo.png'">
+                        <span class="avatar-edit-badge">Cambiar</span>
+                    </div>
+                    <span class="avatar-upload-hint" id="avatarUploadHint">Cambiar foto de perfil</span>
+                    <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" aria-label="Subir foto de perfil">
+                    <div class="dropdown-user-info">
+                        <strong>{{ session.get('nombre_cliente', 'Cliente') }}</strong>
+                        <small>{{ session.get('correo_cliente', '') }}</small>
+                    </div>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item" id="btnCerrarSesionPerfil">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Cerrar sesión</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </header>
+
+    <main class="legal-container">
+        <!-- Navegación entre documentos legales -->
+        <nav class="legal-nav-tabs" aria-label="Documentos legales">
+            <a href="{{ url_for('politica_privacidad') }}" class="legal-nav-tab active">
+                <span>🛡️</span> Política de Privacidad
+            </a>
+            <a href="{{ url_for('terminos_condiciones') }}" class="legal-nav-tab">
+                <span>📜</span> Términos y Condiciones
+            </a>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}" class="legal-nav-tab">
+                <span>🏪</span> Retiro, Cancelaciones y Reembolsos
+            </a>
+        </nav>
+
+        <article class="legal-document-card">
+            <header class="legal-doc-header">
+                <span class="legal-badge">Privacidad y Protección de Datos</span>
+                <h1 class="legal-title">Política de Privacidad</h1>
+                <p class="legal-subtitle">
+                    Última actualización: Noviembre 2026 &middot; Conforme a la legislación de la República de El Salvador.
+                </p>
+            </header>
+
+            <!-- Sección 1 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">1</span>
+                    Responsable del Tratamiento de los Datos
+                </h2>
+                <p class="legal-paragraph">
+                    <strong>TWIINS Bakery</strong>, establecimiento de pastelería artesanal con sede física en <strong>Prolongación Segunda C Puente, Ereguayquín, Departamento de Usulután, El Salvador</strong>, y correo electrónico de contacto oficial: <a href="mailto:twiinsbakery01@gmail.com" style="color: #f23271; font-weight: 600;">twiinsbakery01@gmail.com</a>, es responsable del tratamiento, resguardo y protección de los datos personales suministrados por los usuarios en esta plataforma web.
+                </p>
+            </section>
+
+            <!-- Sección 2 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">2</span>
+                    Datos que recopilamos y finalidad del tratamiento
+                </h2>
+                <p class="legal-paragraph">
+                    Para la creación de cuentas, atención personalizada, procesamiento de pedidos y cotización de eventos, recopilamos únicamente los datos pertinentes:
+                </p>
+                <ul class="legal-list">
+                    <li>
+                        <strong>Nombre completo:</strong> Para identificar al titular de la cuenta, personalizar la atención, rotular reservas y emitir comprobantes de entrega.
+                    </li>
+                    <li>
+                        <strong>Correo electrónico:</strong> Para la verificación obligatoria de cuenta mediante códigos numéricos de seguridad de 6 dígitos, recuperación y restablecimiento de contraseña, notificaciones automáticas sobre el estado de tus reservas (<em>recibida, pago confirmado, en preparación, lista para retiro o cancelada</em>), envío de comprobantes de pago emitidos por Wompi y respuesta a solicitudes de eventos.
+                    </li>
+                    <li>
+                        <strong>Número de teléfono (formato local El Salvador):</strong> Requerido al momento de confirmar una reserva o cotizar un evento, con el fin exclusivo de coordinar detalles de elaboración, confirmar especificaciones del pastel y contactarte puntualmente si tu pedido ya se encuentra listo para entrega en tienda.
+                    </li>
+                    <li>
+                        <strong>Contraseña:</strong> Almacenada de forma irreversible bajo algoritmos criptográficos robustos. Ningún miembro de TWIINS Bakery tiene acceso a tu contraseña en texto plano.
+                    </li>
+                    <li>
+                        <strong>Foto de perfil (opcional):</strong> Si decides subir una imagen a tu perfil, esta se almacena únicamente para personalizar tu avatar dentro de la interfaz del cliente.
+                    </li>
+                    <li>
+                        <strong>Detalles de eventos:</strong> En el módulo de planificación de eventos se registran datos como tipo de celebración, fecha, número de invitados, localidad de referencia, presupuesto estimado y postres solicitados para formular cotizaciones personalizadas.
+                    </li>
+                    <li>
+                        <strong>Mensajes y Asistente Virtual:</strong> Las conversaciones con nuestro equipo y las consultas a nuestro asistente virtual inteligente están protegidas bajo estrictas medidas de aislamiento de contexto, cifrado simétrico AES y enmascaramiento de datos personales (PII), garantizando que tu información privada jamás sea expuesta a terceros ni a otros usuarios.
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Sección 3 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">3</span>
+                    Procesamiento seguro de pagos (Pasarela Wompi y Efectivo)
+                </h2>
+                <p class="legal-paragraph">
+                    Ofrecemos métodos de pago seguros y transparentes adaptados a El Salvador:
+                </p>
+                <div class="legal-highlight-box pink">
+                    <p style="margin: 0 0 10px;">
+                        <strong>Pagos en línea (Wompi El Salvador):</strong> TWIINS Bakery <strong>no recopila, no procesa, no visualiza ni almacena</strong> números de tarjetas de crédito o débito, fechas de vencimiento ni códigos de seguridad CVV/CVC.
+                    </p>
+                    <p style="margin: 0;">
+                        Las transacciones con tarjeta se procesan en los servidores cifrados de la pasarela de pagos Wompi (operada por Banco Agrícola S.A., El Salvador), bajo estándares de seguridad bancaria y certificación internacional <strong>PCI-DSS</strong>. TWIINS Bakery únicamente recibe de Wompi un token/identificador de transacción, el monto abonado y el estado de aprobación (Aprobado/Rechazado).
+                    </p>
+                </div>
+                <p class="legal-paragraph">
+                    <strong>Pagos en efectivo en tienda:</strong> Si seleccionas pago presencial, abonas el anticipo del 50% o el saldo pendiente directamente en nuestra caja física en Ereguayquín presentando tu código de reserva.
+                </p>
+            </section>
+
+            <!-- Sección 4 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">4</span>
+                    Conservación y no transferencia de datos
+                </h2>
+                <p class="legal-paragraph">
+                    Tus datos personales se conservarán mientras mantengas activa tu cuenta en la plataforma o durante los plazos estrictamente exigidos por la legislación mercantil y tributaria aplicable en El Salvador.
+                </p>
+                <div class="legal-highlight-box emerald">
+                    <strong>Compromiso de privacidad:</strong> TWIINS Bakery <strong>no vende, no alquila, no cede ni comparte</strong> tus datos personales con terceros para fines publicitarios.
+                </div>
+            </section>
+
+            <!-- Sección 5 -->
+            <section class="legal-section">
+                <h2 class="legal-section-title">
+                    <span class="legal-section-number">5</span>
+                    Derechos del usuario (Acceso, Rectificación y Cancelación)
+                </h2>
+                <p class="legal-paragraph">
+                    Como titular de los datos en la República de El Salvador, tienes derecho a:
+                </p>
+                <ol class="legal-list">
+                    <li>Conocer qué información personal tenemos registrada.</li>
+                    <li>Solicitar la actualización o corrección de datos inexactos o desactualizados.</li>
+                    <li>Solicitar la eliminación definitiva de tu cuenta y datos personales de nuestros registros.</li>
+                </ol>
+                <p class="legal-paragraph">
+                    Para ejercer cualquiera de estos derechos, envía tu solicitud desde el correo registrado en la plataforma a: <a href="mailto:twiinsbakery01@gmail.com" style="color: #f23271; font-weight: 600;">twiinsbakery01@gmail.com</a>, indicando tu nombre completo y la petición correspondiente.
+                </p>
+            </section>
+
+            <!-- Tarjeta de contacto y cookies -->
+            <div class="legal-contact-card">
+                <h4>¿Deseas gestionar tus cookies?</h4>
+                <p>Puedes revisar o cambiar tu configuración de cookies y almacenamiento esencial en cualquier momento.</p>
+                <button type="button" class="legal-contact-email" onclick="window.abrirBannerCookies && window.abrirBannerCookies();" style="cursor: pointer; background: transparent;">
+                    🍪 Configurar preferencias de cookies
+                </button>
+            </div>
+        </article>
+    </main>
+
+    <footer class="legal-footer">
+        <div class="legal-footer-links">
+            <a href="{{ url_for('terminos_condiciones') }}">Términos y Condiciones</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_privacidad') }}">Política de Privacidad</a>
+            <span>&middot;</span>
+            <a href="{{ url_for('politica_retiro_reembolsos') }}">Retiro, Cancelaciones y Reembolsos</a>
+            <span>&middot;</span>
+            <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();">Cookies</a>
+        </div>
+        <p>&copy; 2026 TWIINS Bakery. Todos los derechos reservados. Prolongación Segunda C Puente, Ereguayquín, Usulután, El Salvador.</p>
+    </footer>
+
+    <!-- Modal personalizado para confirmar cierre de sesión -->
+    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+        <div class="custom-modal-card">
+            <div class="modal-icon-wrap">🔒</div>
+            <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
+            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
+</body>
+</html>

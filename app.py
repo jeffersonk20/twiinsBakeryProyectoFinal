@@ -1141,6 +1141,25 @@ def vitrina():
 def detalle_producto(producto_id):
     return render_template("detalle_producto.html", producto_id=producto_id)
 
+
+# ==========================================
+# RUTAS LEGALES Y POLÍTICAS (EL SALVADOR)
+# ==========================================
+@app.route("/politica-privacidad")
+def politica_privacidad():
+    return render_template("politica_privacidad.html")
+
+
+@app.route("/terminos-condiciones")
+def terminos_condiciones():
+    return render_template("terminos_condiciones.html")
+
+
+@app.route("/politica-retiro-reembolsos")
+def politica_retiro_reembolsos():
+    return render_template("politica_retiro_reembolsos.html")
+
+
 # ==========================================
 # SECCIÓN DE EVENTOS Y CELEBRACIONES
 # ==========================================
@@ -2651,6 +2670,11 @@ def reservar_producto(producto_id):
     nombre = request.form.get("nombre", "").strip()
     telefono = request.form.get("telefono", "").strip()
     metodo_pago = request.form.get("metodo_pago", "")
+    acepto_terminos = request.form.get("acepto_terminos_reserva")
+    if metodo_pago != "WOMPI" and not acepto_terminos:
+        flash("Debes leer y aceptar los Términos y Condiciones, la Política de Privacidad y la Política de Retiro y Reembolsos para continuar.", "error")
+        return redirect(url_for("reservar_producto", producto_id=producto_id))
+
     try:
         cantidad = int(request.form.get("cantidad", ""))
         fecha = date.fromisoformat(request.form.get("fecha", ""))

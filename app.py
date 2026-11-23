@@ -1278,7 +1278,91 @@ EVENTOS_DISPONIBLES = {
 @app.route("/eventos")
 @cliente_requerido
 def eventos():
-    return render_template("eventos.html")
+    session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    id_cliente = session.get("id_cliente")
+    mis_eventos = []
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT s.id_solicitud, s.tipo_evento, s.num_invitados, s.presupuesto_estimado,
+                   s.fecha_evento, s.lugar_evento, s.servicios, s.estado, s.fecha_solicitud,
+                   ce.id_chat_evento
+            FROM SOLICITUD_PLANIFICACION s
+            LEFT JOIN CHAT_EVENTO ce ON ce.id_solicitud = s.id_solicitud
+            WHERE s.id_cliente = %s
+            ORDER BY s.fecha_solicitud DESC, s.id_solicitud DESC
+            """,
+            (id_cliente,),
+        )
+        mis_eventos = cursor.fetchall()
+    except Exception as err:
+        app.logger.warning("No se pudieron cargar los eventos del cliente: %s", err)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
+
+    return render_template(
+        "eventos.html",
+        mis_eventos=mis_eventos,
+        csrf_token=session["csrf_token"],
+    )
+
+
+@app.route("/eventos/<int:id_solicitud>/cancelar", methods=["POST"])
+@cliente_requerido
+def cancelar_evento_cliente(id_solicitud):
+    if not _csrf_valido():
+        flash("La sesión de seguridad venció. Vuelve a intentarlo.", "error")
+        return redirect(url_for("eventos"))
+
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        conexion.start_transaction()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_solicitud, estado, tipo_evento
+            FROM SOLICITUD_PLANIFICACION
+            WHERE id_solicitud = %s AND id_cliente = %s
+            FOR UPDATE
+            """,
+            (id_solicitud, session["id_cliente"]),
+        )
+        solicitud = cursor.fetchone()
+        if not solicitud:
+            conexion.rollback()
+            abort(404)
+        if solicitud["estado"] == "CANCELADA":
+            conexion.rollback()
+            flash("Esta solicitud de evento ya estaba cancelada.", "info")
+            return redirect(url_for("eventos"))
+
+        cursor.execute(
+            "UPDATE SOLICITUD_PLANIFICACION SET estado = 'CANCELADA' WHERE id_solicitud = %s",
+            (id_solicitud,),
+        )
+        conexion.commit()
+        flash("El evento ha sido cancelado con éxito.", "success")
+        return redirect(url_for("eventos"))
+    except Exception as err:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error al cancelar evento %s: %s", id_solicitud, err)
+        flash("No se pudo cancelar el evento. Inténtalo de nuevo.", "error")
+        return redirect(url_for("eventos"))
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 @app.route("/eventos/<tipo>")
@@ -1326,7 +1410,7 @@ def planifica_evento_post():
     presupuesto = request.form.get("presupuesto", "").strip()
     servicios = request.form.get("servicios", "").strip()
 
-    if not tipo_evento or not fecha_evento or not num_invitados or not lugar_evento:
+    if not tipo_evento or not fecha_evento or not num_invitados or not lugar_evento or not presupuesto or not servicios:
         flash("Por favor completa todos los campos requeridos para cotizar tu evento.", "error")
         return redirect(url_for("planifica_evento"))
 
@@ -1338,14 +1422,15 @@ def planifica_evento_post():
         flash("Ingresa un número válido de invitados.", "error")
         return redirect(url_for("planifica_evento"))
 
-    # Limpiar y parsear presupuesto aproximado
-    presupuesto_num = None
-    if presupuesto:
-        presupuesto_limpio = re.sub(r"[^\d.]", "", presupuesto)
-        try:
-            presupuesto_num = float(presupuesto_limpio)
-        except (ValueError, TypeError):
-            presupuesto_num = None
+    # Limpiar y parsear presupuesto aproximado obligatorio
+    presupuesto_limpio = re.sub(r"[^\d.]", "", presupuesto)
+    try:
+        presupuesto_num = float(presupuesto_limpio)
+        if presupuesto_num <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        flash("Ingresa un presupuesto aproximado válido.", "error")
+        return redirect(url_for("planifica_evento"))
 
     conexion = None
     cursor = None
@@ -1377,7 +1462,7 @@ def planifica_evento_post():
             fecha_evento,
         )
 
-        flash("¡Solicitud enviada con éxito! La administración la revisará y podrás coordinar todos los detalles en tu chat de evento una vez aceptada.", "success")
+        flash("¡Se ha enviado tu reserva! Tu solicitud de evento fue recibida con éxito y nuestro equipo la revisará pronto.", "success")
         return redirect(url_for("eventos"))
     except Exception as err:
         if conexion:

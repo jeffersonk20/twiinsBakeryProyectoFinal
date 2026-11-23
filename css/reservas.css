@@ -117,6 +117,7 @@ button, input { font: inherit; }
 .primary-button { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 9px; color: #fff; background: var(--pink); font-size: 11px; font-weight: 600; cursor: pointer; transition: background .15s ease, transform .15s ease; }
 .primary-button:hover { transform: translateY(-1px); background: var(--pink-dark); }
 .notice { margin: 0 0 16px; padding: 11px 13px; border-radius: 8px; color: #286c50; background: #e9f7ee; font-size: 11px; line-height: 1.6; }
+.notice-success { color: #166534; background: #e9f7ee; border: 1px solid #bbf7d0; }
 .notice-error { color: #a12a45; background: #fff0f3; }
 .customer-mobile-nav,
 .mobile-nav { display: none !important; }

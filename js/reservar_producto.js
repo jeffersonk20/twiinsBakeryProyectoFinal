@@ -128,7 +128,11 @@
         radio.addEventListener("change", updateSubmitButtonText);
     });
 
-    page.querySelector("form").addEventListener("submit", (event) => {
+    const reservationForm = page.querySelector("form");
+    const reservaOverlay = document.getElementById("solicitudOverlay");
+    let isSubmittingReserva = false;
+
+    reservationForm.addEventListener("submit", (event) => {
         if (!date.value || !timeSelect.value) {
             event.preventDefault();
             if (!date.value) date.reportValidity();
@@ -139,9 +143,26 @@
             date.setCustomValidity("El pedido debe reservarse con al menos 5 días de anticipación.");
             date.reportValidity();
             event.preventDefault();
+            return;
         } else {
             date.setCustomValidity("");
         }
+
+        if (isSubmittingReserva) return;
+
+        event.preventDefault();
+        isSubmittingReserva = true;
+
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
+        if (reservaOverlay) {
+            reservaOverlay.classList.add("visible");
+        }
+
+        setTimeout(() => {
+            reservationForm.submit();
+        }, 2200);
     });
 
     window.ProductStore.getAll()

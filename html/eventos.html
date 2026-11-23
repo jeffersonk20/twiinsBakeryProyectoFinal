@@ -61,6 +61,14 @@
     </header>
 
     <main class="eventos-page">
+        {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% if mensajes %}
+                {% for categoria, texto in mensajes %}
+                    <p class="notice notice-{{ categoria }}" role="alert">{{ texto }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <div class="eventos-hero">
             <h1>Eventos</h1>
             <div class="eventos-hero-card">
@@ -124,6 +132,65 @@
                 </a>
             </div>
         </section>
+
+        <!-- Sección Ver mis eventos -->
+        <section class="mis-eventos-section" id="misEventos" style="margin-top: 48px; margin-bottom: 24px;">
+            <div style="margin-bottom: 18px;">
+                <p style="color: var(--teal); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 4px;">TWIINS Bakery · Mis eventos</p>
+                <h2 style="font-size: 22px; color: var(--ink); margin: 0 0 6px;">Ver mis eventos</h2>
+                <p style="color: var(--muted); font-size: 13px; margin: 0;">Consulta el estado de tus solicitudes de eventos y planificaciones.</p>
+            </div>
+
+            {% if mis_eventos %}
+                <div class="reservations-list">
+                    {% for ev in mis_eventos %}
+                        <article class="customer-reservation-card">
+                            <div>
+                                <p class="reservation-code">Solicitud #{{ ev.id_solicitud }}</p>
+                                <h2>{{ ev.tipo_evento }} · {{ ev.num_invitados }} invitado(s)</h2>
+                                <p><strong>Fecha del evento:</strong> {{ ev.fecha_evento.strftime("%d/%m/%Y") if ev.fecha_evento else "Por definir" }}</p>
+                                {% if ev.lugar_evento %}
+                                    <p><strong>Lugar:</strong> {{ ev.lugar_evento }}</p>
+                                {% endif %}
+                                {% if ev.presupuesto_estimado %}
+                                    <p class="card-total">Presupuesto aproximado: ${{ "%.2f"|format(ev.presupuesto_estimado) }} USD</p>
+                                {% endif %}
+                                {% if ev.servicios %}
+                                    <p><strong>Servicios solicitados:</strong> {{ ev.servicios }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="reservation-card-action">
+                                {% if ev.estado == "ACEPTADA" or ev.estado == "CONFIRMADA" %}
+                                    <span class="status-pill confirmed">✓ Confirmado</span>
+                                {% elif ev.estado == "CANCELADA" %}
+                                    <span class="status-pill cancelled">Cancelada</span>
+                                {% elif ev.estado == "RECHAZADA" %}
+                                    <span class="status-pill cancelled">Rechazada</span>
+                                {% else %}
+                                    <span class="status-pill">Pendiente de confirmación</span>
+                                {% endif %}
+
+                                {% if ev.id_chat_evento %}
+                                    <a class="outline-button" href="{{ url_for('cliente_chat_evento', chat_evento_id=ev.id_chat_evento) }}">Chat de evento</a>
+                                {% endif %}
+
+                                {% if ev.estado != "CANCELADA" and ev.estado != "RECHAZADA" %}
+                                    <form class="cancel-reservation-form" method="post" action="{{ url_for('cancelar_evento_cliente', id_solicitud=ev.id_solicitud) }}" data-confirm-cancel-evento>
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" class="cancel-reservation-button">Cancelar evento</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <strong>Aún no tienes eventos planificados</strong>
+                    <p>Elige una de las categorías de arriba para cotizar tu evento especial con TWIINS Bakery.</p>
+                </div>
+            {% endif %}
+        </section>
     </main>
 
     <!-- Modal personalizado para confirmar cierre de sesión -->
@@ -139,6 +206,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static_files', filename='js/eventos.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/perfil_cliente.js') }}" defer></script>
     <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
 </body>

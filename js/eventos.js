@@ -13,6 +13,7 @@
     // 2. Selección interactiva de chips de servicios
     const chipsContainer = document.getElementById("serviciosChips");
     const inputServicios = document.getElementById("inputServicios");
+    const serviciosError = document.getElementById("serviciosError");
 
     if (chipsContainer && inputServicios) {
         const chips = chipsContainer.querySelectorAll(".chip-btn");
@@ -22,6 +23,9 @@
                 .filter((chip) => chip.classList.contains("activo"))
                 .map((chip) => chip.dataset.servicio || chip.textContent.trim());
             inputServicios.value = seleccionados.join(", ");
+            if (serviciosError && seleccionados.length > 0) {
+                serviciosError.style.display = "none";
+            }
         }
 
         chips.forEach((chip) => {
@@ -31,4 +35,13 @@
             });
         });
     }
+
+    // 3. Confirmación de cancelación para eventos
+    document.querySelectorAll("[data-confirm-cancel-evento]").forEach((form) => {
+        form.addEventListener("submit", (event) => {
+            if (!window.confirm("¿Estás seguro de que deseas cancelar esta solicitud de evento?")) {
+                event.preventDefault();
+            }
+        });
+    });
 })();

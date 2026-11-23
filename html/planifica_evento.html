@@ -73,15 +73,15 @@
 </head>
 <body>
     <!-- ── Overlay animado de confirmación ── -->
-    <div class="solicitud-overlay" id="solicitudOverlay" role="dialog" aria-modal="true" aria-label="Solicitud enviada">
+    <div class="solicitud-overlay" id="solicitudOverlay" role="dialog" aria-modal="true" aria-label="Reserva enviada">
         <div class="solicitud-card">
             <div class="check-circle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
             </div>
-            <h2>¡Solicitud enviada!</h2>
-            <p>Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo muy pronto.</p>
+            <h2>¡Se ha enviado tu reserva!</h2>
+            <p>Tu solicitud de reserva para el evento fue enviada con éxito. Nuestro equipo la revisará muy pronto.</p>
             <div class="sol-spinner">
                 <div class="sol-spinner-ring"></div>
                 Redirigiendo a Eventos…
@@ -146,36 +146,36 @@
             {% endif %}
         {% endwith %}
 
-        <form class="planifica-form" method="post" action="{{ url_for('planifica_evento_post') }}" id="formPlanifica">
+        <form class="planifica-form" method="post" action="{{ url_for('planifica_evento_post') }}" id="formPlanifica" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
             <div class="field">
-                <label for="tipo_evento">Tipo de evento</label>
+                <label for="tipo_evento">Tipo de evento <span style="color: #f23271;">*</span></label>
                 <input type="text" id="tipo_evento" name="tipo_evento" value="{{ tipo_preseleccionado }}" placeholder="Ej: Cumpleanos, Boda..." required maxlength="80">
             </div>
 
             <div class="field">
-                <label for="fecha_evento">Fecha</label>
+                <label for="fecha_evento">Fecha <span style="color: #f23271;">*</span></label>
                 <input type="date" id="fecha_evento" name="fecha_evento" required>
             </div>
 
             <div class="field">
-                <label for="num_invitados">Numero de invitados</label>
+                <label for="num_invitados">Numero de invitados <span style="color: #f23271;">*</span></label>
                 <input type="text" id="num_invitados" name="num_invitados" placeholder="50" inputmode="numeric" minlength="1" maxlength="4" pattern="[0-9]{1,4}" required onkeydown="if(event.key.length === 1 && !/^[0-9]$/.test(event.key)) event.preventDefault();" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 4);">
             </div>
 
             <div class="field">
-                <label for="lugar_evento">Lugar del evento</label>
+                <label for="lugar_evento">Lugar del evento <span style="color: #f23271;">*</span></label>
                 <input type="text" id="lugar_evento" name="lugar_evento" placeholder="Ej: San Luis Reyes" required maxlength="120">
             </div>
 
             <div class="field">
-                <label for="presupuesto">Presupuesto aproximado</label>
-                <input type="text" id="presupuesto" name="presupuesto" placeholder="$500" maxlength="50">
+                <label for="presupuesto">Presupuesto aproximado <span style="color: #f23271;">*</span></label>
+                <input type="text" id="presupuesto" name="presupuesto" placeholder="$500" maxlength="50" required>
             </div>
 
             <div class="field">
-                <label>Servicios que te interesan</label>
+                <label>Servicios que te interesan <span style="color: #f23271;">*</span></label>
                 <div class="servicios-chips" id="serviciosChips">
                     <button type="button" class="chip-btn" data-servicio="Pastel" id="chipPastel">Pastel</button>
                     <button type="button" class="chip-btn" data-servicio="Cupcakes" id="chipCupcakes">Cupcakes</button>
@@ -184,7 +184,8 @@
                     <button type="button" class="chip-btn" data-servicio="Galletas" id="chipGalletas">Galletas</button>
                     <button type="button" class="chip-btn" data-servicio="Bebidas" id="chipBebidas">Bebidas</button>
                 </div>
-                <input type="hidden" name="servicios" id="inputServicios">
+                <input type="hidden" name="servicios" id="inputServicios" required>
+                <small id="serviciosError" style="color: #e11d48; display: none; margin-top: 6px; font-weight: 500;">Por favor selecciona al menos un servicio que te interese.</small>
             </div>
 
             <button type="submit" class="primary-button" id="btnEnviarSolicitud">Enviar solicitud</button>
@@ -196,28 +197,46 @@
     (() => {
         const form = document.getElementById('formPlanifica');
         const overlay = document.getElementById('solicitudOverlay');
+        const inputServicios = document.getElementById('inputServicios');
+        const serviciosError = document.getElementById('serviciosError');
         if (!form || !overlay) return;
 
-        form.addEventListener('submit', async (e) => {
+        let isSubmitting = false;
+
+        form.addEventListener('submit', (e) => {
+            // Validar campos nativos
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                form.reportValidity();
+                return;
+            }
+
+            // Validar chips de servicios obligatorios
+            if (!inputServicios || !inputServicios.value.trim()) {
+                e.preventDefault();
+                if (serviciosError) serviciosError.style.display = 'block';
+                const chips = document.getElementById('serviciosChips');
+                if (chips) chips.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            } else {
+                if (serviciosError) serviciosError.style.display = 'none';
+            }
+
+            if (isSubmitting) return;
+
             e.preventDefault();
-            if (!form.reportValidity()) return;
+            isSubmitting = true;
 
             const btn = document.getElementById('btnEnviarSolicitud');
-            btn.disabled = true;
+            if (btn) btn.disabled = true;
 
-            // Enviar el formulario en background via fetch
-            try {
-                const fd = new FormData(form);
-                await fetch(form.action, { method: 'POST', body: fd });
-            } catch (_) { /* ignorar errores de red; la redirección procede igual */ }
-
-            // Mostrar overlay animado
+            // Mostrar overlay animado inmediatamente con el mensaje
             overlay.classList.add('visible');
 
-            // Redirigir a eventos tras 2.5 segundos
+            // Enviar formulario al backend tras 2.2 segundos para transición suave
             setTimeout(() => {
-                window.location.href = "{{ url_for('eventos') }}";
-            }, 2500);
+                form.submit();
+            }, 2200);
         });
     })();
     </script>

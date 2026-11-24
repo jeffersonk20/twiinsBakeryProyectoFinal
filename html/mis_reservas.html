@@ -34,7 +34,7 @@
                 <div class="avatar-circle" id="headerAvatarContainer">
                     <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
                 </div>
-                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente') | primer_nombre }}</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
@@ -78,7 +78,16 @@
                     <article class="customer-reservation-card">
                         <div>
                             <p class="reservation-code">{{ reserva.codigo }}</p>
-                            <h2>{{ reserva.nombre_producto }} · {{ reserva.cantidad }} unidad(es)</h2>
+                            {% if reserva.es_porcion or "Porciones" in reserva.nombre_producto %}
+                                <div style="margin-bottom: 6px;">
+                                    <span class="portion-badge" style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                        🍰 Porciones de pasteles
+                                    </span>
+                                </div>
+                                <h2>{{ reserva.nombre_producto }} · {{ reserva.cantidad }} porción(es)</h2>
+                            {% else %}
+                                <h2>{{ reserva.nombre_producto }} · {{ reserva.cantidad }} unidad(es)</h2>
+                            {% endif %}
                             <p>Retiro: {{ reserva.fecha_retiro.strftime("%d/%m/%Y · %I:%M %p") }}</p>
                             <p class="card-total">
                                 Total: ${{ "%.2f"|format(reserva.total) }} USD · Pagado: ${{ "%.2f"|format(reserva.monto_pagado) }} USD

@@ -73,6 +73,27 @@
         return checked ? checked.value : "ANTICIPO_50";
     }
 
+    function getMaxQuantity() {
+        return Math.max(1, Number(quantity.max) || 30);
+    }
+
+    function validateQuantity() {
+        const maxLimit = getMaxQuantity();
+        const val = Number(quantity.value);
+        if (val > maxLimit) {
+            quantity.setCustomValidity(`Este pastel solo rinde hasta ${maxLimit} porciones. Ingresa una cantidad entre 1 y ${maxLimit}.`);
+            quantity.reportValidity();
+            return false;
+        } else if (val < 1) {
+            quantity.setCustomValidity("Debes ingresar al menos 1.");
+            quantity.reportValidity();
+            return false;
+        } else {
+            quantity.setCustomValidity("");
+            return true;
+        }
+    }
+
     function updateSubmitButtonText() {
         const selectedMethod = page.querySelector('input[name="metodo_pago"]:checked');
         if (!selectedMethod || selectedMethod.value !== "WOMPI") {
@@ -80,7 +101,8 @@
             return;
         }
 
-        const selectedQuantity = Math.max(1, Math.min(30, Number(quantity.value) || 1));
+        const maxLimit = getMaxQuantity();
+        const selectedQuantity = Math.max(1, Math.min(maxLimit, Number(quantity.value) || 1));
         const total = Math.round(productPrice * selectedQuantity * 100) / 100;
         const anticipo = Math.round(productPrice * selectedQuantity * 50) / 100;
         const chargeType = getSelectedWompiChargeType();
@@ -94,7 +116,8 @@
 
     function updateDeposit() {
         if (productPrice <= 0) return;
-        const selectedQuantity = Math.max(1, Math.min(30, Number(quantity.value) || 1));
+        const maxLimit = getMaxQuantity();
+        const selectedQuantity = Math.max(1, Math.min(maxLimit, Number(quantity.value) || 1));
         const anticipo = Math.round(productPrice * selectedQuantity * 50) / 100;
         const total = Math.round(productPrice * selectedQuantity * 100) / 100;
 
@@ -108,7 +131,21 @@
         updateSubmitButtonText();
     }
 
-    quantity.addEventListener("input", updateDeposit);
+    quantity.addEventListener("input", () => {
+        validateQuantity();
+        updateDeposit();
+    });
+    quantity.addEventListener("change", () => {
+        const maxLimit = getMaxQuantity();
+        let val = Number(quantity.value);
+        if (val > maxLimit) {
+            quantity.value = maxLimit;
+        } else if (val < 1) {
+            quantity.value = 1;
+        }
+        validateQuantity();
+        updateDeposit();
+    });
     date.addEventListener("input", updateAvailableTimes);
     date.addEventListener("change", updateAvailableTimes);
     phoneInput.addEventListener("input", formatPhone);
@@ -145,6 +182,11 @@
     let isSubmittingReserva = false;
 
     reservationForm.addEventListener("submit", (event) => {
+        if (!validateQuantity()) {
+            event.preventDefault();
+            return;
+        }
+
         if (!date.value || !timeSelect.value) {
             event.preventDefault();
             if (!date.value) date.reportValidity();
@@ -166,6 +208,19 @@
 
         // Para pago con Wompi
         if (isWompi) {
+            if (isSubmittingReserva) {
+                event.preventDefault();
+                return;
+            }
+            isSubmittingReserva = true;
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.style.opacity = "0.7";
+                submitButton.textContent = "Conectando con Wompi...";
+            }
+            if (reservaOverlay) {
+                reservaOverlay.classList.add("visible");
+            }
             return;
         }
 
@@ -197,11 +252,39 @@
         .then((products) => products.find((item) => String(item.id) === page.dataset.productId))
         .then((product) => {
             if (!product) throw new Error("Este producto ya no está disponible para reservar.");
-            productPrice = Number(product.precio);
+            const isPortion = Boolean(product.se_vende_por_porciones || product.categoria === "Porciones de Pasteles");
+            productPrice = (isPortion && product.precio_porcion) ? Number(product.precio_porcion) : Number(product.precio);
+            const maxPortions = (isPortion && product.numero_porciones) ? Number(product.numero_porciones) : 30;
+            quantity.max = String(maxPortions);
+            quantity.setAttribute("max", String(maxPortions));
+
             page.querySelector("[data-reservation-name]").textContent = product.nombre;
-            page.querySelector("[data-reservation-category]").textContent = product.categoria || "Pastelería artesanal";
-            page.querySelector("[data-reservation-description]").textContent = product.descripcion;
-            page.querySelector("[data-reservation-price]").textContent = window.ProductStore.formatPrice(product.precio);
+            page.querySelector("[data-reservation-category]").textContent = isPortion ? "Porciones de Pasteles" : (product.categoria || "Pastelería artesanal");
+            let desc = product.descripcion;
+            if (isPortion && product.numero_porciones) {
+                desc += `\n\n🍰 Venta por porciones: Este pastel rinde hasta ${product.numero_porciones} porciones. Puedes apartar desde 1 hasta ${product.numero_porciones} porciones.`;
+            }
+            page.querySelector("[data-reservation-description]").textContent = desc;
+            const priceEl = page.querySelector("[data-reservation-price]");
+            if (isPortion && product.precio_porcion) {
+                priceEl.innerHTML = `${window.ProductStore.formatPrice(product.precio_porcion)} <small style="font-size:12px;font-weight:normal;color:#64748b;">/ porción individual</small>`;
+            } else {
+                priceEl.textContent = window.ProductStore.formatPrice(product.precio);
+            }
+            const quantityLabel = page.querySelector('label[for="cantidad"]');
+            if (quantityLabel && isPortion && product.numero_porciones) {
+                quantityLabel.innerHTML = `Cantidad de porciones <small style="color:#059669;font-weight:600;">(Rinde máx. ${maxPortions} porciones)</small>`;
+            }
+            let ayudaPorciones = document.getElementById("cantidad-ayuda-porciones");
+            if (isPortion && product.numero_porciones) {
+                if (!ayudaPorciones) {
+                    ayudaPorciones = document.createElement("small");
+                    ayudaPorciones.id = "cantidad-ayuda-porciones";
+                    ayudaPorciones.style.cssText = "color:#64748b; font-size:11.5px; display:block; margin-top:4px;";
+                    quantity.parentNode.appendChild(ayudaPorciones);
+                }
+                ayudaPorciones.textContent = `Este pastel rinde hasta ${maxPortions} porciones. Puedes elegir entre 1 y ${maxPortions} porciones.`;
+            }
             const imageContainer = page.querySelector("[data-reservation-image]");
             if (product.imagen) {
                 const image = document.createElement("img");

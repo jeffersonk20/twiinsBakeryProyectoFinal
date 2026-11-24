@@ -17,7 +17,6 @@
     const cardChargeForm = document.querySelector("[data-card-charge-form]");
     const cancelCardCharge = document.querySelector("[data-cancel-card-charge]");
     const cardResultBox = document.querySelector("[data-card-result-box]");
-    const btnAbrirPasarela = document.getElementById("btnAbrirPasarelaWompi");
     const btnCopiarEnlace = document.getElementById("btnCopiarEnlaceWompi");
     const btnVerificarPagoWompi = document.getElementById("btnVerificarPagoWompi");
     const verificarWompiStatus = document.getElementById("verificarWompiStatus");
@@ -179,7 +178,11 @@
                     <span>${escapeHtml(reservation.cliente)}</span>
                     <span>${escapeHtml(reservation.correo)}</span>
                 </div></td>
-                <td><div class="product-cell"><strong>${escapeHtml(reservation.producto)}</strong><span>${reservation.cantidad} unidad(es) · ${formatPrice(reservation.precio_unitario)} c/u</span></div></td>
+                <td><div class="product-cell">
+                    <strong>${escapeHtml(reservation.producto)}</strong>
+                    ${(reservation.producto && reservation.producto.toLowerCase().includes("porcion")) ? `<span style="background:#fdf2f8;color:#be185d;border:1px solid #fbcfe8;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-block;margin:2px 0;">🍰 Porciones</span><br>` : ''}
+                    <span>${reservation.cantidad} ${(reservation.producto && reservation.producto.toLowerCase().includes("porcion")) ? "porción(es)" : "unidad(es)"} · ${formatPrice(reservation.precio_unitario)} c/u</span>
+                </div></td>
                 <td>${displayDate(reservation.fecha_retiro)}</td>
                 <td><div class="amount-cell">
                     <strong>${formatPrice(reservation.total)}</strong>
@@ -611,7 +614,6 @@
                 if (cardResultBox) {
                     cardResultBox.style.display = "block";
                     document.querySelector("[data-result-amount]").textContent = formatPrice(result.monto);
-                    if (btnAbrirPasarela) btnAbrirPasarela.href = result.url_pago;
                     if (qrCodeImg) {
                         qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(result.url_pago)}`;
                     }

@@ -43,13 +43,38 @@
                         <input type="hidden" name="id">
                         <div class="field"><label for="product-name">Nombre del producto</label><input id="product-name" name="nombre" type="text" maxlength="80" placeholder="Ej. Pastel de chocolate" required></div>
                         <div class="form-row">
-                            <div class="field"><label for="product-category">Categoría</label><select id="product-category" name="categoria" required><option value="">Selecciona una categoría</option><option>Pasteles</option><option>Cupcakes</option><option>Galletas</option><option>Bebidas</option><option>Eventos</option><option>Postres completos</option></select></div>
+                            <div class="field"><label for="product-category">Categoría</label><select id="product-category" name="categoria" required><option value="">Selecciona una categoría</option><option>Porciones de Pasteles</option><option>Cupcakes</option><option>Galletas</option><option>Bebidas</option><option>Postres completos</option></select></div>
                             <div class="field"><label for="product-price">Precio (USD)</label><div class="price-input"><span>$</span><input id="product-price" name="precio" type="number" min="0.01" max="99999" step="0.01" placeholder="25.00" required></div></div>
                         </div>
                         <div class="field"><label for="product-description">Descripción</label><textarea id="product-description" name="descripcion" rows="3" maxlength="300" placeholder="Cuéntales qué hace especial a este producto" required></textarea></div>
                         <div class="field"><label for="product-stock">Cantidad disponible</label><input id="product-stock" name="stock" type="number" min="0" max="2147483647" step="1" value="0" required><small class="image-help">Actualiza esta cantidad después de cada venta; al llegar a cero, el producto se oculta de la tienda.</small></div>
                         <div class="field"><label for="product-status">Disponibilidad</label><select id="product-status" name="disponible"><option value="true">Activo · visible en tienda</option><option value="false">Agotado · oculto en tienda</option></select></div>
                         <label class="vitrine-option" id="vitrina-option"><input name="en_vitrina" type="checkbox"><span><strong>Agregar a Vitrina</strong><small>Mostrar este postre fijo en la sección Vitrina del cliente.</small></span></label>
+                        
+                        <!-- Configuración de Venta por Porciones -->
+                        <div style="margin: 14px 0; padding: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+                            <label class="vitrine-option" id="porciones-option" style="margin-bottom: 0;">
+                                <input name="se_vende_por_porciones" id="input-se-vende-porciones" type="checkbox">
+                                <span><strong>¿Se puede vender por porciones?</strong><small>Permitir que el cliente reserve solo una porción del pastel o las que desee.</small></span>
+                            </label>
+                            <div id="fields-porciones" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #86efac;">
+                                <div class="form-row">
+                                    <div class="field">
+                                        <label for="product-num-porciones">¿En cuántas porciones se divide el pastel? <span style="color:#e53e3e;">*</span></label>
+                                        <input id="product-num-porciones" name="numero_porciones" type="number" min="1" max="100" step="1" placeholder="Ej. 8">
+                                        <small class="image-help">Cantidad total de porciones que rinde el pastel completo (ej: 8, 10, 12).</small>
+                                    </div>
+                                    <div class="field">
+                                        <label for="product-precio-porcion">Precio por porción (USD) <span style="color:#e53e3e;">*</span></label>
+                                        <div class="price-input">
+                                            <span>$</span>
+                                            <input id="product-precio-porcion" name="precio_porcion" type="number" min="0.01" max="9999" step="0.01" placeholder="3.50">
+                                        </div>
+                                        <small class="image-help">Precio individual por cada porción que el cliente elija.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Configuración de Fidelidad para el Producto -->
                         <div style="margin: 14px 0; padding: 14px; background: #fff5f8; border: 1px solid #fed7e2; border-radius: 8px;">

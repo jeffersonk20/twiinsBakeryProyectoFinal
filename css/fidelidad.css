@@ -52,6 +52,8 @@ body {
     display: flex;
     align-items: center;
     gap: 20px;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .profile-avatar-wrap {
@@ -72,30 +74,58 @@ body {
     object-fit: cover;
 }
 
+.profile-details {
+    min-width: 0;
+    flex: 1;
+}
+
 .profile-details h2 {
-    margin: 0 0 4px;
+    margin: 0 0 6px;
     font-family: 'Playfair Display', serif;
     font-size: 24px;
     color: var(--ink);
     font-weight: 700;
+    line-height: 1.25;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .profile-email {
-    margin: 0 0 6px;
+    margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 13.5px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 8px 10px;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+.profile-email-text {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    color: var(--muted);
 }
 
 .verified-pill {
     background: #dcfce7;
-    color: var(--success);
-    font-size: 10px;
+    color: #15803d;
+    font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 10px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.2;
+    border: 1px solid #bbf7d0;
+}
+
+.verified-check {
+    font-weight: 700;
 }
 
 .profile-meta-grid {
@@ -730,10 +760,54 @@ body {
 }
 
 @media (max-width: 768px) {
+    .fidelidad-container {
+        padding: 0 16px;
+        margin: 20px auto 40px;
+    }
+
     .profile-card {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
+        padding: 20px 18px;
+        gap: 18px;
     }
+
+    .profile-main-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .profile-avatar-wrap {
+        width: 66px;
+        height: 66px;
+    }
+
+    .profile-details {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .profile-details h2 {
+        font-size: 20px;
+        line-height: 1.25;
+        margin: 0 0 5px;
+    }
+
+    .profile-email {
+        font-size: 12.5px;
+        gap: 6px 8px;
+    }
+
+    .profile-meta-grid {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 10px;
+    }
+
     .radial-progress-container {
         width: 220px;
         height: 220px;
@@ -744,5 +818,56 @@ body {
     }
     .progress-points-val {
         font-size: 38px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fidelidad-container {
+        padding: 0 12px;
+        margin: 16px auto 36px;
+    }
+
+    .profile-card {
+        padding: 16px 14px;
+        border-radius: 14px;
+        gap: 16px;
+    }
+
+    .profile-main-info {
+        gap: 12px;
+    }
+
+    .profile-avatar-wrap {
+        width: 56px;
+        height: 56px;
+        border-width: 2.5px;
+    }
+
+    .profile-details h2 {
+        font-size: 17px;
+        margin-bottom: 4px;
+    }
+
+    .profile-email {
+        font-size: 11.5px;
+        gap: 5px 8px;
+    }
+
+    .profile-email-text {
+        font-size: 11.5px;
+    }
+
+    .verified-pill {
+        font-size: 10px;
+        padding: 2.5px 7px;
+    }
+
+    .profile-meta-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .profile-meta-item {
+        padding: 8px 12px;
     }
 }

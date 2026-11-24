@@ -36,7 +36,7 @@
                 <div class="avatar-circle" id="headerAvatarContainer">
                     <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
                 </div>
-                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente') | primer_nombre }}</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
@@ -74,12 +74,12 @@
                 </div>
                 <div class="profile-details">
                     <h2>{{ cliente.nombre }}</h2>
-                    <p class="profile-email">
-                        <span>{{ cliente.correo }}</span>
+                    <div class="profile-email">
+                        <span class="profile-email-text">{{ cliente.correo }}</span>
                         {% if cliente.correo_verificado %}
-                        <span class="verified-pill">✓ Verificado</span>
+                        <span class="verified-pill"><span class="verified-check">✓</span> Verificado</span>
                         {% endif %}
-                    </p>
+                    </div>
                 </div>
             </div>
             <div class="profile-meta-grid">

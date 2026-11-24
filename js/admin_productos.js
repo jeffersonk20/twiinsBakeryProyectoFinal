@@ -39,6 +39,9 @@
         formData.append("canjeable_puntos", String(producto.canjeable_puntos));
         formData.append("puntos_canje", String(producto.puntos_canje));
         formData.append("genera_puntos", String(producto.genera_puntos));
+        formData.append("se_vende_por_porciones", String(producto.se_vende_por_porciones));
+        formData.append("numero_porciones", String(producto.numero_porciones || ""));
+        formData.append("precio_porcion", String(producto.precio_porcion !== null && producto.precio_porcion !== undefined ? producto.precio_porcion : ""));
         if (imageFile) formData.append("imagen", imageFile);
 
         const isEditing = Boolean(producto.id);
@@ -91,7 +94,7 @@
         document.querySelector("[data-empty-list]").hidden = products.length > 0;
         list.innerHTML = products.map((product) => `<tr>
             <td><div class="table-product">${product.tiene_imagen ? `<img src="${window.ProductStore.escapeHtml(product.imagen)}" alt="">` : '<span class="table-image-placeholder" aria-hidden="true">🍰</span>'}<strong>${window.ProductStore.escapeHtml(product.nombre)}</strong></div></td>
-            <td>${window.ProductStore.escapeHtml(product.categoria || "Sin categoría")}</td>
+            <td>${window.ProductStore.escapeHtml(product.categoria || "Sin categoría")}${product.se_vende_por_porciones ? `<br><small style="color:#059669;font-weight:600;display:inline-block;margin-top:4px;">🍰 ${product.numero_porciones} porc. · $${Number(product.precio_porcion).toFixed(2)} c/u</small>` : ''}</td>
             <td>${window.ProductStore.formatPrice(product.precio)}</td>
             <td>${product.stock}</td>
             <td>${product.en_vitrina ? '<span class="status available">Sí</span>' : '<span class="status unavailable">No</span>'}${product.canjeable_puntos ? `<br><small style="color:#db2777;font-weight:600;display:inline-block;margin-top:4px;">🎁 ${product.puntos_canje || 50} pts</small>` : ''}</td>
@@ -128,6 +131,11 @@
         if (form.elements.genera_puntos) form.elements.genera_puntos.checked = true;
         const fieldCanje = document.getElementById("field-puntos-canje");
         if (fieldCanje) fieldCanje.style.display = "none";
+        if (form.elements.se_vende_por_porciones) form.elements.se_vende_por_porciones.checked = false;
+        if (form.elements.numero_porciones) form.elements.numero_porciones.value = "";
+        if (form.elements.precio_porcion) form.elements.precio_porcion.value = "";
+        const fieldsPorciones = document.getElementById("fields-porciones");
+        if (fieldsPorciones) fieldsPorciones.style.display = "none";
     }
 
     function editProduct(id) {
@@ -156,6 +164,20 @@
         const fieldCanje = document.getElementById("field-puntos-canje");
         if (fieldCanje) {
             fieldCanje.style.display = product.canjeable_puntos ? "block" : "none";
+        }
+        const seVendePorciones = Boolean(product.se_vende_por_porciones);
+        if (form.elements.se_vende_por_porciones) {
+            form.elements.se_vende_por_porciones.checked = seVendePorciones;
+        }
+        if (form.elements.numero_porciones) {
+            form.elements.numero_porciones.value = product.numero_porciones || "";
+        }
+        if (form.elements.precio_porcion) {
+            form.elements.precio_porcion.value = product.precio_porcion !== null && product.precio_porcion !== undefined ? product.precio_porcion : "";
+        }
+        const fieldsPorciones = document.getElementById("fields-porciones");
+        if (fieldsPorciones) {
+            fieldsPorciones.style.display = seVendePorciones ? "block" : "none";
         }
         fileInput.value = "";
         fileInput.required = !product.tiene_imagen;
@@ -211,6 +233,21 @@
             }
         }
         const generaPuntos = form.elements.genera_puntos ? form.elements.genera_puntos.checked : true;
+        const seVendePorciones = form.elements.se_vende_por_porciones ? form.elements.se_vende_por_porciones.checked : false;
+        let numeroPorciones = null;
+        let precioPorcion = null;
+        if (seVendePorciones) {
+            numeroPorciones = Number(form.elements.numero_porciones ? form.elements.numero_porciones.value : 0);
+            if (!numeroPorciones || numeroPorciones < 1) {
+                showMessage("Indica en cuántas porciones se divide el pastel (mínimo 1).", true);
+                return;
+            }
+            precioPorcion = Number(form.elements.precio_porcion ? form.elements.precio_porcion.value : 0);
+            if (!precioPorcion || precioPorcion <= 0) {
+                showMessage("Indica un precio válido mayor a 0 para cada porción.", true);
+                return;
+            }
+        }
 
         const producto = {
             id: form.elements.id.value,
@@ -221,6 +258,9 @@
             stock: Number(form.elements.stock.value),
             disponible: form.elements.disponible.value === "true",
             en_vitrina: form.elements.en_vitrina.checked,
+            se_vende_por_porciones: seVendePorciones,
+            numero_porciones: numeroPorciones,
+            precio_porcion: precioPorcion,
             canjeable_puntos: canjeable,
             puntos_canje: puntosCanje,
             genera_puntos: generaPuntos
@@ -283,6 +323,22 @@
                 if (inputCanjeable.checked && (!numInput.value || Number(numInput.value) < 50)) {
                     numInput.value = 50;
                 }
+            }
+        });
+    }
+
+    const inputPorciones = document.getElementById("input-se-vende-porciones");
+    const fieldsPorciones = document.getElementById("fields-porciones");
+    const numPorcionesInput = document.getElementById("product-num-porciones");
+    const precioPorcionInput = document.getElementById("product-precio-porcion");
+    if (inputPorciones && fieldsPorciones) {
+        inputPorciones.addEventListener("change", () => {
+            const checked = inputPorciones.checked;
+            fieldsPorciones.style.display = checked ? "block" : "none";
+            if (numPorcionesInput) numPorcionesInput.required = checked;
+            if (precioPorcionInput) precioPorcionInput.required = checked;
+            if (checked && categorySelect && (!categorySelect.value || categorySelect.value === "Pasteles")) {
+                categorySelect.value = "Porciones de Pasteles";
             }
         });
     }

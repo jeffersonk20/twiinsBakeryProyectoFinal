@@ -25,13 +25,8 @@
         <section class="login-panel">
             <div class="login-content">
                 <p class="eyebrow">TWIINS Bakery · Acceso seguro</p>
-                {% if admin_existe %}
-                    <h2>Iniciar sesión</h2>
-                    <p class="intro">Accede al panel de administración con tu cuenta.</p>
-                {% else %}
-                    <h2>Crear usuario administrador</h2>
-                    <p class="intro">Configura una única cuenta para proteger la administración.</p>
-                {% endif %}
+                <h2>Iniciar sesión</h2>
+                <p class="intro">Accede al panel de administración con tu cuenta.</p>
 
                 {% with mensajes = get_flashed_messages(with_categories=true) %}
                     {% if mensajes %}
@@ -43,50 +38,69 @@
 
                 {% if error_base_datos %}
                     <p class="message message-error" role="alert">No se pudo consultar la base de datos. Revisa la conexión y vuelve a cargar esta página.</p>
-                {% elif admin_existe %}
-                    <form action="{{ url_for('admin_login') }}" method="post">
-                        <div class="field">
-                            <label for="correo">Correo electrónico</label>
-                            <input id="correo" name="correo" type="email" autocomplete="username" maxlength="150" required>
-                        </div>
-                        <div class="field">
-                            <label for="contrasena">Contraseña</label>
-                            <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" required>
-                        </div>
-                        <button class="submit-button" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
-                    </form>
-                {% elif admin_existe is not none %}
-                    {% if setup_configurado %}
-                        <form action="{{ url_for('admin_login') }}" method="post">
-                            <div class="field">
-                                <label for="nombre">Nombre del administrador</label>
-                                <input id="nombre" name="nombre" type="text" maxlength="100" autocomplete="name" required>
-                            </div>
-                            <div class="field">
-                                <label for="correo">Correo electrónico</label>
-                                <input id="correo" name="correo" type="email" maxlength="150" autocomplete="email" required>
-                            </div>
-                            <div class="field">
-                                <label for="token-configuracion">Código de configuración</label>
-                                <input id="token-configuracion" name="token_configuracion" type="password" autocomplete="off" required>
-                            </div>
-                            <div class="field">
-                                <label for="contrasena">Contraseña (mínimo 10 caracteres)</label>
-                                <input id="contrasena" name="contrasena" type="password" minlength="10" autocomplete="new-password" required>
-                            </div>
-                            <div class="field">
-                                <label for="confirmar-contrasena">Confirmar contraseña</label>
-                                <input id="confirmar-contrasena" name="confirmar_contrasena" type="password" minlength="10" autocomplete="new-password" required>
-                            </div>
-                            <button class="submit-button" type="submit">Crear cuenta segura <span aria-hidden="true">→</span></button>
-                        </form>
-                    {% else %}
-                        <p class="message message-error" role="alert">Para crear el único usuario, primero configura un valor secreto en ADMIN_SETUP_TOKEN dentro de .env y reinicia la aplicación.</p>
-                    {% endif %}
                 {% endif %}
-                <a class="return-link" href="{{ client_home_url }}">Volver a TWIINS Bakery</a>
+
+                {% if bloqueado %}
+                    <div id="bloqueoBanner" style="background:#fff0f3; border:1px solid #f9cbd4; border-radius:10px; padding:14px; margin-bottom:18px; text-align:center;">
+                        <span style="font-size:20px; display:block; margin-bottom:4px;">⏱️</span>
+                        <strong style="color:#a12a45; font-size:12px; display:block;">Acceso temporalmente restringido</strong>
+                        <p style="color:#718187; font-size:11px; margin:4px 0 0;">
+                            Espera <span id="contadorSegundos" style="color:#f23271; font-weight:700; font-size:14px;">{{ segundos_restantes or 60 }}</span> segundos para reintentar.
+                        </p>
+                    </div>
+                {% endif %}
+
+                <form action="{{ url_for('admin_login') }}" method="post" id="adminLoginForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="field">
+                        <label for="correo">Correo electrónico</label>
+                        <input id="correo" name="correo" type="email" autocomplete="username" maxlength="150" {% if bloqueado %}disabled{% endif %} required>
+                    </div>
+                    <div class="field">
+                        <label for="contrasena">Contraseña</label>
+                        <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" {% if bloqueado %}disabled{% endif %} required>
+                    </div>
+                    <button class="submit-button" type="submit" id="btnAdminLogin" {% if bloqueado %}disabled style="opacity:0.6; cursor:not-allowed;"{% endif %}>
+                        Iniciar sesión <span aria-hidden="true">→</span>
+                    </button>
+                </form>
+
+                <a class="return-link" href="{{ client_home_url }}">← Volver a TWIINS Bakery</a>
             </div>
         </section>
     </main>
+
+    {% if bloqueado and segundos_restantes > 0 %}
+    <script>
+        (function() {
+            let segs = parseInt("{{ segundos_restantes }}", 10) || 60;
+            const elContador = document.getElementById("contadorSegundos");
+            const btn = document.getElementById("btnAdminLogin");
+            const inputCorreo = document.getElementById("correo");
+            const inputPass = document.getElementById("contrasena");
+
+            const interval = setInterval(function() {
+                segs--;
+                if (elContador) elContador.textContent = segs;
+                if (segs <= 0) {
+                    clearInterval(interval);
+                    if (btn) {
+                        btn.removeAttribute("disabled");
+                        btn.style.opacity = "1";
+                        btn.style.cursor = "pointer";
+                    }
+                    if (inputCorreo) inputCorreo.removeAttribute("disabled");
+                    if (inputPass) inputPass.removeAttribute("disabled");
+                    const banner = document.getElementById("bloqueoBanner");
+                    if (banner) {
+                        banner.innerHTML = '<span style="color:#286c50; font-weight:600; font-size:12px;">✅ Ya puedes intentar ingresar nuevamente.</span>';
+                        banner.style.background = '#e9f7ee';
+                        banner.style.borderColor = '#c3eed4';
+                    }
+                }
+            }, 1000);
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>

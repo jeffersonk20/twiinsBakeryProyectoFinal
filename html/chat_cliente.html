@@ -34,7 +34,7 @@
                 <div class="avatar-circle" id="headerAvatarContainer">
                     <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
                 </div>
-                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente') | primer_nombre }}</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">

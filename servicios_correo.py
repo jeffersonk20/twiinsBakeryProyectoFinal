@@ -10,12 +10,20 @@ import ssl
 import threading
 import logging
 import requests
+import html as html_mod
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
 
 logger = logging.getLogger("twins_bakery_correo")
+
+
+def _escapar(valor, por_defecto=""):
+    """Escapa de forma segura texto suministrado por el usuario para prevenir inyección HTML."""
+    if not valor:
+        return por_defecto
+    return html_mod.escape(str(valor).strip())
 
 # ==============================================================================
 # CONFIGURACIÓN DEL CORREO EMISOR (SE SUBE A GIT Y SE COMPARTE CON EL EQUIPO)
@@ -227,7 +235,7 @@ def _despachar_asincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
 
 def enviar_correo_codigo_verificacion(destinatario, nombre, codigo):
     """Envía un código OTP de 6 dígitos para verificar la autenticidad del correo del cliente."""
-    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    nombre_seguro = _escapar(nombre, "amigo/a")
     asunto = f"Tu código de verificación es {codigo} - TWINS Bakery 🔐"
 
     contenido_html = f"""
@@ -275,7 +283,7 @@ El equipo de TWINS Bakery.
 
 def enviar_correo_recuperacion_contrasena(destinatario, nombre, codigo):
     """Envía un código OTP de 6 dígitos para restablecer la contraseña de la cuenta."""
-    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    nombre_seguro = _escapar(nombre, "amigo/a")
     asunto = f"Tu código de recuperación es {codigo} - TWINS Bakery 🔑"
 
     contenido_html = f"""
@@ -326,7 +334,7 @@ El equipo de TWINS Bakery.
 
 def enviar_correo_contrasena_actualizada(destinatario, nombre):
     """Notifica al cliente que su contraseña fue cambiada exitosamente."""
-    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    nombre_seguro = _escapar(nombre, "amigo/a")
     asunto = "Tu contraseña ha sido actualizada - TWINS Bakery 🔐"
     fecha_hora = datetime.now().strftime("%d/%m/%Y a las %I:%M %p")
 
@@ -384,7 +392,7 @@ def enviar_correo_pago_tarjeta_recibido(
     fecha_hora=None
 ):
     """Envía un comprobante digital al cliente cuando se procesa exitosamente un pago con tarjeta (Wompi)."""
-    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    nombre_seguro = _escapar(nombre, "amigo/a")
     asunto = f"Comprobante de Pago con Tarjeta [Reserva: {codigo}] - TWINS Bakery 💳💗"
 
     if not fecha_hora:
@@ -487,7 +495,7 @@ El equipo de TWINS Bakery 💗
 
 def enviar_correo_bienvenida(destinatario, nombre):
     """Envía un correo de bienvenida cálido y estilizado al nuevo cliente registrado."""
-    nombre_seguro = nombre.strip() if nombre else "amigo/a"
+    nombre_seguro = _escapar(nombre, "amigo/a")
     asunto = "¡Bienvenido a TWINS Bakery! 🎂💗"
 
     contenido_html = f"""
@@ -537,7 +545,7 @@ El equipo de TWINS Bakery.
 
 def enviar_correo_inicio_sesion(destinatario, nombre, fecha_hora=None):
     """Envía una notificación al correo del cliente cuando inicia sesión exitosamente."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = "Inicio de sesión exitoso en TWINS Bakery 🔐"
 
     if not fecha_hora:
@@ -590,6 +598,71 @@ El equipo de TWINS Bakery.
     _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
 
 
+def enviar_correo_inicio_sesion_admin(destinatario, nombre="Administrador", fecha_hora=None, ip=None, dispositivo=None):
+    """Envía un mensaje corto de alerta de seguridad al correo del administrador tras iniciar sesión."""
+    asunto = "🔐 Alerta de Seguridad: Acceso al Panel Administrativo - TWINS Bakery"
+    if not fecha_hora:
+        fecha_hora = datetime.now().strftime("%d/%m/%Y a las %I:%M %p")
+    ip_segura = ip or "No identificada"
+    dispositivo_seguro = (dispositivo[:80] + "...") if dispositivo and len(dispositivo) > 80 else (dispositivo or "Navegador web")
+
+    contenido_html = f"""
+      <h2 style="color:#e05374; margin-top:0; font-size:22px; font-weight:700;">Alerta de Acceso Administrativo 🔐</h2>
+      <p style="font-size:15px; color:#4a5568;">
+        Te notificamos que se ha iniciado sesión en el <strong>Panel de Administración</strong> de <strong>TWINS Bakery</strong> con tu cuenta autorizada.
+      </p>
+
+      <div style="background-color:#fff5f5; border:1px solid #feb2b2; border-radius:10px; padding:18px 20px; margin:20px 0;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px; color:#4a5568;">
+          <tr>
+            <td style="padding:5px 0; font-weight:600; width:150px;">✉️ Cuenta:</td>
+            <td style="padding:5px 0; font-weight:700; color:#2d3748;">{destinatario}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0; font-weight:600;">📅 Fecha y hora:</td>
+            <td style="padding:5px 0;">{fecha_hora}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0; font-weight:600;">🌐 Dirección IP:</td>
+            <td style="padding:5px 0; font-family:monospace; color:#2b6cb0;">{ip_segura}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0; font-weight:600;">💻 Dispositivo:</td>
+            <td style="padding:5px 0;">{dispositivo_seguro}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="font-size:14px; color:#718096; line-height:1.5;">
+        Si fuiste tú quien ingresó al panel, no requieres realizar ninguna acción. Si no reconoces este inicio de sesión, te recomendamos cambiar las credenciales de inmediato para salvaguardar la administración.
+      </p>
+
+      <p style="margin:25px 0 0; font-size:14px; color:#4a5568;">
+        Atentamente,<br>
+        <strong>Seguridad & Auditoría TWINS Bakery</strong>
+      </p>
+    """
+
+    cuerpo_texto = f"""Alerta de Seguridad: Acceso al Panel Administrativo de TWINS Bakery
+
+Hola {nombre},
+
+Se ha iniciado sesión en el Panel de Administración de TWINS Bakery:
+- Cuenta: {destinatario}
+- Fecha y hora: {fecha_hora}
+- Dirección IP: {ip_segura}
+- Dispositivo: {dispositivo_seguro}
+
+Si fuiste tú, puedes ignorar este mensaje. Si no fuiste tú, toma medidas de seguridad de inmediato.
+
+Atentamente,
+Seguridad TWINS Bakery
+"""
+
+    html_completo = _plantilla_base_html("Alerta de Seguridad Administrativa", "Acceso al Panel de Control", contenido_html)
+    _despachar_asincrono(destinatario, asunto, html_completo, cuerpo_texto)
+
+
 # ==============================================================================
 # 3. NOTIFICACIÓN DE RESERVA REALIZADA (PASTELES Y EVENTOS)
 # ==============================================================================
@@ -611,7 +684,7 @@ def enviar_correo_reserva_creada(
     Si es un pastel o un evento, destaca la instrucción obligatoria de pasar a dejar
     el 50% de anticipo a la sucursal.
     """
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"Reserva Registrada [Código: {codigo}] - TWINS Bakery 🎂"
 
     # Determinar si aplica aviso de pasteles o eventos
@@ -774,7 +847,7 @@ def enviar_correo_reserva_aceptada(
     fecha_retiro
 ):
     """Envía la notificación final al cliente indicando que su reserva fue aceptada por el administrador."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"¡Tu reserva ha sido aceptada! [Código: {codigo}] - TWINS Bakery 🎉"
 
     if isinstance(fecha_retiro, datetime):
@@ -886,7 +959,7 @@ def enviar_correo_reserva_lista(
     fecha_retiro
 ):
     """Envía la notificación al cliente avisando que su pedido ya está listo para ser retirado en el local."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"¡Tu pedido está listo para retirar! [Código: {codigo}] - TWINS Bakery 🎂🎉"
 
     if isinstance(fecha_retiro, datetime):
@@ -1014,7 +1087,7 @@ def enviar_correo_reserva_rechazada(
     motivo=None,
 ):
     """Envía la notificación al cliente indicando que su reserva fue cancelada o rechazada por la administración."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"Actualización de tu reserva [Código: {codigo}] - TWINS Bakery"
 
     if isinstance(fecha_retiro, datetime):
@@ -1121,7 +1194,7 @@ def enviar_correo_evento_aceptado(
     presupuesto_estimado=None,
 ):
     """Envía un correo al cliente notificando que su solicitud de evento fue aceptada por el administrador."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"¡Tu solicitud de evento ha sido aceptada! ({tipo_evento}) - TWINS Bakery 🎂🎉"
 
     if isinstance(fecha_evento, (datetime, datetime.date)):
@@ -1215,7 +1288,7 @@ def enviar_correo_evento_rechazado(
     motivo=None,
 ):
     """Envía un correo al cliente notificando que su solicitud no pudo ser aceptada para esa fecha o condiciones."""
-    nombre_seguro = nombre.strip() if nombre else "estimado/a cliente"
+    nombre_seguro = _escapar(nombre, "estimado/a cliente")
     asunto = f"Actualización sobre tu solicitud de evento ({tipo_evento}) - TWINS Bakery"
 
     if isinstance(fecha_evento, (datetime, datetime.date)):

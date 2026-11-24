@@ -34,7 +34,7 @@
                 <div class="avatar-circle" id="headerAvatarContainer">
                     <img src="{{ url_for('foto_perfil_cliente') }}" alt="Foto de perfil" class="avatar-img" id="headerAvatarImg" onerror="this.src='/img/logo.png'">
                 </div>
-                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente').split()[0] }}</span>
+                <span class="user-greeting">{{ session.get('nombre_cliente', 'Cliente') | primer_nombre }}</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="profile-dropdown-menu" id="profileDropdownMenu" aria-hidden="true">
@@ -67,12 +67,18 @@
         </div>
         <div class="filters" role="group" aria-label="Filtrar por categoría" data-category-filters>
             <button class="filter active" type="button" data-category="Todos" aria-pressed="true">Todos</button>
-            <button class="filter" type="button" data-category="Pasteles" aria-pressed="false">Pasteles</button>
+            <button class="filter" type="button" data-category="Porciones de Pasteles" aria-pressed="false">Porciones de Pasteles</button>
             <button class="filter" type="button" data-category="Cupcakes" aria-pressed="false">Cupcakes</button>
             <button class="filter" type="button" data-category="Galletas" aria-pressed="false">Galletas</button>
             <button class="filter" type="button" data-category="Bebidas" aria-pressed="false">Bebidas</button>
-            <button class="filter" type="button" data-category="Eventos" aria-pressed="false">Eventos</button>
             <button class="filter" type="button" data-category="Postres completos" aria-pressed="false">Postres completos</button>
+            <div class="catalog-search-wrap" role="search">
+                <span class="catalog-search-icon" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </span>
+                <input type="text" id="catalogSearchInput" class="catalog-search-input" placeholder="Buscar por nombre, sabor..." aria-label="Buscar productos en existencia" autocomplete="off">
+                <button type="button" id="catalogSearchClear" class="catalog-search-clear" aria-label="Limpiar búsqueda" style="display: none;">&times;</button>
+            </div>
         </div>
         <div class="product-grid" data-product-grid aria-live="polite"></div>
     </main>

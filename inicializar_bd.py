@@ -151,6 +151,9 @@ def _inicializar_sqlite(conexion, cursor):
         descripcion TEXT NOT NULL,
         disponible BOOLEAN NOT NULL DEFAULT 1,
         en_vitrina BOOLEAN NOT NULL DEFAULT 0,
+        se_vende_por_porciones BOOLEAN NOT NULL DEFAULT 0,
+        numero_porciones INT NULL,
+        precio_porcion NUMERIC NULL,
         imagen BLOB NULL,
         tipo_imagen TEXT NULL,
         fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -191,6 +194,8 @@ def _inicializar_sqlite(conexion, cursor):
         nombre_producto TEXT NOT NULL,
         precio_unitario NUMERIC NOT NULL,
         cantidad INT NOT NULL,
+        es_porcion BOOLEAN NOT NULL DEFAULT 0,
+        numero_porciones INT NULL,
         FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
         FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
     );
@@ -420,6 +425,28 @@ def _inicializar_sqlite(conexion, cursor):
     except Exception:
         pass
 
+    # 18. VENTA POR PORCIONES DE PASTELES (SQLite)
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN se_vende_por_porciones BOOLEAN NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN numero_porciones INT NULL;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN precio_porcion NUMERIC NULL;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE DETALLE_RESERVA ADD COLUMN es_porcion BOOLEAN NOT NULL DEFAULT 0;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE DETALLE_RESERVA ADD COLUMN numero_porciones INT NULL;")
+    except Exception:
+        pass
+
     # Tabla HISTORIAL_PUNTOS
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS HISTORIAL_PUNTOS (
@@ -538,6 +565,9 @@ def _inicializar_mysql(conexion, cursor):
         descripcion VARCHAR(300) NOT NULL,
         disponible BOOLEAN NOT NULL DEFAULT TRUE,
         en_vitrina BOOLEAN NOT NULL DEFAULT FALSE,
+        se_vende_por_porciones BOOLEAN NOT NULL DEFAULT FALSE,
+        numero_porciones INT NULL,
+        precio_porcion DECIMAL(8, 2) NULL,
         imagen MEDIUMBLOB NULL,
         tipo_imagen VARCHAR(30) NULL,
         fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -576,6 +606,8 @@ def _inicializar_mysql(conexion, cursor):
         nombre_producto VARCHAR(120) NOT NULL,
         precio_unitario DECIMAL(10, 2) NOT NULL,
         cantidad INT NOT NULL,
+        es_porcion BOOLEAN NOT NULL DEFAULT FALSE,
+        numero_porciones INT NULL,
         CONSTRAINT fk_detalle_reserva FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
         CONSTRAINT fk_detalle_producto FOREIGN KEY (id_pastel) REFERENCES PRODUCTO(id_producto) ON DELETE SET NULL
     ) ENGINE=InnoDB;
@@ -795,6 +827,28 @@ def _inicializar_mysql(conexion, cursor):
     except Exception:
         pass
 
+    # 18. VENTA POR PORCIONES DE PASTELES (MySQL)
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN se_vende_por_porciones BOOLEAN NOT NULL DEFAULT FALSE;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN numero_porciones INT NULL;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE PRODUCTO ADD COLUMN precio_porcion DECIMAL(8, 2) NULL;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE DETALLE_RESERVA ADD COLUMN es_porcion BOOLEAN NOT NULL DEFAULT FALSE;")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE DETALLE_RESERVA ADD COLUMN numero_porciones INT NULL;")
+    except Exception:
+        pass
+
     # Tabla HISTORIAL_PUNTOS
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS HISTORIAL_PUNTOS (
@@ -863,59 +917,17 @@ def _sembrar_datos_iniciales(cursor):
             """,
             ("Administrador Twins Bakery", "twiinsbakery01@gmail.com", generate_password_hash("bakeryTnt2006")),
         )
+    else:
+        cursor.execute(
+            """
+            UPDATE ADMINISTRADOR
+            SET nombre = %s, correo = %s, contrasena = %s
+            WHERE id_admin = 1
+            """,
+            ("Administrador Twins Bakery", "twiinsbakery01@gmail.com", generate_password_hash("bakeryTnt2006")),
+        )
 
-    # 2. Solicitudes de ejemplo para panel administrativo de eventos si está vacía
-    cursor.execute("SELECT COUNT(*) FROM SOLICITUD_PLANIFICACION")
-    fila_sol = cursor.fetchone()
-    conteo_sol = fila_sol[0] if isinstance(fila_sol, (list, tuple)) else fila_sol.get("COUNT(*)", 0)
-
-    if conteo_sol == 0:
-        # Clientes de demostración reflejados en el diseño de la imagen
-        clientes_demo = [
-            ("Laura Gómez", "laura.gomez@gmail.com", "7712-3401"),
-            ("Daniel Hernández", "daniel.hernandez@gmail.com", "7845-9012"),
-            ("Paola Rivera", "paola.rivera@gmail.com", "7123-4567"),
-            ("Miguel Cruz", "miguel.cruz@gmail.com", "7999-8877"),
-        ]
-
-        ids_clientes = {}
-        for nom, cor, tel in clientes_demo:
-            cursor.execute("SELECT id_cliente FROM CLIENTE WHERE correo = %s", (cor,))
-            fila_c = cursor.fetchone()
-            if fila_c:
-                c_id = fila_c[0] if isinstance(fila_c, (list, tuple)) else fila_c.get("id_cliente")
-            else:
-                cursor.execute(
-                    """
-                    INSERT INTO CLIENTE (nombre, correo, contrasena, telefono)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (nom, cor, generate_password_hash("cliente123"), tel),
-                )
-                c_id = cursor.lastrowid
-            ids_clientes[nom] = c_id
-
-        # Insertar solicitudes de la imagen
-        solicitudes_demo = [
-            ("Laura Gómez", "Cumpleaños", 50, 500.00, "2026-10-05", "San Salvador", "Pastel, Cupcakes", "NUEVA"),
-            ("Daniel Hernández", "Graduación", 80, 700.00, "2026-10-10", "Santa Tecla", "Pastel, Decoración", "NUEVA"),
-            ("Paola Rivera", "Baby Shower", 35, 350.00, "2026-10-15", "Antiguo Cuscatlán", "Pastel, Mesa de postres", "NUEVA"),
-            ("Miguel Cruz", "Empresarial", 100, 1000.00, "2026-10-20", "San Salvador", "Bebidas, Pastel, Galletas", "NUEVA"),
-        ]
-
-        for nom, tipo, inv, pres, fec, lug, serv, est in solicitudes_demo:
-            c_id = ids_clientes.get(nom)
-            if c_id:
-                cursor.execute(
-                    """
-                    INSERT INTO SOLICITUD_PLANIFICACION 
-                    (id_cliente, tipo_evento, num_invitados, presupuesto_estimado, fecha_evento, lugar_evento, servicios, estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (c_id, tipo, inv, pres, fec, lug, serv, est),
-                )
-
-    # 3. Configuración inicial de Fidelidad
+    # 2. Configuración inicial de Fidelidad (sin clientes ni productos por defecto)
     try:
         cursor.execute("SELECT COUNT(*) FROM CONFIGURACION_FIDELIDAD WHERE id = 1")
         fila_cfg = cursor.fetchone()

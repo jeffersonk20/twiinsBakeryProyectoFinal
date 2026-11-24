@@ -1,21 +1,37 @@
 /**
  * Banner de Cookies y Tecnologías Esenciales - TWIINS Bakery
- * Cumplimiento de normativas y transparencia para los usuarios en El Salvador.
+ * Aparece en la página principal / index del cliente y solo presenta la opción de aceptar todas.
+ * Excluido estrictamente del panel de administración.
  */
 (() => {
-    const COOKIE_STORAGE_KEY = "twiins_cookies_consent";
+    // 1. REGLA ESTRICTA: En el panel de administración NO debe aparecer jamás
+    const path = (window.location.pathname || "").toLowerCase();
+    if (path.startsWith("/admin")) {
+        return;
+    }
+
+    // Clave de almacenamiento versionada para garantizar que aparezca si no se ha aceptado
+    const COOKIE_STORAGE_KEY = "twiins_cookies_consent_v2";
 
     // Si ya existe la función global para abrir el banner, no duplicar
     if (window.abrirBannerCookies) return;
 
-    function guardarPreferencia(valor) {
+    function guardarPreferencia() {
         try {
-            localStorage.setItem(COOKIE_STORAGE_KEY, valor);
+            localStorage.setItem(COOKIE_STORAGE_KEY, "todas");
             // También guardar en cookie del navegador por 1 año
             const d = new Date();
             d.setTime(d.getTime() + 365 * 24 * 60 * 60 * 1000);
-            document.cookie = `${COOKIE_STORAGE_KEY}=${valor};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+            document.cookie = `${COOKIE_STORAGE_KEY}=todas;expires=${d.toUTCString()};path=/;SameSite=Lax`;
         } catch (_) {}
+    }
+
+    function tieneConsentimiento() {
+        try {
+            return Boolean(localStorage.getItem(COOKIE_STORAGE_KEY));
+        } catch (_) {
+            return false;
+        }
     }
 
     function cerrarBanner(bannerEl) {
@@ -29,7 +45,6 @@
     }
 
     function crearBanner() {
-        // Evitar duplicados
         let existente = document.getElementById("twiinsCookieBanner");
         if (existente) return existente;
 
@@ -48,27 +63,17 @@
             <p class="twiins-cookie-body">
                 Utilizamos cookies técnicas y almacenamiento esencial propios para mantener tu sesión activa y segura, proteger tus transacciones con tokens de seguridad (CSRF) y permitirte gestionar tus reservas de productos y eventos en TWIINS Bakery. No utilizamos cookies de rastreo publicitario invasivo ni vendemos tu información. Al hacer clic en "Aceptar todas", autorizas el funcionamiento pleno del sitio. Puedes consultar todos los detalles en nuestra <a href="/politica-privacidad">Política de Privacidad</a>.
             </p>
-            <div class="twiins-cookie-actions">
-                <button type="button" class="twiins-cookie-btn twiins-cookie-btn-secondary" id="btnSoloNecesariasCookies">Solo necesarias</button>
-                <button type="button" class="twiins-cookie-btn twiins-cookie-btn-primary" id="btnAceptarCookies">Aceptar todas</button>
+            <div class="twiins-cookie-actions" style="justify-content: flex-end;">
+                <button type="button" class="twiins-cookie-btn twiins-cookie-btn-primary" id="btnAceptarCookies" style="min-width: 160px;">Aceptar todas</button>
             </div>
         `;
 
         document.body.appendChild(banner);
 
         const btnAceptar = banner.querySelector("#btnAceptarCookies");
-        const btnNecesarias = banner.querySelector("#btnSoloNecesariasCookies");
-
         if (btnAceptar) {
             btnAceptar.addEventListener("click", () => {
-                guardarPreferencia("todas");
-                cerrarBanner(banner);
-            });
-        }
-
-        if (btnNecesarias) {
-            btnNecesarias.addEventListener("click", () => {
-                guardarPreferencia("necesarias");
+                guardarPreferencia();
                 cerrarBanner(banner);
             });
         }
@@ -78,28 +83,31 @@
 
     function mostrarBanner() {
         const banner = crearBanner();
-        // Animación suave de entrada
         setTimeout(() => {
             if (banner) {
                 banner.classList.add("visible");
             }
-        }, 300);
+        }, 200);
     }
 
-    // Exponer función global para abrir el banner si el usuario desea revisar su consentimiento
+    // Exponer función global para abrir el banner en cualquier momento desde el enlace "Cookies" del footer
     window.abrirBannerCookies = () => {
         mostrarBanner();
     };
 
-    // Al cargar la página, comprobar si ya se dio consentimiento
-    const consent = localStorage.getItem(COOKIE_STORAGE_KEY);
-    if (!consent) {
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", () => {
-                setTimeout(mostrarBanner, 600);
-            });
-        } else {
-            setTimeout(mostrarBanner, 600);
+    // Comprobar si estamos en el index / página principal del cliente
+    const esIndex = path === "/" || path === "" || path.endsWith("/index.html") || path.endsWith("/inicio");
+
+    function inicializar() {
+        // En el cliente: mostrar en el index si aún no se ha dado consentimiento
+        if (!tieneConsentimiento() && esIndex) {
+            setTimeout(mostrarBanner, 500);
         }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", inicializar);
+    } else {
+        inicializar();
     }
 })();

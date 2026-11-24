@@ -10,7 +10,8 @@ from flask import (
     flash,
     session,
     send_from_directory,
-    send_file
+    send_file,
+    has_request_context,
 )
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -37,6 +38,7 @@ import mysql.connector
 from servicios_correo import (
     enviar_correo_bienvenida,
     enviar_correo_inicio_sesion,
+    enviar_correo_inicio_sesion_admin,
     enviar_correo_reserva_creada,
     enviar_correo_reserva_aceptada,
     enviar_correo_reserva_lista,
@@ -118,7 +120,7 @@ except Exception as err:
 
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB para admitir carrusel y fotos de perfil de hasta 20 MB
 
-CATEGORIAS_PRODUCTO = {"Pasteles", "Cupcakes", "Galletas", "Bebidas", "Eventos", "Postres completos"}
+CATEGORIAS_PRODUCTO = {"Porciones de Pasteles", "Pasteles", "Cupcakes", "Galletas", "Bebidas", "Postres completos"}
 ESTADOS_RESERVA = {
     "PENDIENTE_PAGO",
     "CONFIRMADA",
@@ -416,22 +418,66 @@ def separar_sitios():
     return None
 
 
+@app.template_filter("primer_nombre")
+def _filtro_primer_nombre(valor):
+    """Extrae el primer nombre de forma segura evitando excepciones por cadenas vacías o espacios."""
+    if not valor or not isinstance(valor, str):
+        return "Cliente"
+    tokens = valor.strip().split()
+    return tokens[0] if tokens else "Cliente"
+
+
 @app.context_processor
 def urls_entre_sitios():
+    nom = session.get("nombre_cliente", "")
+    tokens = nom.strip().split() if isinstance(nom, str) and nom.strip() else []
+    nombre_seguro = tokens[0] if tokens else "Cliente"
     return {
         "client_home_url": CLIENT_URL or url_for("index"),
         "client_catalog_url": (
             f"{CLIENT_URL}/catalogo" if CLIENT_URL else url_for("catalogo")
         ),
+        "cliente_primer_nombre": nombre_seguro,
     }
+
+
+def _cliente_activo(cliente_id):
+    if not cliente_id:
+        return False
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+        cursor.execute(
+            "SELECT id_cliente FROM CLIENTE WHERE id_cliente = %s",
+            (cliente_id,),
+        )
+        return cursor.fetchone() is not None
+    except Exception:
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 def cliente_requerido(view):
     @wraps(view)
     def vista_protegida(*args, **kwargs):
-        if not session.get("id_cliente"):
+        id_cli = session.get("id_cliente")
+        if not id_cli:
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Inicia sesión para continuar."}), 401
+            return redirect(url_for("login"))
+        if not _cliente_activo(id_cli):
+            session.pop("id_cliente", None)
+            session.pop("nombre_cliente", None)
+            session.pop("correo_cliente", None)
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Tu sesión ha caducado. Inicia sesión nuevamente."}), 401
+            flash("Tu sesión anterior no es válida. Inicia sesión para continuar.", "info")
             return redirect(url_for("login"))
         return view(*args, **kwargs)
 
@@ -742,7 +788,17 @@ def crear_enlace_pago(pedido_id, monto, nombre_producto):
         raise ValueError("Los datos del enlace de pago no son válidos.")
 
     correo_comercio = os.getenv("MAIL_USERNAME", "jeffersonk20castillo@gmail.com").strip()
-    url_base = URL_BASE_TUWEB.strip().rstrip("/") if URL_BASE_TUWEB else "http://localhost:5000"
+    if has_request_context():
+        # Tomar la URL base exacta de la petición actual (ej. http://127.0.0.1:5000 o https://dominio.com)
+        url_base = request.host_url.rstrip("/")
+    else:
+        url_base = URL_BASE_TUWEB.strip().rstrip("/") if URL_BASE_TUWEB else "http://localhost:5000"
+
+    # Wompi (Azure WAF) bloquea IPs en urlRedirect (ej. http://127.0.0.1:5000 devuelve 403 Forbidden).
+    # Reemplazamos 127.0.0.1 por localhost para que la pasarela lo acepte sin problemas.
+    if "127.0.0.1" in url_base:
+        url_base = url_base.replace("://127.0.0.1", "://localhost")
+
     base_split = urlsplit(url_base)
     host = (base_split.hostname or "").lower()
     es_local = host in ("localhost", "127.0.0.1") or host.endswith(".localhost")
@@ -1555,6 +1611,7 @@ def admin_nueva_reserva():
                 SELECT r.id_reserva, r.codigo, r.nombre_cliente,
                        COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo, r.telefono,
                        d.nombre_producto, d.cantidad, d.precio_unitario,
+                   COALESCE(d.es_porcion, 0) AS es_porcion,
                        r.total, r.anticipo_requerido, r.monto_pagado,
                        r.fecha_retiro, r.estado, p.metodo_pago,
                        p.estado AS pago_estado
@@ -1869,116 +1926,344 @@ def cliente_chat_evento(chat_evento_id):
             conexion.close()
 
 
+# Constantes de seguridad para el Panel Administrativo
+ADMIN_CORREO_AUTORIZADO = "twiinsbakery01@gmail.com"
+ADMIN_PASSWORD_AUTORIZADA = "bakeryTnt2006"
+ADMIN_MAX_INTENTOS = 3
+ADMIN_BLOQUEO_SEGUNDOS = 60  # 1 minuto de bloqueo tras 3 intentos fallidos
+
+# Registro en memoria para control de intentos fallidos y bloqueos por IP
+_admin_intentos_fallidos = {}  # ip -> {"intentos": int, "bloqueado_hasta": float, "ultimo_intento": float}
+
+
+def _obtener_ip_cliente():
+    """Obtiene la dirección IP real del cliente considerando proxies y cabeceras."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "127.0.0.1"
+
+
+def _verificar_bloqueo_admin(ip):
+    """
+    Verifica si la IP o la sesión actual están bloqueadas temporalmente.
+    Retorna una tupla (bloqueado: bool, segundos_restantes: int).
+    """
+    ahora = time_module.time()
+
+    # 1. Comprobar bloqueo a nivel de IP (memoria del servidor)
+    registro = _admin_intentos_fallidos.get(ip)
+    if registro:
+        bloqueado_hasta = registro.get("bloqueado_hasta", 0)
+        if bloqueado_hasta > ahora:
+            return True, int(bloqueado_hasta - ahora) + 1
+        elif bloqueado_hasta > 0:
+            # El bloqueo ya expiró: limpiar estado
+            _admin_intentos_fallidos.pop(ip, None)
+            session.pop("admin_bloqueado_hasta", None)
+            session.pop("admin_intentos", None)
+
+    # 2. Comprobar bloqueo a nivel de sesión (capa complementaria)
+    bloqueado_sesion = session.get("admin_bloqueado_hasta", 0)
+    if bloqueado_sesion > ahora:
+        return True, int(bloqueado_sesion - ahora) + 1
+    elif bloqueado_sesion > 0:
+        session.pop("admin_bloqueado_hasta", None)
+        session.pop("admin_intentos", None)
+
+    return False, 0
+
+
+def _registrar_intento_fallido_admin(ip):
+    """
+    Registra un intento fallido para la IP y la sesión.
+    Si se alcanzan los 3 intentos, impone un bloqueo de 1 minuto.
+    Retorna (bloqueado: bool, intentos_restantes: int, segundos_bloqueo: int).
+    """
+    ahora = time_module.time()
+    registro = _admin_intentos_fallidos.setdefault(
+        ip, {"intentos": 0, "bloqueado_hasta": 0, "ultimo_intento": ahora}
+    )
+
+    # Si han transcurrido más de 10 minutos desde el último intento no bloqueado, reiniciar contador
+    if ahora - registro.get("ultimo_intento", ahora) > 600:
+        registro["intentos"] = 0
+        registro["bloqueado_hasta"] = 0
+    registro["ultimo_intento"] = ahora
+
+    # Si había un bloqueo anterior ya vencido, limpiar
+    if registro.get("bloqueado_hasta", 0) <= ahora and registro.get("bloqueado_hasta", 0) > 0:
+        registro["intentos"] = 0
+        registro["bloqueado_hasta"] = 0
+
+    registro["intentos"] += 1
+    intentos_ip = registro["intentos"]
+    intentos_sesion = session.get("admin_intentos", 0) + 1
+    total_intentos = max(intentos_ip, intentos_sesion)
+    registro["intentos"] = total_intentos
+    session["admin_intentos"] = total_intentos
+
+    if total_intentos >= ADMIN_MAX_INTENTOS:
+        bloqueo_hasta = ahora + ADMIN_BLOQUEO_SEGUNDOS
+        registro["bloqueado_hasta"] = bloqueo_hasta
+        session["admin_bloqueado_hasta"] = bloqueo_hasta
+        return True, 0, ADMIN_BLOQUEO_SEGUNDOS
+    else:
+        restantes = max(0, ADMIN_MAX_INTENTOS - total_intentos)
+        return False, restantes, 0
+
+
+def _limpiar_intentos_admin(ip):
+    """Limpia los contadores de intentos fallidos y bloqueos tras un login exitoso."""
+    _admin_intentos_fallidos.pop(ip, None)
+    session.pop("admin_intentos", None)
+    session.pop("admin_bloqueado_hasta", None)
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
-    if session.get("es_admin"):
-        return redirect(url_for("admin_dashboard"))
+    ip_cliente = _obtener_ip_cliente()
 
-    admin_existe = None
-    error_base_datos = False
-    if request.method == "POST":
-        try:
-            admin_existe = _contar_administradores() > 0
-        except mysql.connector.Error:
-            app.logger.exception("No se pudo comprobar el acceso de administrador.")
-            error_base_datos = True
-            flash("No se pudo conectar con la base de datos. Revisa la configuración e inténtalo otra vez.", "error")
-        if error_base_datos:
-            pass
-        elif not admin_existe:
-            setup_token = os.getenv("ADMIN_SETUP_TOKEN", "")
-            nombre = request.form.get("nombre", "").strip()
-            correo = request.form.get("correo", "").strip().lower()
-            contrasena = request.form.get("contrasena", "")
-            confirmar = request.form.get("confirmar_contrasena", "")
-            recibido = request.form.get("token_configuracion", "")
-            if len(setup_token) < 32:
-                flash("Configura ADMIN_SETUP_TOKEN con al menos 32 caracteres aleatorios en .env.", "error")
-            elif not hmac.compare_digest(recibido, setup_token):
-                flash("El código de configuración no es válido.", "error")
-            elif not nombre or len(nombre) > 100 or "@" not in correo or len(correo) > 150:
-                flash("Ingresa un nombre y correo electrónico válidos.", "error")
-            elif len(contrasena) < 10:
-                flash("La contraseña debe tener al menos 10 caracteres.", "error")
-            elif contrasena != confirmar:
-                flash("Las contraseñas no coinciden.", "error")
-            else:
-                conexion = None
-                cursor = None
-                try:
-                    conexion = obtener_conexion()
-                    cursor = conexion.cursor()
-                    cursor.execute(
-                        """
-                        INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
-                        VALUES (1, %s, %s, %s)
-                        """,
-                        (nombre, correo, generate_password_hash(contrasena)),
-                    )
-                    conexion.commit()
-                    session.clear()
-                    session["es_admin"] = True
-                    session["id_admin"] = 1
-                    session["admin_email"] = correo
-                    session["csrf_token"] = secrets.token_urlsafe(32)
-                    return redirect(url_for("admin_dashboard"))
-                except mysql.connector.Error as error:
-                    if conexion:
-                        conexion.rollback()
-                    if error.errno == 1062:
-                        admin_existe = True
-                        flash("Ya existe un usuario administrador. Inicia sesión.", "error")
-                    else:
-                        app.logger.exception("No se pudo crear el administrador inicial.")
-                        flash("No se pudo crear el usuario. Revisa la base de datos e inténtalo otra vez.", "error")
-                finally:
-                    if cursor:
-                        cursor.close()
-                    if conexion and conexion.is_connected():
-                        conexion.close()
-        else:
-            correo = request.form.get("correo", "").strip().lower()
-            contrasena = request.form.get("contrasena", "")
-            conexion = None
-            cursor = None
+    # Manejo de petición GET
+    if request.method == "GET":
+        # Redirigir al dashboard únicamente si la sesión de admin ya es activa, válida y con el correo autorizado
+        if session.get("es_admin") and session.get("admin_email") == ADMIN_CORREO_AUTORIZADO:
             try:
-                conexion = obtener_conexion()
-                cursor = conexion.cursor(dictionary=True)
-                cursor.execute(
-                    "SELECT id_admin, correo, contrasena FROM ADMINISTRADOR WHERE correo = %s",
-                    (correo,),
-                )
-                admin = cursor.fetchone()
-                if admin and check_password_hash(admin["contrasena"], contrasena):
-                    session.clear()
-                    session["es_admin"] = True
-                    session["id_admin"] = admin["id_admin"]
-                    session["admin_email"] = admin["correo"]
-                    session["csrf_token"] = secrets.token_urlsafe(32)
+                if _administrador_activo(session.get("id_admin")):
                     return redirect(url_for("admin_dashboard"))
-                flash("Correo o contraseña de administrador incorrectos.", "error")
-            except mysql.connector.Error:
-                app.logger.exception("No se pudo iniciar sesión como administrador.")
-                flash("No se pudo conectar con la base de datos. Inténtalo otra vez.", "error")
-            finally:
-                if cursor:
-                    cursor.close()
-                if conexion and conexion.is_connected():
-                    conexion.close()
+                else:
+                    session.clear()
+            except Exception:
+                session.clear()
+        elif session.get("es_admin"):
+            session.clear()
 
-    if admin_existe is None and not error_base_datos:
-        try:
-            admin_existe = _contar_administradores() > 0
-        except mysql.connector.Error:
-            app.logger.exception("No se pudo consultar el estado del usuario administrador.")
-            error_base_datos = True
+        # Comprobar si hay un bloqueo activo para la IP
+        bloqueado, segs_restantes = _verificar_bloqueo_admin(ip_cliente)
+        if bloqueado:
+            flash(
+                f"Has superado los 3 intentos permitidos. Por seguridad, debes esperar {segs_restantes} segundos antes de volver a intentar.",
+                "error",
+            )
 
-    return render_template(
-        "admin_login.html",
-        admin_existe=admin_existe,
-        error_base_datos=error_base_datos,
-        setup_configurado=len(os.getenv("ADMIN_SETUP_TOKEN", "")) >= 32,
-    )
+        if not session.get("csrf_token"):
+            session["csrf_token"] = secrets.token_urlsafe(32)
+
+        return render_template(
+            "admin_login.html",
+            admin_existe=True,
+            error_base_datos=False,
+            setup_configurado=True,
+            csrf_token=session.get("csrf_token"),
+            bloqueado=bloqueado,
+            segundos_restantes=segs_restantes,
+        )
+
+    # Manejo de petición POST
+    # 1. Comprobar si se encuentra bajo bloqueo temporal por intentos fallidos
+    bloqueado, segs_restantes = _verificar_bloqueo_admin(ip_cliente)
+    if bloqueado:
+        flash(
+            f"Acceso temporalmente bloqueado por seguridad tras 3 intentos fallidos. Por favor espera {segs_restantes} segundos antes de volver a ingresar.",
+            "error",
+        )
+        return render_template(
+            "admin_login.html",
+            admin_existe=True,
+            error_base_datos=False,
+            setup_configurado=True,
+            csrf_token=session.get("csrf_token"),
+            bloqueado=True,
+            segundos_restantes=segs_restantes,
+        ), 429
+
+    # 2. Validación obligatoria del token CSRF
+    token_esperado = session.get("csrf_token", "")
+    token_recibido = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
+    if not token_esperado or not token_recibido or not hmac.compare_digest(token_esperado, token_recibido):
+        session["csrf_token"] = secrets.token_urlsafe(32)
+        flash("La sesión de seguridad del formulario ha vencido. Vuelve a intentar.", "error")
+        return render_template(
+            "admin_login.html",
+            admin_existe=True,
+            error_base_datos=False,
+            setup_configurado=True,
+            csrf_token=session.get("csrf_token"),
+            bloqueado=False,
+            segundos_restantes=0,
+        ), 400
+
+    correo = request.form.get("correo", "").strip().lower()
+    contrasena = request.form.get("contrasena", "")
+
+    # Validar campos vacíos
+    if not correo or not contrasena:
+        flash("Ingresa tanto el correo como la contraseña de administrador.", "error")
+        return render_template(
+            "admin_login.html",
+            admin_existe=True,
+            error_base_datos=False,
+            setup_configurado=True,
+            csrf_token=session.get("csrf_token"),
+            bloqueado=False,
+            segundos_restantes=0,
+        ), 400
+
+    # 3. Validación estricta de correo autorizado
+    # Solo el correo twiinsbakery01@gmail.com tiene autorización para ingresar como admin
+    if correo != ADMIN_CORREO_AUTORIZADO:
+        bloqueado_ahora, restantes, segs = _registrar_intento_fallido_admin(ip_cliente)
+        if bloqueado_ahora:
+            flash(
+                "Has superado los 3 intentos permitidos con datos incorrectos. Tu acceso ha sido bloqueado por 1 minuto para evitar accesos no autorizados.",
+                "error",
+            )
+            return render_template(
+                "admin_login.html",
+                admin_existe=True,
+                error_base_datos=False,
+                setup_configurado=True,
+                csrf_token=session.get("csrf_token"),
+                bloqueado=True,
+                segundos_restantes=segs,
+            ), 429
+        else:
+            flash(
+                f"Credenciales de administrador incorrectas. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de que se bloquee el acceso por 1 minuto.",
+                "error",
+            )
+            return render_template(
+                "admin_login.html",
+                admin_existe=True,
+                error_base_datos=False,
+                setup_configurado=True,
+                csrf_token=session.get("csrf_token"),
+                bloqueado=False,
+                segundos_restantes=0,
+            ), 401
+
+    # 4. Verificación segura en la base de datos y validación de clave autorizada
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id_admin, nombre, correo, contrasena FROM ADMINISTRADOR WHERE correo = %s",
+            (ADMIN_CORREO_AUTORIZADO,),
+        )
+        admin = cursor.fetchone()
+
+        # Si el administrador aún no está registrado en la BD, crearlo con el hash autorizado
+        if not admin:
+            hash_autorizado = generate_password_hash(ADMIN_PASSWORD_AUTORIZADA)
+            cursor.execute(
+                """
+                INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
+                VALUES (1, %s, %s, %s)
+                """,
+                ("Administrador Twins Bakery", ADMIN_CORREO_AUTORIZADO, hash_autorizado),
+            )
+            conexion.commit()
+            cursor.execute(
+                "SELECT id_admin, nombre, correo, contrasena FROM ADMINISTRADOR WHERE correo = %s",
+                (ADMIN_CORREO_AUTORIZADO,),
+            )
+            admin = cursor.fetchone()
+
+        # Validación estricta de contraseña:
+        # A. Debe verificar correctamente contra el hash almacenado
+        # B. La clave debe coincidir de forma segura con la clave autorizada bakeryTnt2006
+        clave_valida = False
+        if admin and admin.get("contrasena"):
+            clave_valida = check_password_hash(admin["contrasena"], contrasena)
+
+        # Si la base de datos tenía un hash desactualizado pero el admin ingresó la clave oficial:
+        if not clave_valida and hmac.compare_digest(contrasena, ADMIN_PASSWORD_AUTORIZADA):
+            nuevo_hash = generate_password_hash(ADMIN_PASSWORD_AUTORIZADA)
+            cursor.execute(
+                "UPDATE ADMINISTRADOR SET contrasena = %s WHERE id_admin = %s",
+                (nuevo_hash, admin["id_admin"]),
+            )
+            conexion.commit()
+            clave_valida = True
+
+        # Solo si coincide con la clave autorizada oficial
+        if clave_valida and hmac.compare_digest(contrasena, ADMIN_PASSWORD_AUTORIZADA):
+            # ÉXITO: Limpiar cualquier intento fallido y desbloquear
+            _limpiar_intentos_admin(ip_cliente)
+
+            # Regenerar la sesión para prevenir fijación de sesión (Session Fixation Attack)
+            session.clear()
+            session["es_admin"] = True
+            session["id_admin"] = admin["id_admin"]
+            session["admin_email"] = ADMIN_CORREO_AUTORIZADO
+            session["csrf_token"] = secrets.token_urlsafe(32)
+            session.permanent = True
+
+            # Enviar notificación de seguridad por correo al administrador de forma asíncrona
+            try:
+                user_agent = request.headers.get("User-Agent", "Navegador web")
+                enviar_correo_inicio_sesion_admin(
+                    ADMIN_CORREO_AUTORIZADO,
+                    admin.get("nombre", "Administrador"),
+                    ip=ip_cliente,
+                    dispositivo=user_agent,
+                )
+            except Exception as err_mail:
+                app.logger.warning("No se pudo enviar la alerta de inicio de sesión de admin: %s", err_mail)
+
+            flash("Inicio de sesión de administrador exitoso. ¡Bienvenido!", "success")
+            return redirect(url_for("admin_dashboard"))
+        else:
+            # Clave incorrecta: registrar intento fallido
+            bloqueado_ahora, restantes, segs = _registrar_intento_fallido_admin(ip_cliente)
+            if bloqueado_ahora:
+                flash(
+                    "Has superado los 3 intentos permitidos para la clave. Tu acceso ha sido bloqueado por 1 minuto para evitar accesos no autorizados. Debes esperar 1 minuto para volver a intentar.",
+                    "error",
+                )
+                return render_template(
+                    "admin_login.html",
+                    admin_existe=True,
+                    error_base_datos=False,
+                    setup_configurado=True,
+                    csrf_token=session.get("csrf_token"),
+                    bloqueado=True,
+                    segundos_restantes=segs,
+                ), 429
+            else:
+                flash(
+                    f"Contraseña de administrador incorrecta. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de que se bloquee el acceso por 1 minuto.",
+                    "error",
+                )
+                return render_template(
+                    "admin_login.html",
+                    admin_existe=True,
+                    error_base_datos=False,
+                    setup_configurado=True,
+                    csrf_token=session.get("csrf_token"),
+                    bloqueado=False,
+                    segundos_restantes=0,
+                ), 401
+
+    except Exception as err_login:
+        app.logger.exception("Error al autenticar administrador: %s", err_login)
+        flash("Ocurrió un error en el servidor al verificar las credenciales. Intenta de nuevo.", "error")
+        return render_template(
+            "admin_login.html",
+            admin_existe=True,
+            error_base_datos=True,
+            setup_configurado=True,
+            csrf_token=session.get("csrf_token"),
+            bloqueado=False,
+            segundos_restantes=0,
+        ), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
 
 @app.route("/admin/cerrar-sesion", methods=["POST"])
@@ -1991,38 +2276,8 @@ def admin_cerrar_sesion():
 @app.route("/api/admin/usuario", methods=["DELETE"])
 @administrador_requerido
 def api_admin_eliminar_usuario():
-    if not _csrf_valido():
-        return jsonify({"error": "La sesión de seguridad venció. Recarga el panel e inténtalo otra vez."}), 403
-    contrasena = request.form.get("contrasena", "")
-    conexion = None
-    cursor = None
-    try:
-        conexion = obtener_conexion()
-        cursor = conexion.cursor(dictionary=True)
-        cursor.execute(
-            "SELECT contrasena FROM ADMINISTRADOR WHERE id_admin = %s",
-            (session.get("id_admin"),),
-        )
-        admin = cursor.fetchone()
-        if not admin or not check_password_hash(admin["contrasena"], contrasena):
-            return jsonify({"error": "La contraseña no es correcta."}), 403
-        cursor.execute(
-            "DELETE FROM ADMINISTRADOR WHERE id_admin = %s",
-            (session.get("id_admin"),),
-        )
-        conexion.commit()
-        session.clear()
-        return jsonify({"mensaje": "El usuario administrador fue eliminado."})
-    except mysql.connector.Error:
-        if conexion:
-            conexion.rollback()
-        app.logger.exception("No se pudo eliminar el usuario administrador.")
-        return jsonify({"error": "No se pudo eliminar el usuario. Revisa la conexión e inténtalo otra vez."}), 500
-    finally:
-        if cursor:
-            cursor.close()
-        if conexion and conexion.is_connected():
-            conexion.close()
+    # Por políticas de seguridad, la cuenta maestra administrativa twiinsbakery01@gmail.com está protegida contra eliminación
+    return jsonify({"error": "Por políticas estrictas de seguridad, la cuenta oficial de administración (twiinsbakery01@gmail.com) está protegida y no puede ser eliminada."}), 403
 
 
 def _producto_publico(registro, incluir_stock=False):
@@ -2039,6 +2294,9 @@ def _producto_publico(registro, incluir_stock=False):
         "descripcion": registro.get("descripcion", ""),
         "disponible": bool(registro.get("disponible", True)),
         "en_vitrina": bool(registro.get("en_vitrina", False)),
+        "se_vende_por_porciones": bool(registro.get("se_vende_por_porciones", False)),
+        "numero_porciones": int(registro.get("numero_porciones") or 0) if registro.get("se_vende_por_porciones") else None,
+        "precio_porcion": float(registro.get("precio_porcion") or 0) if (registro.get("se_vende_por_porciones") and registro.get("precio_porcion") is not None) else None,
         "canjeable_puntos": bool(registro.get("canjeable_puntos", False) or registro.get("es_canjeable", False)),
         "puntos_canje": int(registro.get("puntos_canje") or 50),
         "genera_puntos": bool(registro.get("genera_puntos", True) if registro.get("genera_puntos") is not None else True),
@@ -2062,6 +2320,8 @@ def _obtener_productos(solo_disponibles, incluir_stock=False):
         consulta = """
             SELECT p.id_producto, p.nombre, p.categoria, p.precio, p.descripcion,
                    p.disponible, p.en_vitrina,
+                   COALESCE(p.se_vende_por_porciones, 0) AS se_vende_por_porciones,
+                   p.numero_porciones, p.precio_porcion,
                    COALESCE(p.canjeable_puntos, p.es_canjeable, 0) AS canjeable_puntos,
                    COALESCE(p.puntos_canje, 50) AS puntos_canje,
                    COALESCE(p.genera_puntos, 1) AS genera_puntos,
@@ -2131,6 +2391,25 @@ def _validar_producto_formulario():
     puntos_canje_texto = request.form.get("puntos_canje", "50").strip()
     genera_puntos_texto = request.form.get("genera_puntos", "true")
 
+    se_vende_por_porciones_texto = request.form.get("se_vende_por_porciones", "false")
+    se_vende_por_porciones = se_vende_por_porciones_texto.lower() in ("true", "1", "yes", "on")
+    numero_porciones = None
+    precio_porcion = None
+    if se_vende_por_porciones:
+        num_porciones_texto = request.form.get("numero_porciones", "").strip()
+        precio_porc_texto = request.form.get("precio_porcion", "").strip()
+        if not num_porciones_texto or not re.fullmatch(r"[0-9]{1,4}", num_porciones_texto) or int(num_porciones_texto) < 1:
+            raise ValueError("Indica en cuántas porciones se divide el pastel (número entero de al menos 1).")
+        numero_porciones = int(num_porciones_texto)
+        if not precio_porc_texto:
+            raise ValueError("Indica el precio por porción para el pastel.")
+        try:
+            precio_porcion = Decimal(precio_porc_texto)
+            if not precio_porcion.is_finite() or precio_porcion <= 0 or precio_porcion > Decimal("99999.99"):
+                raise ValueError()
+        except (InvalidOperation, ValueError) as error:
+            raise ValueError("El precio por porción debe ser mayor que cero y no superar 99,999.99.") from error
+
     canjeable_puntos = canjeable_puntos_texto.lower() in ("true", "1", "yes", "on")
     genera_puntos = genera_puntos_texto.lower() in ("true", "1", "yes", "on")
     puntos_canje = 50
@@ -2171,6 +2450,9 @@ def _validar_producto_formulario():
         "descripcion": descripcion,
         "disponible": disponible_texto == "true",
         "en_vitrina": en_vitrina_texto == "true",
+        "se_vende_por_porciones": se_vende_por_porciones,
+        "numero_porciones": numero_porciones,
+        "precio_porcion": precio_porcion,
         "canjeable_puntos": canjeable_puntos,
         "puntos_canje": puntos_canje,
         "genera_puntos": genera_puntos,
@@ -2492,9 +2774,10 @@ def api_admin_productos():
             """
             INSERT INTO PRODUCTO
                 (nombre, categoria, precio, descripcion, disponible, en_vitrina,
+                 se_vende_por_porciones, numero_porciones, precio_porcion,
                  canjeable_puntos, puntos_canje, genera_puntos,
                  imagen, tipo_imagen, id_admin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 producto["nombre"],
@@ -2503,6 +2786,9 @@ def api_admin_productos():
                 producto["descripcion"],
                 producto["disponible"],
                 producto["en_vitrina"],
+                producto["se_vende_por_porciones"],
+                producto["numero_porciones"],
+                producto["precio_porcion"],
                 producto["canjeable_puntos"],
                 producto["puntos_canje"],
                 producto["genera_puntos"],
@@ -2565,6 +2851,7 @@ def api_admin_producto(producto_id):
             UPDATE PRODUCTO
             SET nombre = %s, categoria = %s, precio = %s, descripcion = %s,
                 disponible = %s, en_vitrina = %s,
+                se_vende_por_porciones = %s, numero_porciones = %s, precio_porcion = %s,
                 canjeable_puntos = %s, puntos_canje = %s, genera_puntos = %s,
                 imagen = %s, tipo_imagen = %s
             WHERE id_producto = %s
@@ -2576,6 +2863,9 @@ def api_admin_producto(producto_id):
                 producto["descripcion"],
                 producto["disponible"],
                 producto["en_vitrina"],
+                producto["se_vende_por_porciones"],
+                producto["numero_porciones"],
+                producto["precio_porcion"],
                 producto["canjeable_puntos"],
                 producto["puntos_canje"],
                 producto["genera_puntos"],
@@ -2626,10 +2916,11 @@ def reservar_producto(producto_id):
         cursor = None
         try:
             conexion = obtener_conexion()
-            cursor = conexion.cursor()
+            cursor = conexion.cursor(dictionary=True)
             cursor.execute(
                 """
-                SELECT id_producto
+                SELECT id_producto, nombre, categoria, precio,
+                       se_vende_por_porciones, numero_porciones, precio_porcion
                 FROM PRODUCTO
                 WHERE id_producto = %s AND disponible = TRUE
                   AND COALESCE(
@@ -2652,11 +2943,17 @@ def reservar_producto(producto_id):
             flash("El producto ya no está disponible para reservar.", "error")
             return redirect(url_for("catalogo"))
 
+        es_porcion = bool(producto.get("se_vende_por_porciones") or producto.get("categoria") == "Porciones de Pasteles")
+        max_porciones = int(producto.get("numero_porciones") or 30) if es_porcion else 30
+
         session.setdefault("csrf_token", secrets.token_urlsafe(32))
         minimo_retiro = datetime.now() + timedelta(days=5)
         return render_template(
             "reservar_producto.html",
             producto_id=producto_id,
+            producto=producto,
+            es_porcion=es_porcion,
+            max_porciones=max_porciones,
             nombre_cliente=session.get("nombre_cliente", ""),
             csrf_token=session["csrf_token"],
             wompi_configurada=_wompi_configurada(),
@@ -2709,7 +3006,8 @@ def reservar_producto(producto_id):
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT id_producto, nombre, categoria, precio
+            SELECT id_producto, nombre, categoria, precio,
+                   se_vende_por_porciones, numero_porciones, precio_porcion
             FROM PRODUCTO
             WHERE id_producto = %s AND disponible = TRUE
               AND COALESCE(
@@ -2727,14 +3025,85 @@ def reservar_producto(producto_id):
             flash("El producto ya no está disponible para reservar.", "error")
             return redirect(url_for("catalogo"))
 
-        total = (Decimal(producto["precio"]) * cantidad).quantize(Decimal("0.01"))
+        es_porcion = bool(producto.get("se_vende_por_porciones") or producto.get("categoria") == "Porciones de Pasteles")
+        if es_porcion and producto.get("precio_porcion"):
+            precio_unitario = Decimal(str(producto["precio_porcion"]))
+            nombre_reserva = f"Porciones de Pasteles: {producto['nombre']}"
+            max_porciones = int(producto.get("numero_porciones") or 30)
+            if cantidad > max_porciones:
+                conexion.rollback()
+                flash(f"Este pastel solo rinde hasta {max_porciones} porciones. Por favor ingresa una cantidad entre 1 y {max_porciones}.", "error")
+                return redirect(url_for("reservar_producto", producto_id=producto_id))
+        else:
+            precio_unitario = Decimal(str(producto["precio"]))
+            nombre_reserva = producto["nombre"]
+
+        total = (precio_unitario * cantidad).quantize(Decimal("0.01"))
         anticipo = (total / 2).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        tipo_cobro_tarjeta = request.form.get("tipo_cobro_tarjeta", "ANTICIPO_50").strip()
+        cobro_completo = (metodo_pago == "WOMPI" and tipo_cobro_tarjeta == "TOTAL_100")
+        monto_a_cobrar = total if cobro_completo else anticipo
+
+        # Protección contra envío duplicado (doble clic del usuario al pagar con Wompi)
+        if metodo_pago == "WOMPI":
+            cursor.execute(
+                """
+                SELECT r.codigo, p.referencia_wompi, p.monto
+                FROM RESERVA r
+                JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
+                JOIN PAGO p ON p.id_reserva = r.id_reserva
+                WHERE r.id_cliente = %s AND d.id_pastel = %s AND d.cantidad = %s
+                  AND r.estado = 'PENDIENTE_PAGO' AND p.metodo_pago = 'WOMPI'
+                  AND p.estado = 'PENDIENTE'
+                  AND p.referencia_wompi IS NOT NULL
+                  AND r.fecha_creacion >= %s
+                ORDER BY r.id_reserva DESC
+                """,
+                (session["id_cliente"], producto["id_producto"], cantidad, (datetime.now() - timedelta(seconds=25)).strftime("%Y-%m-%d %H:%M:%S")),
+            )
+            reserva_dup = cursor.fetchone()
+            if reserva_dup and reserva_dup.get("referencia_wompi"):
+                ref_w = str(reserva_dup["referencia_wompi"])
+                cod_existente = reserva_dup["codigo"]
+                session["pago_wompi_pendiente"] = {
+                    "referencia_comercio": f"{cod_existente}-WOMPI",
+                    "id_enlace": ref_w,
+                    "codigo_reserva": cod_existente,
+                    "id_cliente": session.get("id_cliente"),
+                    "monto_cobro": float(monto_a_cobrar),
+                    "es_pago_completo": cobro_completo,
+                }
+                conexion.commit()
+                return redirect(f"https://pagos.wompi.sv/enlace/{ref_w}")
+
         codigo = f"TB-{secrets.token_hex(4).upper()}"
         referencia_pago = (
             f"{codigo}-{secrets.token_hex(4).upper()}"
             if metodo_pago == "WOMPI"
             else codigo
         )
+
+        id_enlace_wompi = None
+        url_enlace_wompi = None
+
+        # Si el método de pago es WOMPI, PRIMERO generamos el enlace de pago con la pasarela.
+        # Si la conexión falla o Wompi rechaza los datos, NO se crea ninguna reserva en la BD
+        # ni se envía correo, protegiendo al cliente de reservas fantasmas o pagos fallidos.
+        if metodo_pago == "WOMPI":
+            try:
+                enlace = crear_enlace_pago(referencia_pago, monto_a_cobrar, producto["nombre"])
+                id_enlace_wompi = str(enlace["idEnlace"])
+                url_enlace_wompi = enlace["urlEnlace"]
+            except Exception as err_wompi_link:
+                if conexion:
+                    conexion.rollback()
+                app.logger.exception("No se pudo crear el enlace de pago de Wompi: %s", err_wompi_link)
+                flash(
+                    "No se pudo conectar con la pasarela de pagos Wompi. Por favor verifica tu conexión a internet e inténtalo de nuevo. No se ha generado ninguna reserva ni cobro en tu cuenta.",
+                    "error",
+                )
+                return redirect(url_for("reservar_producto", producto_id=producto_id))
+
         cursor.execute(
             """
             INSERT INTO RESERVA
@@ -2756,24 +3125,26 @@ def reservar_producto(producto_id):
         cursor.execute(
             """
             INSERT INTO DETALLE_RESERVA
-                (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
-            VALUES (%s, %s, %s, %s, %s)
+                (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad, es_porcion, numero_porciones)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 id_reserva,
                 producto["id_producto"],
-                producto["nombre"],
-                producto["precio"],
+                nombre_reserva,
+                precio_unitario,
                 cantidad,
+                1 if es_porcion else 0,
+                producto.get("numero_porciones"),
             ),
         )
         cursor.execute(
             """
             INSERT INTO PAGO
-                (id_reserva, metodo_pago, monto, estado, referencia)
-            VALUES (%s, %s, %s, 'PENDIENTE', %s)
+                (id_reserva, metodo_pago, monto, estado, referencia, referencia_wompi)
+            VALUES (%s, %s, %s, 'PENDIENTE', %s, %s)
             """,
-            (id_reserva, metodo_pago, anticipo, referencia_pago),
+            (id_reserva, metodo_pago, monto_a_cobrar, referencia_pago, id_enlace_wompi),
         )
         conexion.commit()
 
@@ -2807,6 +3178,20 @@ def reservar_producto(producto_id):
                 )
             except Exception as err_envio:
                 app.logger.warning("No se pudo disparar correo de reserva creada: %s", err_envio)
+
+        if metodo_pago == "WOMPI" and url_enlace_wompi:
+            session["pago_wompi_pendiente"] = {
+                "referencia_comercio": referencia_pago,
+                "id_enlace": id_enlace_wompi,
+                "codigo_reserva": codigo,
+                "id_cliente": session.get("id_cliente"),
+                "monto_cobro": float(monto_a_cobrar),
+                "es_pago_completo": cobro_completo,
+            }
+            return redirect(url_enlace_wompi)
+
+        return redirect(url_for("reserva_registrada", codigo=codigo))
+
     except mysql.connector.Error as error:
         if conexion:
             conexion.rollback()
@@ -2825,46 +3210,6 @@ def reservar_producto(producto_id):
         if conexion and conexion.is_connected():
             conexion.close()
 
-    if metodo_pago == "WOMPI":
-        conexion = None
-        cursor = None
-        try:
-            enlace = crear_enlace_pago(referencia_pago, anticipo, producto["nombre"])
-            id_enlace_wompi = str(enlace["idEnlace"])
-            conexion = obtener_conexion()
-            cursor = conexion.cursor()
-            cursor.execute(
-                """
-                UPDATE PAGO SET referencia_wompi = %s
-                WHERE referencia = %s AND metodo_pago = 'WOMPI'
-                  AND estado = 'PENDIENTE'
-                """,
-                (id_enlace_wompi, referencia_pago),
-            )
-            conexion.commit()
-            # Guardar datos clave en sesión para identificar el pago al volver de Wompi
-            # Esto permite actualizar monto_pagado aunque la sesión se renueve
-            session["pago_wompi_pendiente"] = {
-                "referencia_comercio": referencia_pago,
-                "id_enlace": id_enlace_wompi,
-                "codigo_reserva": codigo,
-                "id_cliente": session.get("id_cliente"),
-            }
-            return redirect(enlace["urlEnlace"])
-        except (requests.RequestException, ValueError, mysql.connector.Error):
-            if conexion:
-                conexion.rollback()
-            app.logger.exception("No se pudo crear el enlace de pago de Wompi.")
-            flash("La reserva quedó registrada, pero Wompi no pudo crear el enlace de pago. Revisa la configuración e inténtalo de nuevo desde la reserva.", "error")
-            return redirect(url_for("reserva_registrada", codigo=codigo))
-        finally:
-            if cursor:
-                cursor.close()
-            if conexion and conexion.is_connected():
-                conexion.close()
-
-    return redirect(url_for("reserva_registrada", codigo=codigo))
-
 
 @app.route("/reservas")
 @cliente_requerido
@@ -2879,7 +3224,8 @@ def mis_reservas():
             """
             SELECT r.codigo, r.fecha_retiro, r.estado, r.total,
                    r.anticipo_requerido, r.monto_pagado, d.nombre_producto,
-                   d.cantidad, p.metodo_pago, p.estado AS pago_estado
+                   d.cantidad, COALESCE(d.es_porcion, 0) AS es_porcion,
+                   d.numero_porciones, p.metodo_pago, p.estado AS pago_estado
             FROM RESERVA r
             JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
             LEFT JOIN PAGO p ON p.id_pago = (
@@ -3058,7 +3404,8 @@ def reserva_registrada(codigo):
             """
             SELECT r.codigo, r.nombre_cliente, r.telefono, r.fecha_retiro,
                    r.estado, r.total, r.anticipo_requerido, r.monto_pagado,
-                   d.nombre_producto, d.cantidad, p.metodo_pago,
+                   d.nombre_producto, d.cantidad, COALESCE(d.es_porcion, 0) AS es_porcion,
+                   d.numero_porciones, p.metodo_pago,
                    p.estado AS pago_estado
             FROM RESERVA r
             JOIN DETALLE_RESERVA d ON d.id_reserva = r.id_reserva
@@ -3096,301 +3443,124 @@ def wompi_confirmar():
 
 @app.get("/pago/resultado")
 def pago_resultado():
-    intento = session.get("intento_reserva")
-    pago_pendiente_cliente = session.get("pago_wompi_pendiente")
     id_transaccion = request.args.get("idTransaccion", "").strip()
     id_enlace = request.args.get("idEnlace", "").strip()
     es_aprobada_raw = request.args.get("esAprobada", "").strip().lower()
-    es_aprobada = es_aprobada_raw in ("true", "1") or (id_transaccion and es_aprobada_raw != "false")
+    # Si viene esAprobada=true o viene idTransaccion válido (y no viene explícitamente false)
+    es_aprobada = es_aprobada_raw in ("true", "1") or (bool(id_transaccion) and es_aprobada_raw != "false")
 
-    # 1b. SI PROVIENE DE UNA RESERVA DE CLIENTE CON WOMPI (sesión pago_wompi_pendiente):
-    # Cubre el caso en que el cliente ya tenía reserva creada y solo faltaba pagar el anticipo/saldo.
-    if pago_pendiente_cliente and (es_aprobada or id_transaccion):
-        ref_enlace = pago_pendiente_cliente.get("id_enlace") or id_enlace
-        ref_comercio = pago_pendiente_cliente.get("referencia_comercio")
-        codigo_reserva = pago_pendiente_cliente.get("codigo_reserva")
-        conexion = None
-        cursor = None
-        try:
-            conexion = obtener_conexion()
-            cursor = conexion.cursor(dictionary=True)
-            # Buscar el pago exacto por referencia_wompi (id_enlace de Wompi)
-            filtro_params = []
-            filtro_extra = ""
-            if ref_enlace:
-                filtro_extra = "AND p.referencia_wompi = %s"
-                filtro_params.append(ref_enlace)
-            elif ref_comercio:
-                filtro_extra = "AND p.referencia = %s"
-                filtro_params.append(ref_comercio)
+    pago_pendiente_cliente = session.get("pago_wompi_pendiente") or {}
+    ref_enlace = id_enlace or str(pago_pendiente_cliente.get("id_enlace", "")).strip()
+    ref_comercio = str(pago_pendiente_cliente.get("referencia_comercio", "")).strip()
+    codigo_reserva = str(pago_pendiente_cliente.get("codigo_reserva", "")).strip()
 
-            cursor.execute(
-                f"""
-                SELECT p.id_pago, p.id_reserva, p.monto, p.estado, p.referencia,
-                       r.codigo, r.total, r.monto_pagado, r.nombre_cliente, r.anticipo_requerido,
-                       r.id_cliente,
-                       COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo_cliente
-                FROM PAGO p
-                JOIN RESERVA r ON r.id_reserva = p.id_reserva
-                LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
-                WHERE p.metodo_pago = 'WOMPI'
-                  AND p.estado = 'PENDIENTE'
-                  {filtro_extra}
-                ORDER BY p.id_pago DESC
-                LIMIT 1
-                """,
-                tuple(filtro_params),
-            )
-            pago_row = cursor.fetchone()
-            if pago_row:
-                try:
-                    conexion.start_transaction()
-                except Exception:
-                    pass
-                monto_cobrado = Decimal(str(pago_row["monto"])).quantize(Decimal("0.01"))
-                pagado_previo = Decimal(str(pago_row["monto_pagado"] or 0)).quantize(Decimal("0.01"))
-                nuevo_pagado = (pagado_previo + monto_cobrado).quantize(Decimal("0.01"))
-                total_res = Decimal(str(pago_row["total"] or 0)).quantize(Decimal("0.01"))
+    pago_row = None
+    conexion = None
+    cursor = None
+    try:
+        conexion = obtener_conexion()
+        cursor = conexion.cursor(dictionary=True)
 
-                cursor.execute(
-                    "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW(), referencia_wompi = %s WHERE id_pago = %s",
-                    (id_enlace or ref_enlace or pago_row.get("referencia"), pago_row["id_pago"]),
-                )
-                cursor.execute(
-                    "UPDATE RESERVA SET monto_pagado = %s WHERE id_reserva = %s",
-                    (nuevo_pagado, pago_row["id_reserva"]),
-                )
-                conexion.commit()
-                session.pop("pago_wompi_pendiente", None)
+        # Buscar el pago correspondiente y los datos de reserva/cliente
+        cursor.execute(
+            """
+            SELECT p.id_pago, p.id_reserva, p.monto, p.estado, p.referencia, p.referencia_wompi,
+                   r.codigo, r.total, r.monto_pagado, r.id_cliente, r.nombre_cliente, r.anticipo_requerido,
+                   c.id_cliente AS c_id_cliente, c.nombre AS c_nombre, c.correo AS c_correo
+            FROM PAGO p
+            JOIN RESERVA r ON r.id_reserva = p.id_reserva
+            LEFT JOIN CLIENTE c ON c.id_cliente = r.id_cliente
+            WHERE p.metodo_pago = 'WOMPI'
+              AND (
+                   (%s != '' AND p.referencia_wompi = %s)
+                OR (%s != '' AND p.referencia = %s)
+                OR (%s != '' AND r.codigo = %s)
+              )
+            ORDER BY p.id_pago DESC
+            LIMIT 1
+            """,
+            (ref_enlace, ref_enlace, ref_comercio, ref_comercio, codigo_reserva, codigo_reserva),
+        )
+        pago_row = cursor.fetchone()
 
-                # Garantizar que la sesión del cliente esté activa tras el regreso de Wompi
-                id_cli = pago_row.get("id_cliente") or (pago_pendiente_cliente.get("id_cliente") if pago_pendiente_cliente else None)
-                if id_cli and not session.get("id_cliente"):
-                    session["id_cliente"] = id_cli
-                    if pago_row.get("nombre_cliente"):
-                        session["nombre_cliente"] = pago_row["nombre_cliente"]
-                    if pago_row.get("correo_cliente"):
-                        session["correo_cliente"] = pago_row["correo_cliente"]
-
-                correo_cli = pago_row.get("correo_cliente")
-                if correo_cli:
+        if pago_row:
+            # 1. Si el pago fue aprobado y estaba pendiente, registrarlo
+            if es_aprobada:
+                if pago_row.get("estado") != "PAGADO":
                     try:
-                        saldo_rest = max(Decimal("0.00"), total_res - nuevo_pagado)
-                        enviar_correo_pago_tarjeta_recibido(
-                            destinatario=correo_cli,
-                            nombre=pago_row["nombre_cliente"],
-                            codigo=pago_row["codigo"],
-                            monto_pagado=monto_cobrado,
-                            referencia_pago=pago_row.get("referencia") or ref_enlace or "",
-                            total=total_res,
-                            saldo_restante=saldo_rest,
-                            nombre_producto=f"Reserva {pago_row['codigo']}",
-                        )
-                    except Exception as err_m:
-                        app.logger.warning("No se pudo enviar correo comprobante cliente: %s", err_m)
+                        conexion.start_transaction()
+                    except Exception:
+                        pass
+                    monto_cobrado = Decimal(str(pago_row["monto"])).quantize(Decimal("0.01"))
+                    pagado_previo = Decimal(str(pago_row["monto_pagado"] or 0)).quantize(Decimal("0.01"))
+                    total_res = Decimal(str(pago_row["total"] or 0)).quantize(Decimal("0.01"))
+                    nuevo_pagado = min(total_res, (pagado_previo + monto_cobrado).quantize(Decimal("0.01")))
 
-                flash(f"¡Pago de ${monto_cobrado:.2f} registrado exitosamente! Tu reserva {pago_row['codigo']} está actualizada.", "success")
-                if codigo_reserva:
-                    return redirect(url_for("reserva_registrada", codigo=codigo_reserva))
-                return render_template("pago_resultado.html", exito=True,
-                    mensaje=f"¡Pago de ${monto_cobrado:.2f} registrado para la reserva {pago_row['codigo']}!")
-        except Exception as err_cp:
-            if conexion:
-                conexion.rollback()
-            app.logger.warning("Error al registrar pago_wompi_pendiente en /pago/resultado: %s", err_cp)
-        finally:
-            if cursor:
-                cursor.close()
-            if conexion and conexion.is_connected():
-                conexion.close()
+                    cursor.execute(
+                        "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW(), referencia_wompi = %s WHERE id_pago = %s",
+                        (ref_enlace or pago_row.get("referencia_wompi") or pago_row.get("referencia"), pago_row["id_pago"]),
+                    )
+                    cursor.execute(
+                        "UPDATE RESERVA SET monto_pagado = %s WHERE id_reserva = %s",
+                        (nuevo_pagado, pago_row["id_reserva"]),
+                    )
+                    conexion.commit()
 
-    # 1. SI PROVIENE DE UNA RESERVA NUEVA DEL CLIENTE (intento en sesión):
-    if intento:
-        if es_aprobada:
-            conexion = None
-            cursor = None
-            try:
-                conexion = obtener_conexion()
-                conexion.start_transaction()
-                cursor = conexion.cursor(dictionary=True)
+                    # Enviar correo comprobante al cliente
+                    correo_cli = pago_row.get("c_correo")
+                    if correo_cli:
+                        try:
+                            saldo_rest = max(Decimal("0.00"), total_res - nuevo_pagado)
+                            enviar_correo_pago_tarjeta_recibido(
+                                destinatario=correo_cli,
+                                nombre=pago_row["c_nombre"] or pago_row["nombre_cliente"],
+                                codigo=pago_row["codigo"],
+                                monto_pagado=monto_cobrado,
+                                referencia_pago=pago_row.get("referencia") or ref_enlace or "",
+                                total=total_res,
+                                saldo_restante=saldo_rest,
+                                nombre_producto=f"Reserva {pago_row['codigo']}",
+                            )
+                        except Exception as err_m:
+                            app.logger.warning("No se pudo enviar comprobante de pago con tarjeta: %s", err_m)
 
-                codigo = f"TB-{secrets.token_hex(4).upper()}"
-                monto_pagado = Decimal(str(intento["monto_cobro"])).quantize(Decimal("0.01"))
-                total = Decimal(str(intento["total"])).quantize(Decimal("0.01"))
-                anticipo = Decimal(str(intento["anticipo_requerido"])).quantize(Decimal("0.01"))
-                # La reserva inicia como PENDIENTE_PAGO con el anticipo/pago registrado; el admin debe confirmarla manualmente
-                estado_inicial = "PENDIENTE_PAGO"
+            # 2. Restaurar o confirmar siempre la sesión activa del cliente dueño de la reserva
+            id_cli = pago_row.get("c_id_cliente") or pago_row.get("id_cliente")
+            if id_cli and _cliente_activo(id_cli):
+                session["id_cliente"] = pago_row.get("c_id_cliente") or id_cli
+                session["nombre_cliente"] = pago_row.get("c_nombre") or pago_row.get("nombre_cliente")
+                session["correo_cliente"] = pago_row.get("c_correo") or ""
+                session.permanent = True
 
-                cursor.execute(
-                    """
-                    INSERT INTO RESERVA
-                        (codigo, id_cliente, fecha_reserva, fecha_retiro, estado,
-                         nombre_cliente, telefono, total, anticipo_requerido, monto_pagado)
-                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        codigo,
-                        intento["id_cliente"],
-                        intento["fecha_retiro"],
-                        estado_inicial,
-                        intento["nombre_cliente"],
-                        intento["telefono"],
-                        total,
-                        anticipo,
-                        monto_pagado,
-                    ),
-                )
-                id_reserva = cursor.lastrowid
-
-                cursor.execute(
-                    """
-                    INSERT INTO DETALLE_RESERVA
-                        (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (
-                        id_reserva,
-                        intento["producto_id"],
-                        intento["nombre_producto"],
-                        intento["precio_unitario"],
-                        intento["cantidad"],
-                    ),
-                )
-
-                referencia_comercio = intento.get("intento_id") or f"{codigo}-WOMPI"
-                ref_wompi = id_transaccion or intento.get("id_enlace") or "WOMPI-CARD"
-                cursor.execute(
-                    """
-                    INSERT INTO PAGO
-                        (id_reserva, metodo_pago, monto, estado, referencia, referencia_wompi, fecha_pago)
-                    VALUES (%s, 'WOMPI', %s, 'PAGADO', %s, %s, NOW())
-                    """,
-                    (
-                        id_reserva,
-                        monto_pagado,
-                        referencia_comercio,
-                        ref_wompi,
-                    ),
-                )
-                conexion.commit()
-
-                correo_cliente = intento.get("correo_cliente")
-                if correo_cliente:
-                    try:
-                        enviar_correo_reserva_creada(
-                            destinatario=correo_cliente,
-                            nombre=intento["nombre_cliente"],
-                            codigo=codigo,
-                            nombre_producto=intento["nombre_producto"],
-                            categoria=intento.get("categoria", ""),
-                            cantidad=intento["cantidad"],
-                            total=total,
-                            anticipo=anticipo,
-                            fecha_retiro=intento["fecha_retiro"],
-                            metodo_pago="WOMPI",
-                        )
-                    except Exception as err_c:
-                        app.logger.warning("No se pudo enviar correo de reserva creada tras pago: %s", err_c)
-
-                    try:
-                        saldo_restante = max(Decimal("0.00"), total - monto_pagado)
-                        enviar_correo_pago_tarjeta_recibido(
-                            destinatario=correo_cliente,
-                            nombre=intento["nombre_cliente"],
-                            codigo=codigo,
-                            monto_pagado=monto_pagado,
-                            referencia_pago=referencia_comercio,
-                            total=total,
-                            saldo_restante=saldo_restante,
-                            nombre_producto=intento["nombre_producto"],
-                        )
-                    except Exception as err_p:
-                        app.logger.warning("No se pudo enviar correo de comprobante de pago: %s", err_p)
-
-                session.pop("intento_reserva", None)
-
-                # Garantizar que la sesión del cliente permanezca activa
-                if intento.get("id_cliente") and not session.get("id_cliente"):
-                    session["id_cliente"] = intento["id_cliente"]
-                    if intento.get("nombre_cliente"):
-                        session["nombre_cliente"] = intento["nombre_cliente"]
-                    if correo_cliente:
-                        session["correo_cliente"] = correo_cliente
-
-                flash("¡Pago con tarjeta completado con éxito! Tu reserva ha sido registrada.", "success")
-                return redirect(url_for("reserva_registrada", codigo=codigo))
-
-            except Exception as e_bd:
-                if conexion:
-                    conexion.rollback()
-                app.logger.exception("Error al registrar reserva tras pago en Wompi: %s", e_bd)
-                flash("Ocurrió un error al guardar tu reserva tras el pago. Comunícate con nosotros indicando tu transacción.", "error")
-                return render_template("pago_resultado.html", exito=False, mensaje="Ocurrió un problema al guardar la reserva.")
-            finally:
-                if cursor:
-                    cursor.close()
-                if conexion and conexion.is_connected():
-                    conexion.close()
-        else:
+            # Limpiar datos temporales de la transacción
+            session.pop("pago_wompi_pendiente", None)
             session.pop("intento_reserva", None)
-            return render_template(
-                "pago_resultado.html",
-                exito=False,
-                mensaje="El pago no fue completado o fue cancelado en la pasarela. No se ha generado ninguna reserva en el sistema ni se realizó ningún cargo a tu tarjeta."
-            )
 
-    # 2. SI PROVIENE DE UN COBRO DE ADMIN (enlace Wompi generado desde el panel):
-    # Solo procesar si viene idEnlace en la URL, para no actualizar pagos a ciegas.
-    if (es_aprobada or id_transaccion) and id_enlace:
-        conexion = None
-        cursor = None
-        try:
-            conexion = obtener_conexion()
-            cursor = conexion.cursor(dictionary=True)
-            cursor.execute(
-                """
-                SELECT p.id_pago, p.id_reserva, p.monto, p.referencia, r.codigo, r.total, r.monto_pagado
-                FROM PAGO p
-                JOIN RESERVA r ON r.id_reserva = p.id_reserva
-                WHERE p.estado = 'PENDIENTE' AND p.metodo_pago = 'WOMPI'
-                  AND p.referencia_wompi = %s
-                ORDER BY p.id_pago DESC
-                LIMIT 1
-                """,
-                (id_enlace,),
-            )
-            pago_pend = cursor.fetchone()
-            if pago_pend:
-                try:
-                    conexion.start_transaction()
-                except Exception:
-                    pass
-                monto_pagado = Decimal(str(pago_pend["monto"])).quantize(Decimal("0.01"))
-                pagado_previo = Decimal(str(pago_pend["monto_pagado"] or 0)).quantize(Decimal("0.01"))
-                nuevo_pagado = (pagado_previo + monto_pagado).quantize(Decimal("0.01"))
+            if es_aprobada:
+                monto_pagado_txt = f"${Decimal(str(pago_row['monto'])):.2f}"
+                flash(f"¡Pago con tarjeta de {monto_pagado_txt} procesado con éxito! Tu reserva {pago_row['codigo']} está registrada.", "success")
+            else:
+                flash("La transacción con tarjeta no se completó o fue cancelada en la pasarela.", "info")
 
-                cursor.execute(
-                    "UPDATE PAGO SET estado = 'PAGADO', fecha_pago = NOW() WHERE id_pago = %s",
-                    (pago_pend["id_pago"],),
-                )
-                cursor.execute(
-                    "UPDATE RESERVA SET monto_pagado = %s WHERE id_reserva = %s",
-                    (nuevo_pagado, pago_pend["id_reserva"]),
-                )
-                conexion.commit()
+            return redirect(url_for("mis_reservas"))
 
-                return render_template("pago_resultado.html", exito=True, mensaje=f"¡Pago de ${monto_pagado:.2f} registrado exitosamente para la reserva {pago_pend['codigo']}!")
-        except Exception as err_admin_pago:
-            if conexion:
-                conexion.rollback()
-            app.logger.warning("Error al auto-actualizar cobro de admin en /pago/resultado: %s", err_admin_pago)
-        finally:
-            if cursor:
-                cursor.close()
-            if conexion and conexion.is_connected():
-                conexion.close()
+    except Exception as err_pr:
+        if conexion:
+            conexion.rollback()
+        app.logger.exception("Error en /pago/resultado al procesar retorno Wompi: %s", err_pr)
+    finally:
+        if cursor:
+            cursor.close()
+        if conexion and conexion.is_connected():
+            conexion.close()
 
-    return render_template("pago_resultado.html", exito=True)
+    # Si no se encontró registro de pago específico pero el cliente está autenticado y activo,
+    # llevarlo directamente a Mis reservas
+    id_cli_actual = session.get("id_cliente")
+    if id_cli_actual and _cliente_activo(id_cli_actual):
+        return redirect(url_for("mis_reservas"))
+
+    return redirect(url_for("inicio"))
 
 
 @app.post("/webhook/wompi")
@@ -3496,6 +3666,7 @@ def api_admin_reservas():
             SELECT r.id_reserva, r.codigo, r.nombre_cliente,
                    COALESCE(NULLIF(r.correo, ''), c.correo, '') AS correo, r.telefono,
                    d.nombre_producto, d.cantidad, d.precio_unitario,
+                   COALESCE(d.es_porcion, 0) AS es_porcion,
                    r.total, r.anticipo_requerido, r.monto_pagado,
                    r.fecha_retiro, r.estado, p.metodo_pago,
                    p.estado AS pago_estado,

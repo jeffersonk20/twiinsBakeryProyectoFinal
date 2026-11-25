@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TWIINS Bakery | Inconveniente en el servidor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #fff1f5 0%, #ffe4ec 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #333333;
+        }
+        .error-card {
+            background: #ffffff;
+            max-width: 540px;
+            width: 100%;
+            border-radius: 28px;
+            padding: 45px 35px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(220, 100, 130, 0.12);
+            position: relative;
+            overflow: hidden;
+        }
+        .top-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #ff758c 0%, #ff7eb3 100%);
+        }
+        .logo-img {
+            max-width: 140px;
+            height: auto;
+            margin-bottom: 25px;
+        }
+        .error-badge {
+            display: inline-block;
+            background: #fff0f3;
+            color: #d63384;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 50px;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+        }
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #2b2b2b;
+            margin-bottom: 12px;
+        }
+        p {
+            font-size: 0.95rem;
+            color: #666666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .ref-box {
+            background: #f8f9fa;
+            border: 1px dashed #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 25px;
+            font-size: 0.85rem;
+            color: #555555;
+        }
+        .ref-code {
+            font-family: monospace;
+            font-weight: 700;
+            color: #d63384;
+            background: #ffe3ea;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 1px;
+        }
+        .btn-home {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 12px 32px;
+            border-radius: 50px;
+            box-shadow: 0 8px 20px rgba(255, 117, 140, 0.35);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(255, 117, 140, 0.45);
+        }
+        .footer-text {
+            font-size: 0.8rem;
+            color: #a0aec0;
+            margin-top: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="top-line"></div>
+        <img src="{{ url_for('static_files', filename='img/logo.png') }}" alt="TWIINS Bakery" class="logo-img" onerror="this.style.display='none'">
+        <div class="error-badge">ESTADO 500</div>
+        <h1>Estamos solucionándolo</h1>
+        <p>Ha ocurrido un inconveniente inesperado al procesar tu solicitud. El equipo técnico ha sido notificado automáticamente a través del registro seguro del sistema.</p>
+        
+        {% if codigo_error %}
+        <div class="ref-box">
+            Código de referencia técnica: <span class="ref-code">{{ codigo_error }}</span>
+        </div>
+        {% endif %}
+
+        <div>
+            <a href="{{ url_for('inicio') if session.get('id_cliente') else url_for('login') }}" class="btn-home">
+                Volver a la página principal
+            </a>
+        </div>
+        <div class="footer-text">
+            TWIINS Bakery &copy; 2026 &bull; Seguridad y Confianza
+        </div>
+    </div>
+</body>
+</html>

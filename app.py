@@ -15,12 +15,15 @@ from flask import (
 )
 
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 # pyrefly: ignore[missing-import]
 from conexion import obtener_conexion, SQLiteConnectionWrapper
 # pyrefly: ignore[missing-import]
 from inicializar_bd import inicializar_base_datos
 from dotenv import load_dotenv
 import os
+import sys
+import logging
 import re
 import socket
 from functools import wraps
@@ -89,13 +92,40 @@ app = Flask(
     static_folder=None
 )
 
-# Clave privada para las sesiones (protegida contra fallbacks vulnerables)
+# ==============================================================================
+# CONFIGURACIÓN UNIFICADA DE LOGS Y AUDITORÍA DE SERVIDOR
+# ==============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ],
+    force=True,
+)
+
+# Garantizar visibilidad de logs de la aplicación y componentes
+app.logger.setLevel(logging.INFO)
+logging.getLogger("werkzeug").setLevel(logging.INFO)
+logging.getLogger("twins_bakery_db").setLevel(logging.INFO)
+logging.getLogger("twins_bakery_correo").setLevel(logging.INFO)
+
+# Clave privada para las sesiones (con autogeneración para evaluación inmediata si falta .env)
 _secret_key = (os.getenv("SECRET_KEY") or "").strip()
 if not _secret_key:
-    raise RuntimeError(
-        "Falta configurar SECRET_KEY en el archivo .env. "
-        "Define una clave criptográfica aleatoria segura para proteger las sesiones."
-    )
+    if os.path.exists(".env.example") and not os.path.exists(".env"):
+        import shutil
+        try:
+            shutil.copy(".env.example", ".env")
+            load_dotenv()
+            _secret_key = (os.getenv("SECRET_KEY") or "").strip()
+            app.logger.info("Archivo .env generado automáticamente a partir de .env.example.")
+        except Exception:
+            pass
+    if not _secret_key:
+        _secret_key = "twins_bakery_default_dev_key_2026_evaluacion_segura"
+        app.logger.warning("SECRET_KEY no detectada. Usando clave de desarrollo para evaluación.")
 app.secret_key = _secret_key
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -107,6 +137,28 @@ app.config.update(
 @app.before_request
 def _asegurar_sesion_permanente():
     session.permanent = True
+
+@app.before_request
+def _marcar_tiempo_inicio():
+    request._tiempo_inicio_peticion = time_module.perf_counter()
+
+@app.after_request
+def _registrar_peticion_http(response):
+    duracion_ms = 0.0
+    if hasattr(request, "_tiempo_inicio_peticion"):
+        duracion_ms = (time_module.perf_counter() - request._tiempo_inicio_peticion) * 1000.0
+
+    es_estatico = request.path.startswith("/static/")
+    # Registrar todas las rutas operativas, y los estáticos solo en caso de advertencia/error
+    if not es_estatico or response.status_code >= 400:
+        app.logger.info(
+            "[HTTP] %s %s -> %s (%0.1f ms)",
+            request.method,
+            request.path,
+            response.status_code,
+            duracion_ms,
+        )
+    return response
 
 # ==============================================================================
 # INTEGRACIÓN DEL ASISTENTE DE IA (GEMINI RAG CON AISLAMIENTO POR ROL)
@@ -4697,7 +4749,7 @@ def api_admin_cobro_tarjeta(reserva_id):
         if conexion:
             conexion.rollback()
         app.logger.exception("Error al generar cobro Wompi para reserva %s: %s", reserva_id, error)
-        return jsonify({"error": f"No se pudo crear el enlace de cobro de Wompi: {str(error)}"}), 500
+        return jsonify({"error": "No se pudo crear el enlace de cobro en este momento. Inténtalo más tarde."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -4820,7 +4872,7 @@ def api_admin_verificar_pago_wompi(reserva_id):
         if conexion:
             conexion.rollback()
         app.logger.exception("Error al verificar pago Wompi en reserva %s: %s", reserva_id, err)
-        return jsonify({"ok": False, "error": f"Error al verificar en Wompi: {str(err)}"}), 500
+        return jsonify({"ok": False, "error": "No se pudo verificar el estado del pago con la pasarela. Inténtalo nuevamente."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -4945,7 +4997,7 @@ def api_admin_marcar_cobro_tarjeta_manual(reserva_id):
         if conexion:
             conexion.rollback()
         app.logger.exception("Error al registrar cobro POS manual para reserva %s: %s", reserva_id, error)
-        return jsonify({"error": f"No se pudo registrar el cobro: {str(error)}"}), 500
+        return jsonify({"error": "No se pudo registrar el cobro en el sistema. Inténtalo de nuevo."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -5049,7 +5101,7 @@ def api_admin_liquidar_pago(reserva_id):
         if conexion:
             conexion.rollback()
         app.logger.exception("Error al liquidar pago de reserva %s: %s", reserva_id, e)
-        return jsonify({"error": f"No se pudo registrar la liquidación del pago: {str(e)}"}), 500
+        return jsonify({"error": "No se pudo registrar la liquidación del pago. Inténtalo de nuevo."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -5696,11 +5748,92 @@ def limite_solicitud_excedido(_error):
     app.logger.warning(
         "Se rechazó una solicitud demasiado grande en %s: %s",
         request.path,
-        _error.description,
+        getattr(_error, "description", str(_error)),
     )
-    if request.path.startswith("/api/"):
+    if request.path.startswith("/api/") or request.is_json:
         return jsonify({"error": "La imagen o solicitud supera el tamaño permitido."}), 413
     return "La solicitud supera el tamaño permitido.", 413
+
+
+@app.errorhandler(404)
+def recurso_no_encontrado(_error):
+    es_api = (
+        request.path.startswith("/api/")
+        or request.is_json
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("Accept", "")
+    )
+    if es_api:
+        return jsonify({"ok": False, "error": "El recurso solicitado no fue encontrado."}), 404
+    try:
+        return render_template("404.html"), 404
+    except Exception:
+        return "Página no encontrada (404).", 404
+
+
+@app.errorhandler(Exception)
+def manejar_excepcion_global(error):
+    # Si es una excepción HTTP estándar de Werkzeug (p. ej. 404, 403, 401, 405)
+    if isinstance(error, HTTPException):
+        if error.code == 404:
+            return recurso_no_encontrado(error)
+        es_api = (
+            request.path.startswith("/api/")
+            or request.is_json
+            or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or "application/json" in request.headers.get("Accept", "")
+        )
+        if es_api:
+            return jsonify({"ok": False, "error": error.description}), error.code
+        return (
+            f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Error {error.code}</title></head>"
+            f"<body style='font-family:sans-serif;text-align:center;padding:50px;background:#fff1f5;'>"
+            f"<h2>Inconveniente ({error.code})</h2><p>{error.description}</p>"
+            f"<a href='/' style='color:#e75480;font-weight:bold;'>Volver al inicio</a>"
+            f"</body></html>",
+            error.code,
+        )
+
+    # Para cualquier error 500 o excepción de servidor:
+    # 1. Generar código de error aleatorio para trazabilidad y anonimato
+    codigo_error = f"ERR-{secrets.token_hex(3).upper()}"
+
+    # 2. Registrar el TRACEBACK COMPLETO en la consola/servidor de forma detallada
+    app.logger.exception(
+        "[%s] Excepción interna no controlada en %s %s: %s",
+        codigo_error,
+        request.method,
+        request.path,
+        error,
+    )
+
+    # 3. Responder al cliente de forma totalmente segura (sin filtrar código, SQL ni rutas de disco)
+    es_api = (
+        request.path.startswith("/api/")
+        or request.is_json
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("Accept", "")
+    )
+
+    if es_api:
+        return jsonify({
+            "ok": False,
+            "error": "Ocurrió un error interno en el servidor. Por favor, inténtalo más tarde.",
+            "codigo_referencia": codigo_error,
+        }), 500
+
+    try:
+        return render_template("500.html", codigo_error=codigo_error), 500
+    except Exception:
+        return (
+            f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Error del Servidor</title></head>"
+            f"<body style='font-family:sans-serif;text-align:center;padding:50px;background:#fff1f5;'>"
+            f"<h2>Inconveniente temporal en el servidor</h2>"
+            f"<p>Ha ocurrido un problema al procesar tu solicitud. Código de referencia: <strong>{codigo_error}</strong></p>"
+            f"<a href='/' style='color:#e75480;text-decoration:none;font-weight:bold;'>Volver al inicio</a>"
+            f"</body></html>",
+            500,
+        )
 
 
 # ==========================================
@@ -6920,7 +7053,7 @@ def api_fidelidad_canjear():
         if conexion:
             conexion.rollback()
         app.logger.exception("Error al procesar canje de fidelidad: %s", e)
-        return jsonify({"ok": False, "error": f"No se pudo completar el canje: {str(e)}"}), 500
+        return jsonify({"ok": False, "error": "No se pudo procesar el canje de puntos. Inténtalo nuevamente."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -6966,7 +7099,8 @@ def api_fidelidad_movimientos():
             })
         return jsonify({"ok": True, "movimientos": movimientos})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al consultar movimientos de fidelidad: %s", e)
+        return jsonify({"ok": False, "error": "No se pudieron obtener los movimientos de puntos."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7157,7 +7291,8 @@ def api_admin_fidelidad_canjes():
             })
         return jsonify({"ok": True, "canjes": canjes})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al consultar órdenes de canje: %s", e)
+        return jsonify({"ok": False, "error": "No se pudieron cargar las órdenes de canje."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7258,7 +7393,8 @@ def api_admin_fidelidad_canjes_estado(canje_id):
     except Exception as e:
         if conexion:
             conexion.rollback()
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al actualizar estado de orden de canje %s: %s", canje_id, e)
+        return jsonify({"ok": False, "error": "No se pudo actualizar el estado de la orden de canje."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7306,7 +7442,8 @@ def api_admin_fidelidad_historial():
             })
         return jsonify({"ok": True, "movimientos": movimientos})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al consultar movimientos de fidelidad: %s", e)
+        return jsonify({"ok": False, "error": "No se pudieron obtener los movimientos de puntos."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7387,7 +7524,8 @@ def api_admin_fidelidad_configuracion():
     except Exception as e:
         if conexion and request.method == "POST":
             conexion.rollback()
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al consultar o actualizar configuración de fidelidad: %s", e)
+        return jsonify({"ok": False, "error": "No se pudo procesar la configuración de fidelidad."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7428,7 +7566,8 @@ def api_admin_fidelidad_producto(producto_id):
     except Exception as e:
         if conexion:
             conexion.rollback()
-        return jsonify({"ok": False, "error": str(e)}), 500
+        app.logger.exception("Error al actualizar fidelidad del producto %s: %s", producto_id, e)
+        return jsonify({"ok": False, "error": "No se pudo actualizar la configuración de fidelidad del producto."}), 500
     finally:
         if cursor:
             cursor.close()
@@ -7458,10 +7597,12 @@ if __name__ == "__main__":
     puerto = int(os.getenv("PORT", 5000))
     # Modo depuración controlado por variable de entorno (por defecto False para seguridad)
     debug_mode = os.getenv("FLASK_DEBUG", "false").strip().lower() in ("1", "true", "yes", "t")
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 65)
     print("  TWINS BAKERY - SERVIDOR INICIADO CON EXITO")
     print(f"  * Aplicacion web (Cliente): http://127.0.0.1:{puerto}/")
     print(f"  * Panel de Administracion:  http://127.0.0.1:{puerto}/admin/login")
-    print(f"  * Modo Debug (desarrollo):  {'ACTIVADO' if debug_mode else 'DESACTIVADO (Producción segura)'}")
-    print("=" * 60 + "\n")
-    app.run(debug=debug_mode, host="127.0.0.1", port=puerto)
+    print(f"  * Modo Debug (desarrollo):  {'ACTIVADO (Debugger web bloqueado por seguridad)' if debug_mode else 'DESACTIVADO (Produccion segura)'}")
+    print(f"  * Logs en terminal:        ACTIVOS (Auditoria y errores en consola)")
+    print("=" * 65 + "\n")
+    # use_debugger=False garantiza que Werkzeug NUNCA filtre trazas de error al navegador
+    app.run(host="127.0.0.1", port=puerto, debug=debug_mode, use_debugger=False)

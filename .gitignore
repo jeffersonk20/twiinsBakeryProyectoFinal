@@ -40,6 +40,7 @@ env/
 *.exe
 ngrok*
 limpiar_bd_*.py
+scratch/
 .DS_Store
 Thumbs.db
 .env

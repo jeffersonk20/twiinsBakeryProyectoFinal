@@ -94,7 +94,6 @@
 
             renderChart(data.reservas_semana || []);
         } catch (err) {
-            console.error(err);
             const area = shell.querySelector("[data-chart-area]");
             if (area) area.innerHTML = `<p style="color:#a12a45;font-size:12px;padding:20px">No se pudieron cargar las métricas.</p>`;
         } finally {

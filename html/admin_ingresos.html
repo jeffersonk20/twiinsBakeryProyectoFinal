@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#123f49">
+    <title>Ingresos y Finanzas | TWIINS Bakery Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/admin_ingresos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static_files', filename='css/ia_chat.css') }}">
+</head>
+<body>
+    <div class="admin-shell" data-admin-ingresos data-csrf-token="{{ csrf_token }}">
+        <!-- ── SIDEBAR PERSISTENTE E INMUTABLE ── -->
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">TWIINS<span>BAKERY · ADMIN</span></a>
+            <nav aria-label="Administración">
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('admin_reservas') }}">Reservas</a>
+                <a class="active active-tab" href="{{ url_for('admin_ingresos') }}">Ingresos</a>
+                <a href="{{ url_for('admin_productos') }}">Productos</a>
+                <a href="{{ url_for('admin_eventos') }}">Eventos</a>
+                <a href="{{ url_for('admin_chat') }}">Chat</a>
+                <a href="{{ url_for('admin_configuracion') }}">Configuración</a>
+                <a href="{{ url_for('admin_fidelidad') }}">Fidelidad</a>
+            </nav>
+            <div class="sidebar-footer">
+                <span>{{ admin_email or 'Administrador' }}</span>
+                <form method="post" action="{{ url_for('admin_cerrar_sesion') }}" id="adminLogoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="button" id="btnAdminLogout" class="admin-logout-trigger">Cerrar sesión</button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL ── -->
+        <main class="admin-main">
+            <!-- Barra superior -->
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">TWIINS Bakery · Finanzas y Rendimiento</p>
+                    <h1>Control de Ingresos y Movimientos</h1>
+                </div>
+                <div class="topbar-actions">
+                    <!-- Selector de período dinámico -->
+                    <div class="period-selector" role="group" aria-label="Seleccionar período">
+                        <button type="button" class="period-btn" data-period="hoy">Hoy</button>
+                        <button type="button" class="period-btn active" data-period="semana">Últimos 7 días</button>
+                        <button type="button" class="period-btn" data-period="mes">Este mes</button>
+                        <button type="button" class="period-btn" data-period="todo">Todo</button>
+                    </div>
+                    <button type="button" class="btn-primary-action" id="btnNuevoMovimiento">
+                        <span class="btn-icon">＋</span> Registrar movimiento
+                    </button>
+                </div>
+            </header>
+
+            <!-- Mensajes flash del sistema -->
+            {% with mensajes = get_flashed_messages(with_categories=true) %}
+                {% if mensajes %}
+                    {% for categoria, texto in mensajes %}
+                        <div class="admin-message {% if categoria == 'error' %}error{% endif %}" role="status" aria-live="polite">
+                            {{ texto }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <div class="admin-message" data-admin-message role="status" aria-live="polite" hidden></div>
+
+            <!-- Tarjetas de métricas principales -->
+            <section class="stats-overview" aria-label="Métricas de ingresos">
+                <article class="stat-card hero-neto">
+                    <div class="stat-header">
+                        <span class="stat-badge">Período seleccionado</span>
+                        <span class="stat-icon-sparkle">💰</span>
+                    </div>
+                    <p class="stat-label">Ingreso Neto</p>
+                    <p class="stat-value highlight" data-stat-neto>$0.00</p>
+                    <p class="stat-sub" data-stat-neto-sub>Ingresos brutos menos deducciones</p>
+                </article>
+
+                <article class="stat-card">
+                    <p class="stat-label">Ingresos de Hoy</p>
+                    <p class="stat-value pink" data-stat-hoy>$0.00</p>
+                    <p class="stat-sub">Cobrado hoy</p>
+                </article>
+
+                <article class="stat-card">
+                    <p class="stat-label">Últimos 7 días</p>
+                    <p class="stat-value teal" data-stat-semana>$0.00</p>
+                    <p class="stat-sub">Rendimiento semanal</p>
+                </article>
+
+                <article class="stat-card">
+                    <p class="stat-label">Mes en curso</p>
+                    <p class="stat-value orange" data-stat-mes>$0.00</p>
+                    <p class="stat-sub">Total del mes actual</p>
+                </article>
+
+                <article class="stat-card">
+                    <p class="stat-label">Recaudación Total</p>
+                    <p class="stat-value dark" data-stat-historico>$0.00</p>
+                    <p class="stat-sub">Total histórico acumulado</p>
+                </article>
+
+                <article class="stat-card">
+                    <p class="stat-label">Ticket Promedio</p>
+                    <p class="stat-value purple" data-stat-ticket>$0.00</p>
+                    <p class="stat-sub"><span data-stat-pedidos>0</span> pedidos en período</p>
+                </article>
+            </section>
+
+            <!-- Desglose específico por fuentes de dinero -->
+            <section class="breakdown-pills-bar" aria-label="Desglose por conceptos">
+                <div class="breakdown-item pill-anticipo">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Anticipos (50%):</span>
+                    <strong class="pill-val" data-breakdown-anticipos>$0.00</strong>
+                    <small class="pill-count" data-count-anticipos>(0 recibidos)</small>
+                </div>
+                <div class="breakdown-item pill-completo">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Pagos 100%:</span>
+                    <strong class="pill-val" data-breakdown-completos>$0.00</strong>
+                    <small class="pill-count" data-count-completos>(0)</small>
+                </div>
+                <div class="breakdown-item pill-liquidacion">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Liquidaciones:</span>
+                    <strong class="pill-val" data-breakdown-liquidaciones>$0.00</strong>
+                    <small class="pill-count" data-count-liquidaciones>(0)</small>
+                </div>
+                <div class="breakdown-item pill-cancelada">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Retenidos (Canceladas):</span>
+                    <strong class="pill-val" data-breakdown-canceladas>$0.00</strong>
+                    <small class="pill-count" data-count-canceladas>(0 retenidos)</small>
+                </div>
+                <div class="breakdown-item pill-manual-ingreso">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Ingresos manuales:</span>
+                    <strong class="pill-val" data-breakdown-manuales-ingreso>$0.00</strong>
+                </div>
+                <div class="breakdown-item pill-resta">
+                    <span class="pill-dot"></span>
+                    <span class="pill-title">Restas / Egresos:</span>
+                    <strong class="pill-val" data-breakdown-restas>-$0.00</strong>
+                </div>
+            </section>
+
+            <!-- Área de Gráfica Interactiva y Resumen visual -->
+            <section class="chart-and-summary-grid">
+                <!-- Gráfica de ingresos -->
+                <article class="chart-container-card">
+                    <div class="chart-card-header">
+                        <div>
+                            <h2>Ingresos y evolución financiera</h2>
+                            <p class="chart-subtitle" data-chart-period-desc>Mostrando el comportamiento del período actual</p>
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="legend-dot dot-ingreso"></span> Ingresos ($)</span>
+                            <span class="legend-item"><span class="legend-dot dot-resta"></span> Restas / Gastos ($)</span>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor dinámico de barras SVG/CSS -->
+                    <div class="chart-wrapper">
+                        <div class="chart-loading" data-chart-loading>Cargando datos financieros…</div>
+                        <div class="chart-bars-viewport" data-chart-bars></div>
+                    </div>
+                </article>
+
+                <!-- Tarjeta lateral de balance operativo -->
+                <aside class="balance-card">
+                    <h3>Resumen del período</h3>
+                    <div class="balance-metric-row">
+                        <span class="row-label">Ingresos brutos</span>
+                        <strong class="row-val text-success" data-side-bruto>$0.00</strong>
+                    </div>
+                    <div class="balance-metric-row">
+                        <span class="row-label">Restas y deducciones</span>
+                        <strong class="row-val text-danger" data-side-restas>-$0.00</strong>
+                    </div>
+                    <hr class="balance-divider">
+                    <div class="balance-metric-row highlight">
+                        <span class="row-label">Balance neto real</span>
+                        <strong class="row-val text-primary" data-side-neto>$0.00</strong>
+                    </div>
+
+                    <div class="balance-callout">
+                        <div class="callout-icon">💡</div>
+                        <p>Las reservas canceladas mantienen su anticipo del 50% contabilizado como ingreso retenido conforme a las políticas de TWIINS Bakery.</p>
+                    </div>
+
+                    <button type="button" class="btn-side-action" id="btnSideRegistrar">
+                        ＋ Registrar ingreso / egreso
+                    </button>
+                </aside>
+            </section>
+
+            <!-- Tabla de Historial de Transacciones -->
+            <section class="transactions-panel">
+                <div class="panel-header-row">
+                    <div>
+                        <p class="eyebrow">Movimientos y Auditoría</p>
+                        <h2>Historial de transacciones <span class="badge-count" data-transactions-count>0</span></h2>
+                    </div>
+                    <div class="table-filters">
+                        <label class="search-field">
+                            <span class="search-icon" aria-hidden="true">⌕</span>
+                            <input type="search" placeholder="Buscar cliente, concepto o código..." aria-label="Buscar transacciones" data-tx-search>
+                        </label>
+                        <select class="filter-select" aria-label="Filtrar por tipo" data-tx-type-filter>
+                            <option value="">Todos los tipos</option>
+                            <option value="INGRESO">Solo Ingresos (+)</option>
+                            <option value="RESTA">Solo Restas / Egresos (-)</option>
+                            <option value="ANTICIPO">Anticipos (50%)</option>
+                            <option value="PAGO_COMPLETO">Pagos completos (100%)</option>
+                            <option value="LIQUIDACION">Liquidaciones</option>
+                            <option value="ANTICIPO_RETENIDO">Canceladas (Retenido)</option>
+                            <option value="MANUAL">Movimientos manuales</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha y hora</th>
+                                <th>Origen</th>
+                                <th>Tipo / Concepto</th>
+                                <th>Método</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody data-transactions-body>
+                            <!-- Rellenado dinámicamente con JS -->
+                        </tbody>
+                    </table>
+
+                    <div class="empty-state" data-tx-empty hidden>
+                        <span class="empty-icon">📂</span>
+                        <p class="empty-title">No hay transacciones registradas</p>
+                        <p class="empty-desc">No se encontraron movimientos para el filtro seleccionado.</p>
+                    </div>
+
+                    <div class="loading-state" data-tx-loading>
+                        <span class="spinner"></span> Consultando datos financieros…
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ── MODAL PARA REGISTRAR INGRESO O RESTA ── -->
+    <div class="modal-overlay" id="modalMovimiento" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalMovimientoTitle">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div>
+                    <p class="eyebrow">Gestión Financiera</p>
+                    <h2 id="modalMovimientoTitle">Registrar movimiento</h2>
+                </div>
+                <button type="button" class="btn-close-modal" id="btnCerrarModalMovimiento" aria-label="Cerrar ventana">×</button>
+            </header>
+
+            <form id="formMovimiento" class="modal-form" novalidate>
+                <!-- Selector tipo: Ingreso (+) vs Resta (-) -->
+                <div class="form-group">
+                    <label class="form-label">Tipo de operación</label>
+                    <div class="type-toggle-group">
+                        <label class="type-option option-ingreso">
+                            <input type="radio" name="tipo_movimiento" value="INGRESO" checked>
+                            <span class="type-pill">＋ Ingreso de dinero</span>
+                        </label>
+                        <label class="type-option option-resta">
+                            <input type="radio" name="tipo_movimiento" value="RESTA">
+                            <span class="type-pill">－ Resta / Gasto / Deducción</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Monto -->
+                <div class="form-group">
+                    <label class="form-label" for="movMonto">Monto en dólares ($) <span class="required">*</span></label>
+                    <div class="input-with-symbol">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" id="movMonto" name="monto" step="0.01" min="0.01" max="99999" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <!-- Concepto / Descripción -->
+                <div class="form-group">
+                    <label class="form-label" for="movConcepto">Concepto / Descripción <span class="required">*</span></label>
+                    <input type="text" id="movConcepto" name="concepto" maxlength="200" placeholder="Ej. Venta en mostrador de 2 porciones y café / Compra de fresas" required>
+                </div>
+
+                <!-- Fila: Categoría y Método de pago -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="movCategoria">Categoría</label>
+                        <select id="movCategoria" name="categoria">
+                            <option value="VENTA_DIRECTA">Venta directa en mostrador</option>
+                            <option value="INSUMOS">Compra de insumos / Materia prima</option>
+                            <option value="EMPAQUE">Empaques, cajas y velas</option>
+                            <option value="GASTO_OPERATIVO">Gasto operativo / Servicio</option>
+                            <option value="DEVOLUCION">Devolución autorizada</option>
+                            <option value="AJUSTE_CAJA">Ajuste o cuadre de caja</option>
+                            <option value="OTRO">Otro concepto</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="movMetodo">Método de pago</label>
+                        <select id="movMetodo" name="metodo_pago">
+                            <option value="EFECTIVO">Efectivo en tienda</option>
+                            <option value="TARJETA">Tarjeta de débito/crédito</option>
+                            <option value="TRANSFERENCIA">Transferencia bancaria</option>
+                            <option value="OTRO">Otro medio</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fecha y hora opcional -->
+                <div class="form-group">
+                    <label class="form-label" for="movFecha">Fecha y hora (opcional)</label>
+                    <input type="datetime-local" id="movFecha" name="fecha">
+                    <small class="field-help">Si se deja vacío, se tomará la fecha y hora actual automáticamente.</small>
+                </div>
+
+                <!-- Notas opcionales -->
+                <div class="form-group">
+                    <label class="form-label" for="movNotas">Notas adicionales</label>
+                    <textarea id="movNotas" name="notas" rows="2" maxlength="300" placeholder="Detalle adicional, número de factura o comprobante..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" id="btnCancelarMovimiento">Cancelar</button>
+                    <button type="submit" class="btn-submit" id="btnGuardarMovimiento">Guardar movimiento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── MODAL DINÁMICO ELEGANTE (SIN POPUPS NATIVOS DE NAVEGADOR) ── -->
+    <div class="admin-dynamic-modal-overlay" id="adminDynamicModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminDynamicModalTitle">
+        <div class="admin-dynamic-modal-card">
+            <div class="admin-dynamic-icon" id="adminDynamicModalIcon">💰</div>
+            <h3 class="admin-dynamic-title" id="adminDynamicModalTitle">Confirmar acción</h3>
+            <p class="admin-dynamic-message" id="adminDynamicModalMessage">¿Estás seguro de realizar esta operación?</p>
+            <div class="admin-dynamic-detail-box" id="adminDynamicModalDetails" style="display: none;"></div>
+            <div class="admin-dynamic-actions" id="adminDynamicModalActions">
+                <button type="button" class="admin-dyn-btn btn-cancel" id="adminDynamicModalCancel">Cancelar</button>
+                <button type="button" class="admin-dyn-btn btn-confirm" id="adminDynamicModalConfirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL CIERRE DE SESIÓN ── -->
+    <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminLogoutModalTitle">
+        <div class="admin-logout-modal-card">
+            <div class="admin-logout-icon">🔒</div>
+            <h3 id="adminLogoutModalTitle">¿Estás seguro de cerrar sesión?</h3>
+            <p>Se cerrará tu sesión administrativa y tendrás que autenticarte de nuevo.</p>
+            <div class="admin-modal-actions">
+                <button type="button" class="admin-modal-btn admin-modal-cancel" id="btnAdminLogoutCancel">NO</button>
+                <button type="button" class="admin-modal-btn admin-modal-confirm" id="btnAdminLogoutConfirm">SÍ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static_files', filename='js/admin_ingresos.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/admin_sidebar.js') }}" defer></script>
+    <script src="{{ url_for('static_files', filename='js/ia_chat.js') }}" defer></script>
+</body>
+</html>

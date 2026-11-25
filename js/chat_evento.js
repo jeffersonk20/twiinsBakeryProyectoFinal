@@ -77,7 +77,7 @@
                 }
             }
         } catch (err) {
-            console.error("Error al cargar mensajes:", err);
+            // Error silencioso en cliente
         }
     }
 

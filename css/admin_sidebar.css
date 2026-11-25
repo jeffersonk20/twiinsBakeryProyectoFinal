@@ -20,6 +20,7 @@ html, body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: 'Poppins', sans-serif !important;
 }
 
 .admin-shell {
@@ -28,11 +29,13 @@ html, body {
     display: grid !important;
     grid-template-columns: 240px minmax(0, 1fr) !important;
     overflow: hidden !important;
+    font-family: 'Poppins', sans-serif !important;
 }
 
 /* ── SIDEBAR VERTICAL FIJO / ESTÁTICO ── */
 .admin-sidebar,
 aside.sidebar {
+    font-family: 'Poppins', sans-serif !important;
     height: 100vh !important;
     max-height: 100vh !important;
     width: 240px !important;

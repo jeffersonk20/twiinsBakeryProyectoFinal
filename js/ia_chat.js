@@ -337,7 +337,6 @@
                 cargarMensajeBienvenida();
             }
         } catch (err) {
-            console.warn('[TWINS IA] No se pudo obtener /api/ia/info:', err);
             cargarMensajeBienvenida();
         }
     }
@@ -362,7 +361,7 @@
                 }
             }
         } catch (e) {
-            console.info('[TWINS IA] Sesión cliente regular o sin permisos admin.');
+            // Sesión regular o sin token
         }
     }
 
@@ -443,7 +442,6 @@
 
         } catch (error) {
             removerCargando();
-            console.error('[TWINS IA Error]:', error);
             agregarMensajeDOM(
                 'ia',
                 '⚠️ Ocurrió un problema de conexión al consultar con el asistente. ' +

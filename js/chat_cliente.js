@@ -72,7 +72,7 @@
                 }
             }
         } catch (err) {
-            console.error("Error al cargar mensajes:", err);
+            // Error silencioso en cliente
         }
     }
 
@@ -102,7 +102,7 @@
                 </a>
             `).join("");
         } catch (err) {
-            console.error("Error al consultar chats de eventos del cliente:", err);
+            // Error silencioso en cliente
         }
     }
 

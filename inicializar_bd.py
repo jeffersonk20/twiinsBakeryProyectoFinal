@@ -525,6 +525,26 @@ def _inicializar_sqlite(conexion, cursor):
     VALUES (1, 1, 50, 1);
     """)
 
+    # Tabla MOVIMIENTO_FINANCIERO (Ingresos y restas manuales / mostrador / egresos)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS MOVIMIENTO_FINANCIERO (
+        id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL, /* 'INGRESO' o 'RESTA' */
+        monto NUMERIC NOT NULL,
+        concepto TEXT NOT NULL,
+        categoria TEXT NOT NULL DEFAULT 'VENTA_DIRECTA',
+        metodo_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
+        fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        id_reserva INT NULL,
+        id_admin INT NULL,
+        notas TEXT NULL,
+        FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE SET NULL,
+        FOREIGN KEY (id_admin) REFERENCES ADMINISTRADOR(id_admin) ON DELETE SET NULL
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_fecha ON MOVIMIENTO_FINANCIERO (fecha);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo ON MOVIMIENTO_FINANCIERO (tipo);")
+
 
 def _inicializar_mysql(conexion, cursor):
     """Inicializa la base de datos utilizando sintaxis de MySQL / MariaDB."""
@@ -898,6 +918,24 @@ def _inicializar_mysql(conexion, cursor):
         meta_minima_canje INT NOT NULL DEFAULT 50,
         programa_activo BOOLEAN NOT NULL DEFAULT TRUE,
         fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+    """)
+
+    # Tabla MOVIMIENTO_FINANCIERO (MySQL)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS MOVIMIENTO_FINANCIERO (
+        id_movimiento INT AUTO_INCREMENT PRIMARY KEY,
+        tipo VARCHAR(20) NOT NULL,
+        monto DECIMAL(10, 2) NOT NULL,
+        concepto VARCHAR(255) NOT NULL,
+        categoria VARCHAR(50) NOT NULL DEFAULT 'VENTA_DIRECTA',
+        metodo_pago VARCHAR(50) NOT NULL DEFAULT 'EFECTIVO',
+        fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        id_reserva INT NULL,
+        id_admin INT NULL,
+        notas TEXT NULL,
+        CONSTRAINT fk_mov_reserva FOREIGN KEY (id_reserva) REFERENCES RESERVA(id_reserva) ON DELETE SET NULL,
+        CONSTRAINT fk_mov_admin FOREIGN KEY (id_admin) REFERENCES ADMINISTRADOR(id_admin) ON DELETE SET NULL
     ) ENGINE=InnoDB;
     """)
 

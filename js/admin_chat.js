@@ -53,7 +53,7 @@
             conversations.eventos = data.eventos || [];
             renderConversationList();
         } catch (err) {
-            console.error("Error al cargar lista de chats:", err);
+            // Error silencioso en cliente
         }
     }
 
@@ -150,7 +150,7 @@
                 }
             }
         } catch (err) {
-            console.error("Error al cargar mensajes del chat:", err);
+            // Error silencioso en cliente
         }
     }
 

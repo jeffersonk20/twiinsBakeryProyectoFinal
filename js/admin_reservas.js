@@ -30,6 +30,136 @@
     let currentWompiUrl = "";
     let wompiCheckTimer = null;
 
+    // Referencias y control del Modal Dinámico Profesional (elimina popups nativos del navegador)
+    const dynamicModal = document.getElementById("adminDynamicModal");
+    const dynamicIcon = document.getElementById("adminDynamicModalIcon");
+    const dynamicTitle = document.getElementById("adminDynamicModalTitle");
+    const dynamicMessage = document.getElementById("adminDynamicModalMessage");
+    const dynamicDetails = document.getElementById("adminDynamicModalDetails");
+    const dynamicActions = document.getElementById("adminDynamicModalActions");
+    const dynamicCancel = document.getElementById("adminDynamicModalCancel");
+    const dynamicConfirm = document.getElementById("adminDynamicModalConfirm");
+    let dynamicModalResolver = null;
+
+    function closeDynamicModal(result = false) {
+        if (!dynamicModal) return;
+        dynamicModal.classList.remove("is-visible");
+        dynamicModal.setAttribute("aria-hidden", "true");
+        if (typeof dynamicModalResolver === "function") {
+            const resolve = dynamicModalResolver;
+            dynamicModalResolver = null;
+            resolve(result);
+        }
+    }
+
+    if (dynamicCancel) {
+        dynamicCancel.addEventListener("click", () => closeDynamicModal(false));
+    }
+    if (dynamicConfirm) {
+        dynamicConfirm.addEventListener("click", () => closeDynamicModal(true));
+    }
+    if (dynamicModal) {
+        dynamicModal.addEventListener("click", (e) => {
+            if (e.target === dynamicModal) closeDynamicModal(false);
+        });
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && dynamicModal.classList.contains("is-visible")) {
+                closeDynamicModal(false);
+            }
+        });
+    }
+
+    function showDynamicConfirm({
+        title = "¿Estás seguro?",
+        message = "",
+        details = [],
+        icon = "🔔",
+        confirmText = "Aceptar",
+        cancelText = "Cancelar",
+        isDanger = false
+    } = {}) {
+        if (!dynamicModal) return Promise.resolve(window.confirm(message || title));
+
+        if (dynamicIcon) dynamicIcon.textContent = icon;
+        if (dynamicTitle) dynamicTitle.textContent = title;
+        if (dynamicMessage) dynamicMessage.textContent = message;
+
+        if (dynamicDetails) {
+            if (Array.isArray(details) && details.length > 0) {
+                dynamicDetails.innerHTML = details.map((d) => `
+                    <div class="admin-dynamic-detail-row">
+                        <span class="admin-dynamic-detail-label">${escapeHtml(d.label)}</span>
+                        <span class="admin-dynamic-detail-value ${d.isCode ? 'code-pill' : ''}">${escapeHtml(d.value)}</span>
+                    </div>
+                `).join("");
+                dynamicDetails.style.display = "flex";
+            } else {
+                dynamicDetails.innerHTML = "";
+                dynamicDetails.style.display = "none";
+            }
+        }
+
+        if (dynamicCancel) {
+            dynamicCancel.style.display = "block";
+            dynamicCancel.textContent = cancelText;
+        }
+        if (dynamicConfirm) {
+            dynamicConfirm.textContent = confirmText;
+            dynamicConfirm.className = `admin-dyn-btn btn-confirm ${isDanger ? 'is-danger' : ''}`;
+        }
+        if (dynamicActions) {
+            dynamicActions.classList.remove("single-btn");
+        }
+
+        dynamicModal.setAttribute("aria-hidden", "false");
+        dynamicModal.classList.add("is-visible");
+
+        return new Promise((resolve) => {
+            dynamicModalResolver = resolve;
+            if (dynamicConfirm) dynamicConfirm.focus();
+        });
+    }
+
+    function showDynamicAlert({
+        title = "Aviso",
+        message = "",
+        icon = "ℹ️",
+        buttonText = "Entendido"
+    } = {}) {
+        if (!dynamicModal) {
+            window.alert(message || title);
+            return Promise.resolve(true);
+        }
+
+        if (dynamicIcon) dynamicIcon.textContent = icon;
+        if (dynamicTitle) dynamicTitle.textContent = title;
+        if (dynamicMessage) dynamicMessage.textContent = message;
+
+        if (dynamicDetails) {
+            dynamicDetails.innerHTML = "";
+            dynamicDetails.style.display = "none";
+        }
+
+        if (dynamicCancel) {
+            dynamicCancel.style.display = "none";
+        }
+        if (dynamicConfirm) {
+            dynamicConfirm.textContent = buttonText;
+            dynamicConfirm.className = "admin-dyn-btn btn-confirm";
+        }
+        if (dynamicActions) {
+            dynamicActions.classList.add("single-btn");
+        }
+
+        dynamicModal.setAttribute("aria-hidden", "false");
+        dynamicModal.classList.add("is-visible");
+
+        return new Promise((resolve) => {
+            dynamicModalResolver = resolve;
+            if (dynamicConfirm) dynamicConfirm.focus();
+        });
+    }
+
     const statusNames = {
         PENDIENTE_PAGO: "Pendiente de anticipo",
         CONFIRMADA: "Confirmada",
@@ -374,8 +504,19 @@
             const saldo = button.dataset.saldo;
             const codigo = button.dataset.codigo;
             const cliente = button.dataset.cliente;
-            const msgConfirm = `¿Registrar la liquidación completa del saldo pendiente ($${saldo}) para la reserva ${codigo} de ${cliente}?\n\nLa reserva quedará 100% pagada en el sistema.`;
-            if (!window.confirm(msgConfirm)) return;
+            const confirmed = await showDynamicConfirm({
+                title: "¿Liquidar saldo pendiente?",
+                message: "Se registrará el pago restante en el sistema y la reserva quedará marcada como 100% pagada.",
+                icon: "💰",
+                confirmText: "✓ Sí, liquidar saldo",
+                cancelText: "Volver",
+                details: [
+                    { label: "Código de reserva", value: codigo, isCode: true },
+                    { label: "Cliente", value: cliente },
+                    { label: "Saldo a liquidar", value: `$${Number(saldo).toFixed(2)} USD` }
+                ]
+            });
+            if (!confirmed) return;
 
             button.disabled = true;
             const origText = button.textContent;
@@ -406,11 +547,22 @@
             const codigo = reservation ? reservation.codigo : "";
             const cliente = reservation ? reservation.cliente : "el cliente";
             const correo = reservation ? reservation.correo : "";
-            const msgConfirm = correo
-                ? `¿Aceptar y confirmar la reserva ${codigo} de ${cliente}?\n\nSe pasará al estado Confirmada y se enviará un correo a su cuenta (${correo}).`
-                : `¿Aceptar y confirmar la reserva ${codigo}?`;
+            const confirmed = await showDynamicConfirm({
+                title: "¿Aceptar y confirmar reserva?",
+                message: correo
+                    ? `La reserva pasará al estado Confirmada y se enviará un correo a la cuenta del cliente.`
+                    : `La reserva pasará al estado Confirmada en el sistema.`,
+                icon: "📋",
+                confirmText: "✓ Sí, confirmar reserva",
+                cancelText: "Volver",
+                details: [
+                    { label: "Código de reserva", value: codigo, isCode: true },
+                    { label: "Cliente", value: cliente },
+                    ...(correo ? [{ label: "Correo", value: correo }] : [])
+                ]
+            });
 
-            if (!window.confirm(msgConfirm)) return;
+            if (!confirmed) return;
 
             const originalText = button.innerHTML;
             button.disabled = true;
@@ -442,11 +594,19 @@
                 rejectForm.elements.motivo.value = "";
                 rejectDialog.showModal();
             } else {
-                const motivo = window.prompt(
-                    `¿Deseas rechazar la reserva ${reservation.codigo} de ${reservation.cliente}?\n\nPuedes ingresar un motivo que se notificará por correo:`,
-                    "Disponibilidad limitada en agenda para la fecha o anticipo no recibido a tiempo."
-                );
-                if (motivo === null) return;
+                const confirmed = await showDynamicConfirm({
+                    title: "¿Rechazar reserva?",
+                    message: `¿Deseas rechazar la reserva ${reservation.codigo} de ${reservation.cliente}?`,
+                    icon: "✕",
+                    confirmText: "Rechazar reserva",
+                    cancelText: "Volver",
+                    isDanger: true,
+                    details: [
+                        { label: "Código", value: reservation.codigo, isCode: true },
+                        { label: "Cliente", value: reservation.cliente }
+                    ]
+                });
+                if (!confirmed) return;
                 try {
                     const result = await readResponse(await fetch(`/api/admin/reservas/${reservation.id}/rechazar`, {
                         method: "POST",
@@ -454,7 +614,7 @@
                             "Content-Type": "application/json",
                             "X-CSRF-Token": csrfToken
                         },
-                        body: JSON.stringify({ motivo })
+                        body: JSON.stringify({ motivo: "Disponibilidad limitada en agenda para la fecha o anticipo no recibido a tiempo." })
                     }));
                     showMessage(result.mensaje || "Reserva rechazada y cliente notificado.");
                     await loadReservations();
@@ -470,11 +630,22 @@
             const codigo = reservation ? reservation.codigo : "";
             const cliente = reservation ? reservation.cliente : "el cliente";
             const correo = reservation ? reservation.correo : "";
-            const msgConfirm = correo
-                ? `¿Avisar a ${cliente} (${correo}) que la reserva ${codigo} está lista para retirar?\nSe le enviará una notificación por correo electrónico.`
-                : `¿Marcar la reserva ${codigo} como lista para retirar?`;
+            const confirmed = await showDynamicConfirm({
+                title: "¿Avisar pedido listo?",
+                message: correo
+                    ? `Se le enviará una notificación por correo electrónico avisando que su pedido ya está preparado para retiro.`
+                    : `Se actualizará el estado de la reserva a "Lista para retirar".`,
+                icon: "🔔",
+                confirmText: "✓ Sí, avisar al cliente",
+                cancelText: "Cancelar",
+                details: [
+                    { label: "Código de reserva", value: codigo, isCode: true },
+                    { label: "Cliente", value: cliente },
+                    ...(correo ? [{ label: "Correo", value: correo }] : [])
+                ]
+            });
 
-            if (!window.confirm(msgConfirm)) return;
+            if (!confirmed) return;
 
             const originalText = button.innerHTML;
             button.disabled = true;
@@ -498,7 +669,20 @@
         if (button.dataset.delete) {
             const reservation = reservations.find((item) => item.id === Number(button.dataset.delete));
             const codigo = reservation ? reservation.codigo : "";
-            if (!window.confirm(`¿Eliminar la reserva ${codigo} y todos sus registros asociados? Esta acción no se puede deshacer.`)) return;
+            const cliente = reservation ? reservation.cliente : "";
+            const confirmed = await showDynamicConfirm({
+                title: "¿Eliminar reserva definitivamente?",
+                message: "Esta acción borrará la reserva y sus registros asociados de la base de datos de forma permanente.",
+                icon: "🗑️",
+                confirmText: "Eliminar definitivamente",
+                cancelText: "Conservar reserva",
+                isDanger: true,
+                details: [
+                    { label: "Código", value: codigo, isCode: true },
+                    ...(cliente ? [{ label: "Cliente", value: cliente }] : [])
+                ]
+            });
+            if (!confirmed) return;
             try {
                 const result = await readResponse(await fetch(`/api/admin/reservas/${button.dataset.delete}`, {
                     method: "DELETE",
@@ -591,7 +775,12 @@
             const genBtn = document.getElementById("btnGenerarEnlaceWompi");
 
             if (!monto || monto <= 0) {
-                alert("Por favor ingresa un monto válido mayor a 0.");
+                await showDynamicAlert({
+                    title: "Monto inválido",
+                    message: "Por favor ingresa un monto válido mayor a $0.00 USD para generar el enlace de cobro.",
+                    icon: "⚠️",
+                    buttonText: "Entendido"
+                });
                 return;
             }
 
@@ -711,7 +900,12 @@
                     btnCopiarEnlace.textContent = oldText;
                 }, 2500);
             } catch {
-                prompt("Copia este enlace de pago:", currentWompiUrl);
+                await showDynamicAlert({
+                    title: "Enlace de pago Wompi",
+                    message: `Copia el siguiente enlace de cobro: ${currentWompiUrl}`,
+                    icon: "📋",
+                    buttonText: "Cerrar"
+                });
             }
         });
     }
@@ -720,7 +914,17 @@
         btnConfirmarManualPOS.addEventListener("click", async () => {
             const reservaId = document.getElementById("card-charge-reserva-id").value;
             const monto = parseFloat(cardChargeMonto.value);
-            if (!window.confirm(`¿Confirmar que cobraste $${monto.toFixed(2)} con tarjeta presencialmente en el POS físico?`)) return;
+            const confirmed = await showDynamicConfirm({
+                title: "¿Confirmar cobro en POS físico?",
+                message: "¿Confirmas que cobraste con tarjeta en el datáfono/POS presencial de la tienda?",
+                icon: "💳",
+                confirmText: "✓ Sí, registrar cobro",
+                cancelText: "Volver",
+                details: [
+                    { label: "Monto cobrado", value: `$${monto.toFixed(2)} USD` }
+                ]
+            });
+            if (!confirmed) return;
 
             btnConfirmarManualPOS.disabled = true;
             btnConfirmarManualPOS.textContent = "Registrando…";
@@ -750,7 +954,17 @@
         btnConfirmarManualWompi.addEventListener("click", async () => {
             const reservaId = document.getElementById("card-charge-reserva-id").value;
             const monto = parseFloat(cardChargeMonto.value);
-            if (!window.confirm(`¿Confirmar que el cliente ya completó el pago de $${monto.toFixed(2)} en su celular y registrar el pago ahora?`)) return;
+            const confirmed = await showDynamicConfirm({
+                title: "¿Confirmar pago desde celular?",
+                message: "¿Confirmas que el cliente ya completó exitosamente el pago desde Wompi en su celular?",
+                icon: "📱",
+                confirmText: "✓ Sí, registrar pago",
+                cancelText: "Esperar comprobación",
+                details: [
+                    { label: "Monto completado", value: `$${monto.toFixed(2)} USD` }
+                ]
+            });
+            if (!confirmed) return;
 
             btnConfirmarManualWompi.disabled = true;
             const originalText = btnConfirmarManualWompi.textContent;

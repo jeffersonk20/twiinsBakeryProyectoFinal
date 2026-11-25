@@ -903,29 +903,23 @@ def _inicializar_mysql(conexion, cursor):
 
 
 def _sembrar_datos_iniciales(cursor):
-    """Inserta el administrador por defecto y datos iniciales de solicitudes si no existen."""
+    """Inserta el administrador por defecto si la tabla está vacía y se definen credenciales de entorno."""
     # 1. Administrador por defecto
-    cursor.execute("SELECT COUNT(*) FROM ADMINISTRADOR WHERE id_admin = 1")
+    cursor.execute("SELECT COUNT(*) FROM ADMINISTRADOR")
     fila_admin = cursor.fetchone()
     conteo_admin = fila_admin[0] if isinstance(fila_admin, (list, tuple)) else fila_admin.get("COUNT(*)", 0)
 
     if conteo_admin == 0:
-        cursor.execute(
-            """
-            INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
-            VALUES (1, %s, %s, %s)
-            """,
-            ("Administrador Twins Bakery", "twiinsbakery01@gmail.com", generate_password_hash("bakeryTnt2006")),
-        )
-    else:
-        cursor.execute(
-            """
-            UPDATE ADMINISTRADOR
-            SET nombre = %s, correo = %s, contrasena = %s
-            WHERE id_admin = 1
-            """,
-            ("Administrador Twins Bakery", "twiinsbakery01@gmail.com", generate_password_hash("bakeryTnt2006")),
-        )
+        admin_correo = os.environ.get("ADMIN_DEFAULT_EMAIL")
+        admin_pass = os.environ.get("ADMIN_DEFAULT_PASSWORD")
+        if admin_correo and admin_pass:
+            cursor.execute(
+                """
+                INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
+                VALUES (1, %s, %s, %s)
+                """,
+                ("Administrador Twins Bakery", admin_correo.strip().lower(), generate_password_hash(admin_pass)),
+            )
 
     # 2. Configuración inicial de Fidelidad (sin clientes ni productos por defecto)
     try:

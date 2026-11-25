@@ -177,3 +177,174 @@ tbody tr:last-child td { border-bottom: 0; }
     .form-row { gap: 8px; }
     .account-panel { padding: 17px; }
 }
+
+/* ── MODAL DINÁMICO PROFESIONAL ADMIN (REEMPLAZO DE ALERT / CONFIRM) ── */
+.admin-dynamic-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(18, 63, 73, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s;
+}
+
+.admin-dynamic-modal-overlay.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.admin-dynamic-modal-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 440px;
+    border-radius: 20px;
+    padding: 30px 26px 26px;
+    box-shadow: 0 24px 64px rgba(18, 63, 73, 0.32);
+    text-align: center;
+    box-sizing: border-box;
+    transform: scale(0.92) translateY(14px);
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-dynamic-modal-overlay.is-visible .admin-dynamic-modal-card {
+    transform: scale(1) translateY(0);
+}
+
+.admin-dynamic-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    background: #fff0f5;
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.15);
+}
+
+.admin-dynamic-title {
+    margin: 0 0 8px;
+    color: #153e49;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.admin-dynamic-message {
+    margin: 0 0 16px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.admin-dynamic-detail-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    text-align: left;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-dynamic-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-dynamic-detail-label {
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+.admin-dynamic-detail-value {
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-dynamic-detail-value.code-pill {
+    background: #ffedf1;
+    color: #f23271;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.admin-dynamic-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.admin-dynamic-actions.single-btn {
+    grid-template-columns: 1fr;
+}
+
+.admin-dyn-btn {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+    transition: all 0.18s ease;
+}
+
+.admin-dyn-btn.btn-cancel {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1.5px solid #e2e8f0;
+}
+
+.admin-dyn-btn.btn-cancel:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.admin-dyn-btn.btn-confirm {
+    background: #f23271;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(242, 50, 113, 0.35);
+}
+
+.admin-dyn-btn.btn-confirm:hover {
+    background: #d91f5b;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(242, 50, 113, 0.45);
+}
+
+.admin-dyn-btn.btn-confirm.is-danger {
+    background: #ef4444;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.admin-dyn-btn.btn-confirm.is-danger:hover {
+    background: #dc2626;
+    box-shadow: 0 6px 18px rgba(239, 68, 68, 0.45);
+}

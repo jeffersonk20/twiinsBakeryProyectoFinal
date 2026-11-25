@@ -163,7 +163,7 @@ def _enviar_correo_sincrono(destinatario, asunto, cuerpo_html, cuerpo_texto):
         remitente_correo = (
             config["usuario"]
             or os.getenv("MAIL_USERNAME")
-            or "twiinsbakery01@gmail.com"
+            or "contacto@twiinsbakery.com"
         ).strip()
         return _enviar_por_brevo_api(
             destinatario=destinatario,

@@ -1587,6 +1587,7 @@ def admin_reservas():
 def admin_nueva_reserva():
     if request.method == "GET":
         minimo_retiro = datetime.now() + timedelta(days=5)
+        fecha_hoy = date.today()
         productos = []
         ultimas_reservas = []
         conexion = None
@@ -1597,7 +1598,7 @@ def admin_nueva_reserva():
             cursor.execute(
                 """
                 SELECT id_producto, nombre, categoria, precio, descripcion, disponible,
-                       en_vitrina,
+                       en_vitrina, se_vende_por_porciones, numero_porciones, precio_porcion,
                        (imagen IS NOT NULL AND tipo_imagen IS NOT NULL) AS tiene_imagen
                 FROM PRODUCTO
                 WHERE disponible = TRUE
@@ -1644,6 +1645,8 @@ def admin_nueva_reserva():
             ultimas_reservas=ultimas_reservas,
             fecha_minima_retiro=minimo_retiro.strftime("%Y-%m-%d"),
             fecha_minima_display=minimo_retiro.strftime("%d/%m/%Y"),
+            fecha_hoy=fecha_hoy.strftime("%Y-%m-%d"),
+            fecha_hoy_display=fecha_hoy.strftime("%d/%m/%Y"),
             client_catalog_url=url_for("catalogo"),
         )
 
@@ -1659,6 +1662,7 @@ def admin_nueva_reserva():
         flash("Selecciona un producto y una cantidad válidos.", "error")
         return redirect(url_for("admin_nueva_reserva"))
 
+    tipo_venta = request.form.get("tipo_venta", "completo").strip().lower()
     nombre = request.form.get("nombre", "").strip()
     correo = request.form.get("correo", "").strip().lower()
     telefono = request.form.get("telefono", "").strip()
@@ -1700,9 +1704,6 @@ def admin_nueva_reserva():
         hora = time(15, 0)
 
     fecha_retiro = datetime.combine(fecha, hora)
-    if fecha_retiro < datetime.now() + timedelta(days=5):
-        flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
-        return redirect(url_for("admin_nueva_reserva"))
 
     conexion = None
     cursor = None
@@ -1713,9 +1714,10 @@ def admin_nueva_reserva():
 
         cursor.execute(
             """
-            SELECT id_producto, nombre, categoria, precio
+            SELECT id_producto, nombre, categoria, precio,
+                   se_vende_por_porciones, numero_porciones, precio_porcion
             FROM PRODUCTO
-            WHERE id_producto = %s
+            WHERE id_producto = %s AND disponible = TRUE
             """,
             (producto_id,),
         )
@@ -1724,6 +1726,41 @@ def admin_nueva_reserva():
             conexion.rollback()
             flash("El producto seleccionado no está disponible.", "error")
             return redirect(url_for("admin_nueva_reserva"))
+
+        permite_porciones = bool(producto.get("se_vende_por_porciones") or producto.get("categoria") == "Porciones de Pasteles")
+        es_porcion = (tipo_venta == "porciones" and permite_porciones)
+        es_bebida = bool(producto.get("categoria") == "Bebidas")
+        sin_anticipacion = es_porcion or es_bebida
+
+        # Validación de anticipación de fecha:
+        # Porciones de pasteles y bebidas pueden reservarse desde hoy (sin restricción de 5 días)
+        # Los demás productos requieren al menos 5 días de anticipación
+        if sin_anticipacion:
+            if fecha < date.today():
+                conexion.rollback()
+                flash("La fecha de retiro no puede ser en el pasado.", "error")
+                return redirect(url_for("admin_nueva_reserva"))
+        else:
+            if fecha_retiro < datetime.now() + timedelta(days=5):
+                conexion.rollback()
+                flash("Las reservas de pasteles completos deben realizarse con al menos 5 días de anticipación.", "error")
+                return redirect(url_for("admin_nueva_reserva"))
+
+        if es_porcion:
+            max_porciones = int(producto.get("numero_porciones") or 0)
+            if max_porciones <= 0:
+                conexion.rollback()
+                flash("Este pastel ya no tiene porciones disponibles.", "error")
+                return redirect(url_for("admin_nueva_reserva"))
+            if cantidad > max_porciones:
+                conexion.rollback()
+                flash(f"Este pastel solo rinde hasta {max_porciones} porciones. Ingresa una cantidad entre 1 y {max_porciones}.", "error")
+                return redirect(url_for("admin_nueva_reserva"))
+            precio_unitario = Decimal(str(producto.get("precio_porcion") or producto["precio"]))
+            nombre_reserva = f"Porciones de Pasteles: {producto['nombre']}"
+        else:
+            precio_unitario = Decimal(str(producto["precio"]))
+            nombre_reserva = producto["nombre"]
 
         id_cliente = None
         if correo:
@@ -1735,7 +1772,7 @@ def admin_nueva_reserva():
             if cliente_existente:
                 id_cliente = cliente_existente["id_cliente"]
 
-        total = (Decimal(str(producto["precio"])) * cantidad).quantize(Decimal("0.01"))
+        total = (precio_unitario * cantidad).quantize(Decimal("0.01"))
         anticipo = (total / 2).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         codigo = f"TB-{secrets.token_hex(4).upper()}"
 
@@ -1763,17 +1800,33 @@ def admin_nueva_reserva():
         cursor.execute(
             """
             INSERT INTO DETALLE_RESERVA
-                (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad)
-            VALUES (%s, %s, %s, %s, %s)
+                (id_reserva, id_pastel, nombre_producto, precio_unitario, cantidad, es_porcion, numero_porciones)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 id_reserva,
                 producto["id_producto"],
-                producto["nombre"],
-                producto["precio"],
+                nombre_reserva,
+                precio_unitario,
                 cantidad,
+                1 if es_porcion else 0,
+                cantidad if es_porcion else None,
             ),
         )
+
+        # Reducción del contador de porciones y agotado automático si llega a 0
+        if es_porcion:
+            nuevo_porciones = max(0, max_porciones - cantidad)
+            if nuevo_porciones == 0:
+                cursor.execute(
+                    "UPDATE PRODUCTO SET numero_porciones = 0, disponible = 0 WHERE id_producto = %s",
+                    (producto["id_producto"],),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE PRODUCTO SET numero_porciones = %s WHERE id_producto = %s",
+                    (nuevo_porciones, producto["id_producto"]),
+                )
 
         cursor.execute(
             """
@@ -1927,8 +1980,6 @@ def cliente_chat_evento(chat_evento_id):
 
 
 # Constantes de seguridad para el Panel Administrativo
-ADMIN_CORREO_AUTORIZADO = "twiinsbakery01@gmail.com"
-ADMIN_PASSWORD_AUTORIZADA = "bakeryTnt2006"
 ADMIN_MAX_INTENTOS = 3
 ADMIN_BLOQUEO_SEGUNDOS = 60  # 1 minuto de bloqueo tras 3 intentos fallidos
 
@@ -2026,8 +2077,8 @@ def admin_login():
 
     # Manejo de petición GET
     if request.method == "GET":
-        # Redirigir al dashboard únicamente si la sesión de admin ya es activa, válida y con el correo autorizado
-        if session.get("es_admin") and session.get("admin_email") == ADMIN_CORREO_AUTORIZADO:
+        # Redirigir al dashboard únicamente si la sesión de admin ya es activa y válida
+        if session.get("es_admin") and session.get("id_admin"):
             try:
                 if _administrador_activo(session.get("id_admin")):
                     return redirect(url_for("admin_dashboard"))
@@ -2109,87 +2160,24 @@ def admin_login():
             segundos_restantes=0,
         ), 400
 
-    # 3. Validación estricta de correo autorizado
-    # Solo el correo twiinsbakery01@gmail.com tiene autorización para ingresar como admin
-    if correo != ADMIN_CORREO_AUTORIZADO:
-        bloqueado_ahora, restantes, segs = _registrar_intento_fallido_admin(ip_cliente)
-        if bloqueado_ahora:
-            flash(
-                "Has superado los 3 intentos permitidos con datos incorrectos. Tu acceso ha sido bloqueado por 1 minuto para evitar accesos no autorizados.",
-                "error",
-            )
-            return render_template(
-                "admin_login.html",
-                admin_existe=True,
-                error_base_datos=False,
-                setup_configurado=True,
-                csrf_token=session.get("csrf_token"),
-                bloqueado=True,
-                segundos_restantes=segs,
-            ), 429
-        else:
-            flash(
-                f"Credenciales de administrador incorrectas. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de que se bloquee el acceso por 1 minuto.",
-                "error",
-            )
-            return render_template(
-                "admin_login.html",
-                admin_existe=True,
-                error_base_datos=False,
-                setup_configurado=True,
-                csrf_token=session.get("csrf_token"),
-                bloqueado=False,
-                segundos_restantes=0,
-            ), 401
-
-    # 4. Verificación segura en la base de datos y validación de clave autorizada
+    # 3. Verificación segura en la base de datos contra la tabla ADMINISTRADOR
     conexion = None
     cursor = None
     try:
         conexion = obtener_conexion()
         cursor = conexion.cursor(dictionary=True)
         cursor.execute(
-            "SELECT id_admin, nombre, correo, contrasena FROM ADMINISTRADOR WHERE correo = %s",
-            (ADMIN_CORREO_AUTORIZADO,),
+            "SELECT id_admin, nombre, correo, contrasena FROM ADMINISTRADOR WHERE LOWER(correo) = %s",
+            (correo,),
         )
         admin = cursor.fetchone()
 
-        # Si el administrador aún no está registrado en la BD, crearlo con el hash autorizado
-        if not admin:
-            hash_autorizado = generate_password_hash(ADMIN_PASSWORD_AUTORIZADA)
-            cursor.execute(
-                """
-                INSERT INTO ADMINISTRADOR (id_admin, nombre, correo, contrasena)
-                VALUES (1, %s, %s, %s)
-                """,
-                ("Administrador Twins Bakery", ADMIN_CORREO_AUTORIZADO, hash_autorizado),
-            )
-            conexion.commit()
-            cursor.execute(
-                "SELECT id_admin, nombre, correo, contrasena FROM ADMINISTRADOR WHERE correo = %s",
-                (ADMIN_CORREO_AUTORIZADO,),
-            )
-            admin = cursor.fetchone()
-
-        # Validación estricta de contraseña:
-        # A. Debe verificar correctamente contra el hash almacenado
-        # B. La clave debe coincidir de forma segura con la clave autorizada bakeryTnt2006
+        # Validación segura mediante hash criptográfico
         clave_valida = False
         if admin and admin.get("contrasena"):
             clave_valida = check_password_hash(admin["contrasena"], contrasena)
 
-        # Si la base de datos tenía un hash desactualizado pero el admin ingresó la clave oficial:
-        if not clave_valida and hmac.compare_digest(contrasena, ADMIN_PASSWORD_AUTORIZADA):
-            nuevo_hash = generate_password_hash(ADMIN_PASSWORD_AUTORIZADA)
-            cursor.execute(
-                "UPDATE ADMINISTRADOR SET contrasena = %s WHERE id_admin = %s",
-                (nuevo_hash, admin["id_admin"]),
-            )
-            conexion.commit()
-            clave_valida = True
-
-        # Solo si coincide con la clave autorizada oficial
-        if clave_valida and hmac.compare_digest(contrasena, ADMIN_PASSWORD_AUTORIZADA):
+        if clave_valida:
             # ÉXITO: Limpiar cualquier intento fallido y desbloquear
             _limpiar_intentos_admin(ip_cliente)
 
@@ -2197,15 +2185,15 @@ def admin_login():
             session.clear()
             session["es_admin"] = True
             session["id_admin"] = admin["id_admin"]
-            session["admin_email"] = ADMIN_CORREO_AUTORIZADO
+            session["admin_email"] = admin["correo"]
             session["csrf_token"] = secrets.token_urlsafe(32)
             session.permanent = True
 
-            # Enviar notificación de seguridad por correo al administrador de forma asíncrona
+            # Enviar notificación de seguridad por correo al administrador
             try:
                 user_agent = request.headers.get("User-Agent", "Navegador web")
                 enviar_correo_inicio_sesion_admin(
-                    ADMIN_CORREO_AUTORIZADO,
+                    admin["correo"],
                     admin.get("nombre", "Administrador"),
                     ip=ip_cliente,
                     dispositivo=user_agent,
@@ -2216,11 +2204,11 @@ def admin_login():
             flash("Inicio de sesión de administrador exitoso. ¡Bienvenido!", "success")
             return redirect(url_for("admin_dashboard"))
         else:
-            # Clave incorrecta: registrar intento fallido
+            # Credenciales incorrectas: registrar intento fallido
             bloqueado_ahora, restantes, segs = _registrar_intento_fallido_admin(ip_cliente)
             if bloqueado_ahora:
                 flash(
-                    "Has superado los 3 intentos permitidos para la clave. Tu acceso ha sido bloqueado por 1 minuto para evitar accesos no autorizados. Debes esperar 1 minuto para volver a intentar.",
+                    "Has superado los 3 intentos permitidos con datos incorrectos. Tu acceso ha sido bloqueado por 1 minuto para evitar accesos no autorizados.",
                     "error",
                 )
                 return render_template(
@@ -2234,7 +2222,7 @@ def admin_login():
                 ), 429
             else:
                 flash(
-                    f"Contraseña de administrador incorrecta. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de que se bloquee el acceso por 1 minuto.",
+                    f"Credenciales de administrador incorrectas. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de que se bloquee el acceso por 1 minuto.",
                     "error",
                 )
                 return render_template(
@@ -2276,8 +2264,8 @@ def admin_cerrar_sesion():
 @app.route("/api/admin/usuario", methods=["DELETE"])
 @administrador_requerido
 def api_admin_eliminar_usuario():
-    # Por políticas de seguridad, la cuenta maestra administrativa twiinsbakery01@gmail.com está protegida contra eliminación
-    return jsonify({"error": "Por políticas estrictas de seguridad, la cuenta oficial de administración (twiinsbakery01@gmail.com) está protegida y no puede ser eliminada."}), 403
+    # Por políticas de seguridad, la cuenta principal de administración está protegida contra eliminación
+    return jsonify({"error": "Por políticas estrictas de seguridad, la cuenta principal de administración está protegida y no puede ser eliminada."}), 403
 
 
 def _producto_publico(registro, incluir_stock=False):
@@ -2337,6 +2325,7 @@ def _obtener_productos(solo_disponibles, incluir_stock=False):
                   AND p.categoria IS NOT NULL
                   AND p.imagen IS NOT NULL
                   AND p.tipo_imagen IS NOT NULL
+                  AND (p.se_vende_por_porciones = 0 OR p.numero_porciones IS NULL OR p.numero_porciones > 0)
             """
             if request.args.get("vitrina") == "1":
                 consulta += " AND p.en_vitrina = TRUE"
@@ -2944,20 +2933,24 @@ def reservar_producto(producto_id):
             return redirect(url_for("catalogo"))
 
         es_porcion = bool(producto.get("se_vende_por_porciones") or producto.get("categoria") == "Porciones de Pasteles")
+        es_bebida = bool(producto.get("categoria") == "Bebidas")
+        sin_anticipacion = es_porcion or es_bebida
         max_porciones = int(producto.get("numero_porciones") or 30) if es_porcion else 30
 
         session.setdefault("csrf_token", secrets.token_urlsafe(32))
-        minimo_retiro = datetime.now() + timedelta(days=5)
+        minimo_retiro = date.today() if sin_anticipacion else (datetime.now() + timedelta(days=5)).date()
         return render_template(
             "reservar_producto.html",
             producto_id=producto_id,
             producto=producto,
             es_porcion=es_porcion,
+            es_bebida=es_bebida,
+            sin_anticipacion=sin_anticipacion,
             max_porciones=max_porciones,
             nombre_cliente=session.get("nombre_cliente", ""),
             csrf_token=session["csrf_token"],
             wompi_configurada=_wompi_configurada(),
-            fecha_minima_retiro=minimo_retiro.date().isoformat(),
+            fecha_minima_retiro=minimo_retiro.isoformat(),
         )
 
     if not _csrf_valido():
@@ -2994,9 +2987,6 @@ def reservar_producto(producto_id):
         return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     fecha_retiro = datetime.combine(fecha, hora)
-    if fecha_retiro < datetime.now() + timedelta(days=5):
-        flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
-        return redirect(url_for("reservar_producto", producto_id=producto_id))
 
     conexion = None
     cursor = None
@@ -3026,10 +3016,31 @@ def reservar_producto(producto_id):
             return redirect(url_for("catalogo"))
 
         es_porcion = bool(producto.get("se_vende_por_porciones") or producto.get("categoria") == "Porciones de Pasteles")
+        es_bebida = bool(producto.get("categoria") == "Bebidas")
+        sin_anticipacion = es_porcion or es_bebida
+
+        # Validación de anticipación de fecha:
+        # Porciones de pasteles y bebidas pueden reservarse desde la fecha actual (hoy)
+        # Los demás productos requieren al menos 5 días de anticipación
+        if sin_anticipacion:
+            if fecha < date.today():
+                conexion.rollback()
+                flash("La fecha de retiro no puede ser en el pasado.", "error")
+                return redirect(url_for("reservar_producto", producto_id=producto_id))
+        else:
+            if fecha_retiro < datetime.now() + timedelta(days=5):
+                conexion.rollback()
+                flash("Las reservas deben realizarse con al menos 5 días de anticipación.", "error")
+                return redirect(url_for("reservar_producto", producto_id=producto_id))
+
         if es_porcion and producto.get("precio_porcion"):
             precio_unitario = Decimal(str(producto["precio_porcion"]))
             nombre_reserva = f"Porciones de Pasteles: {producto['nombre']}"
-            max_porciones = int(producto.get("numero_porciones") or 30)
+            max_porciones = int(producto.get("numero_porciones") or 0)
+            if max_porciones <= 0:
+                conexion.rollback()
+                flash("Este pastel ya no cuenta con porciones disponibles.", "error")
+                return redirect(url_for("catalogo"))
             if cantidad > max_porciones:
                 conexion.rollback()
                 flash(f"Este pastel solo rinde hasta {max_porciones} porciones. Por favor ingresa una cantidad entre 1 y {max_porciones}.", "error")
@@ -3138,6 +3149,21 @@ def reservar_producto(producto_id):
                 producto.get("numero_porciones"),
             ),
         )
+
+        # Reducción de contador de porciones y agotado automático si llega a 0
+        if es_porcion:
+            nuevo_porciones = max(0, max_porciones - cantidad)
+            if nuevo_porciones == 0:
+                cursor.execute(
+                    "UPDATE PRODUCTO SET numero_porciones = 0, disponible = 0 WHERE id_producto = %s",
+                    (producto["id_producto"],),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE PRODUCTO SET numero_porciones = %s WHERE id_producto = %s",
+                    (nuevo_porciones, producto["id_producto"]),
+                )
+
         cursor.execute(
             """
             INSERT INTO PAGO
@@ -3604,10 +3630,14 @@ def api_admin_dashboard():
         """)
         estados = {row["estado"]: row["total"] for row in cursor.fetchall()}
 
-        # Reservas de hoy
-        es_sqlite = isinstance(conexion, SQLiteConnectionWrapper) or "sqlite" in type(conexion).__name__.lower()
-        filtro_hoy = "DATE(fecha_reserva) = DATE('now')" if es_sqlite else "DATE(fecha_reserva) = CURDATE()"
-        cursor.execute(f"SELECT COUNT(*) AS total FROM RESERVA WHERE {filtro_hoy}")
+        # Total de reservas registradas en la tienda
+        cursor.execute("SELECT COUNT(*) AS total FROM RESERVA")
+        row_total = cursor.fetchone()
+        total_reservas = row_total["total"] if row_total else 0
+
+        # Reservas registradas en la fecha de hoy (utilizando fecha local del servidor)
+        hoy_str = date.today().isoformat()
+        cursor.execute("SELECT COUNT(*) AS total FROM RESERVA WHERE DATE(fecha_reserva) = %s", (hoy_str,))
         row_hoy = cursor.fetchone()
         reservas_hoy = row_hoy["total"] if row_hoy else 0
 
@@ -3616,21 +3646,22 @@ def api_admin_dashboard():
         row_prod = cursor.fetchone()
         productos_activos = row_prod["total"] if row_prod else 0
 
-        # Reservas de los últimos 7 días (para la gráfica)
-        filtro_7dias = "fecha_reserva >= DATE('now', '-6 days')" if es_sqlite else "fecha_reserva >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
-        cursor.execute(f"""
+        # Reservas de los últimos 7 días (para la gráfica de barras)
+        hace_6_dias_str = (date.today() - timedelta(days=6)).isoformat()
+        cursor.execute("""
             SELECT DATE(fecha_reserva) AS dia, COUNT(*) AS total
             FROM RESERVA
-            WHERE {filtro_7dias}
+            WHERE DATE(fecha_reserva) >= %s AND DATE(fecha_reserva) <= %s
             GROUP BY DATE(fecha_reserva)
             ORDER BY dia ASC
-        """)
+        """, (hace_6_dias_str, hoy_str))
         reservas_semana = [
             {"dia": str(row["dia"]), "total": row["total"]}
             for row in cursor.fetchall()
         ]
 
         return jsonify({
+            "total_reservas": total_reservas,
             "reservas_hoy": reservas_hoy,
             "pendientes": estados.get("PENDIENTE_PAGO", 0),
             "confirmadas": estados.get("CONFIRMADA", 0),
@@ -3679,7 +3710,7 @@ def api_admin_reservas():
                 SELECT MAX(p2.id_pago) FROM PAGO p2
                 WHERE p2.id_reserva = r.id_reserva
             )
-            ORDER BY r.fecha_retiro DESC, r.id_reserva DESC
+            ORDER BY r.id_reserva DESC
             """
         )
         return jsonify([_normalizar_reserva(row) for row in cursor.fetchall()])

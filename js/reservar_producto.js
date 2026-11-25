@@ -15,12 +15,26 @@
     const paymentMethods = page.querySelectorAll('input[name="metodo_pago"]');
     let productPrice = 0;
 
-    const fechaLimite = new Date();
-    fechaLimite.setDate(fechaLimite.getDate() + 5);
-    const minimumDate = new Date(fechaLimite.getTime() - fechaLimite.getTimezoneOffset() * 60_000)
-        .toISOString()
-        .slice(0, 10);
-    date.min = minimumDate;
+    const isSinAnticipacion = date && date.dataset.sinAnticipacion === "1";
+    let minimumDate = "";
+    if (isSinAnticipacion) {
+        const hoy = new Date();
+        minimumDate = new Date(hoy.getTime() - hoy.getTimezoneOffset() * 60_000)
+            .toISOString()
+            .slice(0, 10);
+    } else {
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() + 5);
+        minimumDate = new Date(fechaLimite.getTime() - fechaLimite.getTimezoneOffset() * 60_000)
+            .toISOString()
+            .slice(0, 10);
+    }
+    if (date) {
+        date.min = minimumDate;
+        if (!date.value || date.value < minimumDate) {
+            date.value = minimumDate;
+        }
+    }
 
     function updateAvailableTimes() {
         const selectedDate = date.value
@@ -44,7 +58,9 @@
 
         if (date.value < minimumDate) {
             timeSelect.replaceChildren(new Option(
-                "La fecha debe ser con al menos 5 días de anticipación",
+                isSinAnticipacion
+                    ? "La fecha no puede ser anterior a hoy"
+                    : "La fecha debe ser con al menos 5 días de anticipación",
                 "",
             ));
             timeSelect.disabled = true;
@@ -194,7 +210,11 @@
             return;
         }
         if (date.value < minimumDate) {
-            date.setCustomValidity("El pedido debe reservarse con al menos 5 días de anticipación.");
+            date.setCustomValidity(
+                isSinAnticipacion
+                    ? "La fecha de retiro no puede ser anterior a hoy."
+                    : "El pedido debe reservarse con al menos 5 días de anticipación."
+            );
             date.reportValidity();
             event.preventDefault();
             return;

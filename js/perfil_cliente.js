@@ -129,24 +129,54 @@
         });
     }
 
-    // 4. Modal de Confirmación de Cierre de Sesión (Personalizado, no nativo)
-    const logoutModal = document.getElementById("logoutModal");
-    const btnCancelLogout = document.getElementById("btnLogoutCancel");
-    const btnConfirmLogout = document.getElementById("btnLogoutConfirm");
-
+    // 4. Modal de Confirmación de Cierre de Sesión (Generado dinámicamente bajo demanda para no exponerlo en el HTML)
     function openLogoutModal(e) {
         if (e) e.preventDefault();
         closeProfileDropdown();
-        if (logoutModal) {
-            logoutModal.classList.add("is-visible");
-            logoutModal.setAttribute("aria-hidden", "false");
+
+        let modal = document.getElementById("logoutModal");
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = "logoutModal";
+            modal.className = "custom-modal-overlay";
+            modal.setAttribute("role", "dialog");
+            modal.setAttribute("aria-modal", "true");
+            modal.setAttribute("aria-labelledby", "logoutModalTitle");
+            modal.innerHTML = `
+                <div class="custom-modal-card">
+                    <div class="modal-icon-wrap">🔒</div>
+                    <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
+                    <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
+                    <div class="modal-actions">
+                        <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
+                        <a href="/cerrar-sesion" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.querySelector("#btnLogoutCancel")?.addEventListener("click", closeLogoutModal);
+            modal.addEventListener("click", (evt) => {
+                if (evt.target === modal) closeLogoutModal();
+            });
         }
+
+        requestAnimationFrame(() => {
+            modal.classList.add("is-visible");
+            modal.setAttribute("aria-hidden", "false");
+        });
     }
 
     function closeLogoutModal() {
-        if (logoutModal) {
-            logoutModal.classList.remove("is-visible");
-            logoutModal.setAttribute("aria-hidden", "true");
+        const modal = document.getElementById("logoutModal");
+        if (modal) {
+            modal.classList.remove("is-visible");
+            modal.setAttribute("aria-hidden", "true");
+            setTimeout(() => {
+                if (modal && modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }, 250);
         }
     }
 
@@ -163,17 +193,5 @@
             link.addEventListener("click", openLogoutModal);
         }
     });
-
-    if (btnCancelLogout) {
-        btnCancelLogout.addEventListener("click", closeLogoutModal);
-    }
-
-    if (logoutModal) {
-        logoutModal.addEventListener("click", (e) => {
-            if (e.target === logoutModal) {
-                closeLogoutModal();
-            }
-        });
-    }
 })();
 

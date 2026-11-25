@@ -5,6 +5,9 @@
     /* ─── helpers ──────────────────────────────────────────── */
     function fmt(n) { return Number(n).toLocaleString("es"); }
 
+    const pad = (n) => String(n).padStart(2, "0");
+    const formatDateLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
     function setCard(selector, value, colorClass) {
         const el = shell.querySelector(selector);
         if (!el) return;
@@ -18,13 +21,13 @@
         if (!area) return;
         area.innerHTML = "";
 
-        // Generar los últimos 7 días
+        // Generar los últimos 7 días con fecha local exacta
         const hoy = new Date();
         const dias = [];
         for (let i = 6; i >= 0; i--) {
             const d = new Date(hoy);
             d.setDate(hoy.getDate() - i);
-            dias.push(d.toISOString().slice(0, 10));
+            dias.push(formatDateLocal(d));
         }
 
         const dataMap = {};
@@ -33,15 +36,23 @@
         const maxVal = Math.max(...dias.map(d => dataMap[d] || 0), 1);
         const nombres = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-        dias.forEach((dia, idx) => {
+        dias.forEach((dia) => {
             const total = dataMap[dia] || 0;
-            const heightPct = Math.max((total / maxVal) * 100, 3);
-            const fechaObj = new Date(dia + "T12:00:00");
+            const heightPct = Math.max((total / maxVal) * 100, 4);
+            const fechaParts = dia.split("-");
+            const fechaObj = new Date(Number(fechaParts[0]), Number(fechaParts[1]) - 1, Number(fechaParts[2]));
             const nombreDia = nombres[fechaObj.getDay()];
 
             const col = document.createElement("div");
             col.className = "bar-col";
             col.title = `${dia}: ${total} reserva(s)`;
+
+            if (total > 0) {
+                const badge = document.createElement("span");
+                badge.className = "bar-count-badge";
+                badge.textContent = total;
+                col.appendChild(badge);
+            }
 
             const bar = document.createElement("div");
             bar.className = "bar";
@@ -74,10 +85,12 @@
             if (!resp.ok) throw new Error("Error al cargar datos");
             const data = await resp.json();
 
+            setCard("[data-stat-total]", data.total_reservas, "dark");
             setCard("[data-stat-hoy]", data.reservas_hoy, "pink");
+            setCard("[data-stat-confirmadas]", data.confirmadas, "green");
             setCard("[data-stat-pendientes]", data.pendientes, "orange");
-            setCard("[data-stat-productos]", data.productos_activos, "teal");
             setCard("[data-stat-listas]", data.listas, "blue");
+            setCard("[data-stat-productos]", data.productos_activos, "teal");
 
             renderChart(data.reservas_semana || []);
         } catch (err) {

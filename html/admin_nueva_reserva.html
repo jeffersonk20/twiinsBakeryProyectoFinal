@@ -93,14 +93,37 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="producto_id" id="form-producto-id" value="{% if productos %}{{ productos[0].id }}{% endif %}">
 
+                        <!-- Modalidad de venta (para pasteles que se venden por porciones) -->
+                        <div class="field" id="wrap-tipo-venta" style="display: none; margin-bottom: 16px;">
+                            <label style="font-weight: 600; font-size: 13px; color: #153e49; margin-bottom: 8px; display: block;">Modalidad de venta</label>
+                            <div class="tipo-venta-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label class="tipo-venta-card" id="card-tipo-porciones" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 2px solid #f23271; border-radius: 12px; cursor: pointer; background: #fff5f8; transition: all 0.2s;">
+                                    <input type="radio" name="tipo_venta" value="porciones" id="radio-tipo-porciones" checked style="accent-color: #f23271;">
+                                    <div>
+                                        <strong style="display: block; font-size: 13px; color: #1e293b;">🍰 Por porciones</strong>
+                                        <small id="tipo-porciones-desc" style="color: #64748b; font-size: 11px;">$0.00 c/u</small>
+                                    </div>
+                                </label>
+                                <label class="tipo-venta-card" id="card-tipo-completo" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; background: #ffffff; transition: all 0.2s;">
+                                    <input type="radio" name="tipo_venta" value="completo" id="radio-tipo-completo" style="accent-color: #f23271;">
+                                    <div>
+                                        <strong style="display: block; font-size: 13px; color: #1e293b;">🎂 Pastel completo</strong>
+                                        <small id="tipo-completo-desc" style="color: #64748b; font-size: 11px;">$0.00 (entero)</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="form-row">
                             <div class="field">
-                                <label for="input-cantidad">Cantidad</label>
+                                <label for="input-cantidad" id="label-input-cantidad">Cantidad</label>
                                 <input id="input-cantidad" name="cantidad" type="number" min="1" max="30" value="1" required data-qty-input>
+                                <small id="cantidad-ayuda-admin" style="color: #64748b; font-size: 11px; display: none; margin-top: 4px;"></small>
                             </div>
                             <div class="field">
-                                <label for="input-fecha">Fecha de retiro (mínimo 5 días)</label>
-                                <input id="input-fecha" name="fecha" type="date" min="{{ fecha_minima_retiro }}" value="{{ fecha_minima_retiro }}" required data-date-input>
+                                <label for="input-fecha" id="label-input-fecha">Fecha de retiro (mínimo 5 días)</label>
+                                <input id="input-fecha" name="fecha" type="date" min="{{ fecha_minima_retiro }}" value="{{ fecha_minima_retiro }}" required data-date-input data-fecha-hoy="{{ fecha_hoy }}" data-fecha-5dias="{{ fecha_minima_retiro }}">
+                                <small id="fecha-ayuda-admin" style="color: #64748b; font-size: 11px; display: block; margin-top: 4px;">Las reservas de pasteles completos requieren al menos 5 días de anticipación.</small>
                             </div>
                         </div>
 
@@ -204,7 +227,10 @@
                                     data-nombre="{{ prod.nombre }}"
                                     data-precio="{{ prod.precio }}"
                                     data-categoria="{{ prod.categoria }}"
-                                    data-imagen="{{ prod.imagen }}">
+                                    data-imagen="{{ prod.imagen }}"
+                                    data-se-vende-por-porciones="{{ '1' if prod.se_vende_por_porciones else '0' }}"
+                                    data-numero-porciones="{{ prod.numero_porciones or 0 }}"
+                                    data-precio-porcion="{{ prod.precio_porcion or 0 }}">
                                     <td>
                                         <div class="product-item-cell">
                                             <div class="product-item-thumb">

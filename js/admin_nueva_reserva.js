@@ -17,10 +17,24 @@
     const dateInput = page.querySelector("[data-date-input]");
     const phoneInput = page.querySelector("[data-phone-input]");
 
+    // Elementos de modalidad de venta (porciones vs completo)
+    const wrapTipoVenta = page.querySelector("#wrap-tipo-venta");
+    const radioPorciones = page.querySelector("#radio-tipo-porciones");
+    const radioCompleto = page.querySelector("#radio-tipo-completo");
+    const cardPorciones = page.querySelector("#card-tipo-porciones");
+    const cardCompleto = page.querySelector("#card-tipo-completo");
+    const tipoPorcionesDesc = page.querySelector("#tipo-porciones-desc");
+    const tipoCompletoDesc = page.querySelector("#tipo-completo-desc");
+    const labelCantidad = page.querySelector("#label-input-cantidad");
+    const ayudaCantidad = page.querySelector("#cantidad-ayuda-admin");
+    const labelFecha = page.querySelector("#label-input-fecha");
+    const ayudaFecha = page.querySelector("#fecha-ayuda-admin");
+
     let selectedPrice = 0;
     let selectedProductId = hiddenProductId ? hiddenProductId.value : "";
     let activeCategory = "";
     let searchQuery = "";
+    let currentProductData = null;
 
     // ── Horario del negocio ──────────────────────────────────────────
     // Lunes: 2:00 PM – 6:00 PM  |  Martes–Sábado: 10:00 AM – 6:00 PM
@@ -106,11 +120,96 @@
     }
 
     function updateSummary() {
-        const qty = Math.max(1, Math.min(30, Number(qtyInput.value) || 1));
+        const esPorciones = currentProductData && currentProductData.seVendePorciones && radioPorciones && radioPorciones.checked;
+        const maxLimit = esPorciones ? (currentProductData.numPorciones || 30) : 30;
+        const qty = Math.max(1, Math.min(maxLimit, Number(qtyInput.value) || 1));
         const total = selectedPrice * qty;
         const deposit = total / 2;
         if (summaryTotal) summaryTotal.textContent = fmt(total);
         if (summaryDeposit) summaryDeposit.textContent = fmt(deposit);
+    }
+
+    function aplicarModoVenta() {
+        if (!currentProductData) return;
+
+        const { precio, seVendePorciones, numPorciones, precioPorcion, esBebida } = currentProductData;
+        const esPorciones = seVendePorciones && radioPorciones && radioPorciones.checked;
+
+        // Estilos de tarjetas de radio
+        if (cardPorciones && cardCompleto) {
+            if (esPorciones) {
+                cardPorciones.style.borderColor = "#f23271";
+                cardPorciones.style.background = "#fff5f8";
+                cardCompleto.style.borderColor = "#e2e8f0";
+                cardCompleto.style.background = "#ffffff";
+            } else {
+                cardPorciones.style.borderColor = "#e2e8f0";
+                cardPorciones.style.background = "#ffffff";
+                cardCompleto.style.borderColor = "#f23271";
+                cardCompleto.style.background = "#fff5f8";
+            }
+        }
+
+        const sinAnticipacion = esPorciones || esBebida;
+        const fechaHoy = dateInput ? dateInput.dataset.fechaHoy : "";
+        const fecha5dias = dateInput ? dateInput.dataset.fecha5dias : "";
+
+        if (esPorciones) {
+            selectedPrice = precioPorcion;
+            if (bannerPrice) bannerPrice.textContent = `${fmt(precioPorcion)} / porción`;
+
+            if (qtyInput) {
+                qtyInput.max = String(Math.max(1, numPorciones));
+                if (Number(qtyInput.value) > numPorciones) {
+                    qtyInput.value = String(numPorciones);
+                }
+            }
+            if (labelCantidad) labelCantidad.textContent = `Cantidad de porciones (Rinde hasta ${numPorciones})`;
+            if (ayudaCantidad) {
+                ayudaCantidad.style.display = "block";
+                ayudaCantidad.textContent = `Ingresa de 1 a ${numPorciones} porciones.`;
+            }
+        } else {
+            selectedPrice = precio;
+            if (bannerPrice) bannerPrice.textContent = `Desde ${fmt(precio)}`;
+
+            if (qtyInput) {
+                qtyInput.max = "30";
+            }
+            if (labelCantidad) labelCantidad.textContent = "Cantidad";
+            if (ayudaCantidad) ayudaCantidad.style.display = "none";
+        }
+
+        // Configuración de fecha mínima: hoy para porciones o bebidas; 5 días para lo demás
+        if (dateInput) {
+            if (sinAnticipacion) {
+                dateInput.min = fechaHoy;
+                if (labelFecha) labelFecha.textContent = "Fecha de retiro (Disponible hoy)";
+                if (ayudaFecha) ayudaFecha.textContent = esPorciones
+                    ? "Porciones de pastel disponibles para retiro a partir de hoy (sin restricción de 5 días)."
+                    : "Bebidas disponibles para retiro a partir de hoy (sin restricción de 5 días).";
+                if (!dateInput.value || dateInput.value < fechaHoy) {
+                    dateInput.value = fechaHoy;
+                }
+            } else {
+                dateInput.min = fecha5dias;
+                if (labelFecha) labelFecha.textContent = "Fecha de retiro (mínimo 5 días)";
+                if (ayudaFecha) ayudaFecha.textContent = "Las reservas de pasteles completos requieren al menos 5 días de anticipación.";
+                if (!dateInput.value || dateInput.value < fecha5dias) {
+                    dateInput.value = fecha5dias;
+                }
+            }
+            populateTimeSelect(dateInput.value);
+        }
+
+        updateSummary();
+    }
+
+    if (radioPorciones) {
+        radioPorciones.addEventListener("change", aplicarModoVenta);
+    }
+    if (radioCompleto) {
+        radioCompleto.addEventListener("change", aplicarModoVenta);
     }
 
     function selectProduct(row) {
@@ -120,9 +219,17 @@
         const nombre = row.dataset.nombre;
         const precio = Number(row.dataset.precio);
         const imagen = row.dataset.imagen;
+        const categoria = (row.dataset.categoria || "").trim();
+        const seVendePorciones = row.dataset.seVendePorPorciones === "1";
+        const numPorciones = Number(row.dataset.numeroPorciones) || 0;
+        const precioPorcion = Number(row.dataset.precioPorcion) || 0;
+        const esBebida = categoria.toLowerCase() === "bebidas";
 
         selectedProductId = id;
-        selectedPrice = precio;
+        currentProductData = {
+            id, nombre, precio, imagen, categoria,
+            seVendePorciones, numPorciones, precioPorcion, esBebida
+        };
         if (hiddenProductId) hiddenProductId.value = id;
 
         // Actualizar filas
@@ -135,14 +242,29 @@
 
         // Actualizar banner
         if (bannerTitle) bannerTitle.textContent = nombre;
-        if (bannerPrice) bannerPrice.textContent = `Desde ${fmt(precio)}`;
-
         if (bannerImg) {
             if (imagen) {
                 bannerImg.innerHTML = `<img src="${imagen}" alt="${nombre}" id="form-img">`;
             } else {
                 bannerImg.innerHTML = `<span class="cake-emoji" aria-hidden="true">🍰</span>`;
             }
+        }
+
+        // Configurar selector de tipo de venta si el pastel se vende por porciones
+        if (seVendePorciones) {
+            if (wrapTipoVenta) wrapTipoVenta.style.display = "block";
+            if (tipoPorcionesDesc) tipoPorcionesDesc.textContent = `${fmt(precioPorcion)} c/u (Rinde hasta ${numPorciones})`;
+            if (tipoCompletoDesc) tipoCompletoDesc.textContent = `${fmt(precio)} (entero)`;
+
+            // Si es categoría Porciones de Pasteles, seleccionar porciones por defecto
+            if (radioPorciones && radioCompleto) {
+                if (categoria === "Porciones de Pasteles" || numPorciones > 0) {
+                    radioPorciones.checked = true;
+                }
+            }
+        } else {
+            if (wrapTipoVenta) wrapTipoVenta.style.display = "none";
+            if (radioCompleto) radioCompleto.checked = true;
         }
 
         // Pulso visual en el banner
@@ -154,7 +276,7 @@
             ], { duration: 220, easing: "ease-out" });
         }
 
-        updateSummary();
+        aplicarModoVenta();
     }
 
     // Clic en fila o botón
@@ -165,6 +287,17 @@
     // Actualizar resumen al cambiar cantidad
     if (qtyInput) {
         qtyInput.addEventListener("input", updateSummary);
+        qtyInput.addEventListener("change", () => {
+            const esPorciones = currentProductData && currentProductData.seVendePorciones && radioPorciones && radioPorciones.checked;
+            const maxLimit = esPorciones ? (currentProductData.numPorciones || 30) : 30;
+            let val = Number(qtyInput.value) || 1;
+            if (val > maxLimit) {
+                qtyInput.value = String(maxLimit);
+            } else if (val < 1) {
+                qtyInput.value = "1";
+            }
+            updateSummary();
+        });
     }
 
     // Filtro de búsqueda
@@ -210,17 +343,30 @@
                 return;
             }
 
-            // Validar fecha mínima (usa la variable del scope superior)
+            // Validar límite de porciones si corresponde
+            if (currentProductData && currentProductData.seVendePorciones && radioPorciones && radioPorciones.checked) {
+                const maxP = currentProductData.numPorciones;
+                const requested = Number(qtyInput.value) || 1;
+                if (requested > maxP) {
+                    e.preventDefault();
+                    alert(`Este pastel solo rinde hasta ${maxP} porciones. Por favor ingresa una cantidad entre 1 y ${maxP}.`);
+                    qtyInput.focus();
+                    return;
+                }
+            }
+
+            // Validar fecha mínima según modalidad
             if (dateInput && dateInput.value) {
                 const chosen = new Date(dateInput.value + "T00:00:00");
-                const minDate = new Date();
-                minDate.setDate(minDate.getDate() + 5);
-                minDate.setHours(0, 0, 0, 0);
-                if (chosen < minDate) {
-                    e.preventDefault();
-                    alert("La fecha de retiro debe ser con al menos 5 días de anticipación.");
-                    dateInput.focus();
-                    return;
+                const minStr = dateInput.min;
+                if (minStr) {
+                    const minDate = new Date(minStr + "T00:00:00");
+                    if (chosen < minDate) {
+                        e.preventDefault();
+                        alert(`La fecha de retiro no puede ser anterior al ${minStr}.`);
+                        dateInput.focus();
+                        return;
+                    }
                 }
             }
 

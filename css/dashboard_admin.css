@@ -151,7 +151,7 @@ a { color: inherit; text-decoration: none; }
 /* === STATS CARDS === */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 14px;
     margin-bottom: 22px;
 }
@@ -179,6 +179,8 @@ a { color: inherit; text-decoration: none; }
 .stat-value.teal   { color: var(--teal); }
 .stat-value.orange { color: #e08a1a; }
 .stat-value.blue   { color: #1577c4; }
+.stat-value.green  { color: #16a34a; }
+.stat-value.dark   { color: var(--ink); }
 .stat-sub { margin: 6px 0 0; color: #9baaad; font-size: 10px; }
 
 /* === CONTENT GRID === */
@@ -227,6 +229,8 @@ a { color: inherit; text-decoration: none; }
     align-items: center;
     gap: 6px;
     position: relative;
+    height: 100%;
+    justify-content: flex-end;
 }
 .bar {
     width: 100%;
@@ -237,10 +241,17 @@ a { color: inherit; text-decoration: none; }
     transition: height .5s cubic-bezier(.34,1.56,.64,1), opacity .25s;
 }
 .bar:hover { opacity: .8; }
+.bar-count-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--pink);
+    margin-bottom: 2px;
+}
 .bar-label {
     position: absolute;
-    bottom: 0;
-    font-size: 9px;
+    bottom: -22px;
+    font-size: 10px;
+    font-weight: 600;
     color: var(--muted);
     white-space: nowrap;
 }

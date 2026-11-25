@@ -78,18 +78,6 @@
             <a href="javascript:void(0)" onclick="window.abrirBannerCookies && window.abrirBannerCookies();" style="color: #64748b; text-decoration: none;">Cookies</a>
         </div>
     </footer>
-
-    <!-- Modal personalizado para confirmar cierre de sesión -->
-    <div class="custom-modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
-        <div class="custom-modal-card">
-            <div class="modal-icon-wrap">🔒</div>
-            <h3 id="logoutModalTitle">¿Estas seguro de cerrar sesión?</h3>
-            <p>Tendrás que ingresar tus credenciales nuevamente para acceder a tus reservas y pedidos.</p>
-            <div class="modal-actions">
-                <button type="button" class="modal-btn modal-btn-secondary" id="btnLogoutCancel">NO</button>
-                <a href="{{ url_for('cerrar_sesion') }}" class="modal-btn modal-btn-primary" id="btnLogoutConfirm">SÍ</a>
-            </div>
-        </div>
     </div>
 
     <script src="{{ url_for('static_files', filename='js/cookies_banner.js') }}" defer></script>

@@ -231,6 +231,20 @@
         </div>
     </dialog>
 
+    <!-- Modal dinámico profesional para confirmaciones y alertas del Administrador (reemplaza popups nativos) -->
+    <div class="admin-dynamic-modal-overlay" id="adminDynamicModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminDynamicModalTitle">
+        <div class="admin-dynamic-modal-card">
+            <div class="admin-dynamic-icon" id="adminDynamicModalIcon">🔔</div>
+            <h3 class="admin-dynamic-title" id="adminDynamicModalTitle">¿Avisar pedido listo?</h3>
+            <p class="admin-dynamic-message" id="adminDynamicModalMessage">Se le enviará una notificación por correo electrónico al cliente.</p>
+            <div class="admin-dynamic-detail-box" id="adminDynamicModalDetails" style="display: none;"></div>
+            <div class="admin-dynamic-actions" id="adminDynamicModalActions">
+                <button type="button" class="admin-dyn-btn btn-cancel" id="adminDynamicModalCancel">Cancelar</button>
+                <button type="button" class="admin-dyn-btn btn-confirm" id="adminDynamicModalConfirm">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal personalizado para confirmar cierre de sesión Admin -->
     <div class="admin-logout-modal-overlay" id="adminLogoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminLogoutModalTitle">
         <div class="admin-logout-modal-card">
